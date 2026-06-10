@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Momni",
+    "slug": "momni",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/momni-icon-color.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.momni.app",
+      "supportsTablet": false,
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Momni uses your location to show mamas and Circles near you. Your exact location is never shown to other members.",
+        "NSPhotoLibraryUsageDescription": "Choose photos for your profile and chats.",
+        "NSCameraUsageDescription": "Take a photo for your profile or a chat."
+      }
+    },
+    "android": {
+      "package": "com.momni.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/momni-icon-color.png",
+        "backgroundColor": "#F5F0FE"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-apple-authentication",
+      "expo-location",
+      "expo-image-picker",
+      "expo-notifications"
+    ],
+    "scheme": "momni",
+    "splash": {
+      "image": "./assets/momni-icon-color.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F0FE"
+    }
+  }
+}
