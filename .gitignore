@@ -3,3 +3,6 @@ momni.db
 momni.db-*
 .env
 nohup.out
+mobile/node_modules/
+mobile/.env
+.DS_Store
