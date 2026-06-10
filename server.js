@@ -3,6 +3,15 @@
 //  - Momni never touches care payments (no care-payment routes exist, by design)
 //  - No vetting: the platform stores what members choose to share, nothing more
 //  - The booking clickwrap is recorded verbatim with a timestamp on every Link
+// Load .env if present (no dependency needed)
+try {
+  require('fs').readFileSync(require('path').join(__dirname, '.env'), 'utf8')
+    .split('\n').forEach(line => {
+      const m = line.match(/^([A-Z_]+)=(.*)$/);
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+    });
+} catch (e) { /* no .env — fine */ }
+
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
