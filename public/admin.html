@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Momni HQ — Founder Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{--purple:#6D58A4;--purple-deep:#4A3880;--teal:#0D878F;--algae:#92E2C1;--lavender:#F5F0FE;--teal-soft:#E1F7F2;--ink:#2B2233;--muted:#6B6477;--danger:#C94B4B}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.6}
+h1,h2{font-family:'Montserrat',sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:24px}
+header{display:flex;align-items:center;gap:14px}
+header img{height:44px}
+header h1{font-size:22px;font-weight:800}
+.script{font-family:'Caveat',cursive;color:var(--teal);font-size:22px;margin-bottom:20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.stat{background:white;border-radius:14px;padding:14px;text-align:center}
+.stat .n{font-family:'Montserrat',sans-serif;font-size:26px;font-weight:800;color:var(--teal)}
+.stat .l{font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:white;border-radius:18px;padding:22px;margin-bottom:20px}
+.card h2{font-size:16px;font-weight:700;color:var(--purple-deep);margin-bottom:12px}
+.item{border:1.5px solid #EEE9F9;border-radius:12px;padding:10px 14px;margin-bottom:8px;font-size:13px}
+.item .meta{color:var(--muted);font-size:11px}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:100px}
+.p-red{background:#FDECEC;color:var(--danger)}.p-teal{background:var(--teal-soft);color:var(--teal)}.p-grey{background:#F1EDF7;color:var(--muted)}
+button{border:none;padding:6px 14px;border-radius:100px;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit;margin-right:6px;margin-top:6px}
+.b-ok{background:var(--algae);color:#0B4A36}.b-no{background:#F1EDF7;color:var(--ink)}
+input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit;font-size:14px;width:100%;margin-bottom:10px}
+.empty{color:var(--muted);font-style:italic;font-size:13px}
+#gate{max-width:380px;margin:80px auto;background:white;border-radius:18px;padding:32px;text-align:center}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="gate" style="display:none">
+  <h1 style="font-size:20px;margin-bottom:6px">Momni HQ</h1>
+  <p class="script">Karmel-only, mama.</p>
+  <p style="font-size:14px;color:var(--muted)">Sign in with your admin account on the <a href="index.html" style="color:var(--teal);font-weight:600">app sign-in page</a>, then come back here.</p>
+</div>
+<div class="wrap" id="hq" style="display:none">
+  <header><img src="assets/momni-icon-color.png" alt=""><h1>Momni HQ</h1></header>
+  <div class="script">Everything that needs Karmel, in one place.</div>
+  <div class="stats" id="stats"></div>
+  <div class="grid">
+    <div>
+      <div class="card"><h2>🚩 Open reports</h2><div id="reports"><p class="empty">Loading…</p></div></div>
+      <div class="card"><h2>🔗 Recent Links</h2><div id="links"></div></div>
+    </div>
+    <div>
+      <div class="card"><h2>👩‍👧 Mamas <input id="q" placeholder="Search name, email, or city…" oninput="loadUsers()"></h2><div id="users"></div></div>
+    </div>
+  </div>
+  <p style="font-size:12px;color:var(--muted)">No burn rate. No investor metrics. The dashboard measures a healthy Circle. 🐘</p>
+</div>
+<script>
+const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path, opts){ const r = await fetch(path, {headers:{'Content-Type':'application/json'},...opts}); if(r.status===401||r.status===403){document.getElementById('gate').style.display='block';document.getElementById('hq').style.display='none';throw new Error('no');} return r.json(); }
+async function init(){
+  try{
+    const o = await api('/api/admin/overview');
+    document.getElementById('hq').style.display='block';
+    const labels = {mamas:'Mamas in the Circle',hosts:'Hosting mamas',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',gives:'Momni Gives mamas',open_reports:'Open reports'};
+    document.getElementById('stats').innerHTML = Object.entries(labels).map(([k,l])=>`<div class="stat"><div class="n">${o[k]}</div><div class="l">${l}</div></div>`).join('');
+    loadReports(); loadLinks(); loadUsers();
+  }catch(e){}
+}
+async function loadReports(){
+  const data = await api('/api/admin/reports');
+  document.getElementById('reports').innerHTML = data.length ? data.map(r=>`
+    <div class="item"><div class="meta">${esc(r.created_at)} · from ${esc(r.reporter_name)} · ${esc(r.subject_type)} #${esc(r.subject_id)}</div>
+    <span class="pill p-red">${esc(r.reason)}</span><div>${esc(r.details)||'<i>no details</i>'}</div>
+    <button class="b-ok" onclick="setReport(${r.id},'actioned')">Action taken</button>
+    <button class="b-no" onclick="setReport(${r.id},'dismissed')">Dismiss</button></div>`).join('')
+    : '<p class="empty">No open reports. The Circle is calm. 💜</p>';
+}
+async function setReport(id,status){ await api('/api/admin/reports/'+id,{method:'PUT',body:JSON.stringify({status})}); loadReports(); init(); }
+async function loadLinks(){
+  const data = await api('/api/admin/links');
+  document.getElementById('links').innerHTML = data.length ? data.map(l=>`
+    <div class="item"><span class="pill ${l.status==='completed'?'p-teal':'p-grey'}">${esc(l.status)}</span>
+    ${esc(l.guest)} ↔ ${esc(l.host)} · ${esc(l.care_type)} <div class="meta">${esc(l.created_at)}</div></div>`).join('')
+    : '<p class="empty">No Links yet.</p>';
+}
+async function loadUsers(){
+  const q = document.getElementById('q').value;
+  const data = await api('/api/admin/users?q='+encodeURIComponent(q));
+  document.getElementById('users').innerHTML = data.map(u=>`
+    <div class="item"><strong>${esc(u.name)}</strong> ${u.is_host?'<span class="pill p-teal">host</span>':''} ${u.momni_plus?'<span class="pill p-grey">Momni+</span>':''}
+    <div class="meta">${esc(u.email)} · ${esc(u.city)||'—'} · ${u.links_balance} Links · joined ${esc(u.created_at)}</div></div>`).join('') || '<p class="empty">No mamas match.</p>';
+}
+init();
+</script>
+</body>
+</html>

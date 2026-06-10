@@ -7,6 +7,9 @@ const db = new Database(process.env.DB_PATH || path.join(__dirname, 'momni.db'))
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+// migration: is_admin flag (no-op if present)
+try { db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
   legacy_1_0 INTEGER DEFAULT 0,
   links_balance INTEGER DEFAULT 2,       -- free tier: a couple of Links to start
   momni_plus INTEGER DEFAULT 0,
+  is_admin INTEGER DEFAULT 0,
   gives_toggle INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now'))
 );
@@ -63,6 +67,17 @@ CREATE TABLE IF NOT EXISTS circle_members (
   circle_id INTEGER NOT NULL REFERENCES circles(id),
   user_id INTEGER NOT NULL REFERENCES users(id),
   PRIMARY KEY (circle_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reporter_id INTEGER NOT NULL REFERENCES users(id),
+  subject_type TEXT NOT NULL,
+  subject_id TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  details TEXT DEFAULT '',
+  status TEXT DEFAULT 'open',
+  created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS legacy_pins (    -- anonymized city-level Momni 1.0 clusters; never names, never exact locations

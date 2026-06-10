@@ -251,5 +251,71 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req,
 
 app.get('/api/acknowledgment', (req, res) => res.json({ text: ACKNOWLEDGMENT_TEXT }));
 
+// ---------- reports (any member can flag; Karmel reviews) ----------
+app.post('/api/reports', requireAuth, (req, res) => {
+  const { subject_type, subject_id, reason, details } = req.body;
+  if (!subject_type || !subject_id || !reason) return res.status(400).json({ error: 'subject and reason required' });
+  db.prepare('INSERT INTO reports (reporter_id,subject_type,subject_id,reason,details) VALUES (?,?,?,?,?)')
+    .run(req.session.userId, subject_type, String(subject_id), reason, (details || '').slice(0, 2000));
+  res.json({ ok: true, note: 'Thank you — Karmel reviews every report.' });
+});
+
+// ---------- founder admin (Momni HQ) ----------
+// Admin = accounts whose email is in ADMIN_EMAILS (comma-separated env, default karmel@momni.com).
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'karmel@momni.com').toLowerCase().split(',').map(s => s.trim());
+function syncAdminFlag(userId) {
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (u && ADMIN_EMAILS.includes(u.email) && !u.is_admin) {
+    db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(u.id);
+  }
+}
+function requireAdmin(req, res, next) {
+  if (!req.session.userId) return res.status(401).json({ error: 'Sign in first.' });
+  syncAdminFlag(req.session.userId);
+  const u = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.session.userId);
+  if (!u || !u.is_admin) return res.status(403).json({ error: 'This room is Karmel-only.' });
+  next();
+}
+
+app.get('/api/admin/overview', requireAdmin, (req, res) => {
+  const q = (sql) => db.prepare(sql).get().c;
+  res.json({
+    mamas: q('SELECT COUNT(*) c FROM users'),
+    hosts: q('SELECT COUNT(*) c FROM users WHERE is_host = 1'),
+    links_week: q("SELECT COUNT(*) c FROM links WHERE created_at > datetime('now','-7 days')"),
+    links_total: q('SELECT COUNT(*) c FROM links'),
+    completed: q("SELECT COUNT(*) c FROM links WHERE status = 'completed'"),
+    reviews: q('SELECT COUNT(*) c FROM reviews'),
+    circles: q('SELECT COUNT(*) c FROM circles'),
+    gives: q('SELECT COUNT(*) c FROM users WHERE gives_toggle = 1'),
+    open_reports: q("SELECT COUNT(*) c FROM reports WHERE status = 'open'"),
+  });
+});
+app.get('/api/admin/reports', requireAdmin, (req, res) => {
+  res.json(db.prepare(`SELECT r.*, u.name reporter_name FROM reports r
+    JOIN users u ON u.id = r.reporter_id WHERE r.status = 'open' ORDER BY r.created_at DESC`).all());
+});
+app.put('/api/admin/reports/:id', requireAdmin, (req, res) => {
+  const { status } = req.body;
+  if (!['actioned','dismissed','reviewing'].includes(status)) return res.status(400).json({ error: 'bad status' });
+  db.prepare('UPDATE reports SET status = ? WHERE id = ?').run(status, req.params.id);
+  res.json({ ok: true });
+});
+app.get('/api/admin/users', requireAdmin, (req, res) => {
+  const search = `%${(req.query.q || '')}%`;
+  res.json(db.prepare(`SELECT id,name,email,city,is_host,available_now,links_balance,momni_plus,created_at
+    FROM users WHERE name LIKE ? OR email LIKE ? OR city LIKE ? ORDER BY created_at DESC LIMIT 100`)
+    .all(search, search, search));
+});
+app.get('/api/admin/links', requireAdmin, (req, res) => {
+  res.json(db.prepare(`SELECT l.id,l.care_type,l.status,l.created_at,g.name guest,h.name host
+    FROM links l JOIN users g ON g.id=l.guest_id JOIN users h ON h.id=l.host_id
+    ORDER BY l.created_at DESC LIMIT 50`).all());
+});
+app.delete('/api/admin/reviews/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM reviews WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Momni 2.0 app running → http://localhost:${PORT}`));
