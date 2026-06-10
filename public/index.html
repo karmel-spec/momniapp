@@ -125,7 +125,7 @@ button.btn{border:none;cursor:pointer;font-family:inherit}
 })();
 </script>
 <script>
-(function(){var q=new URLSearchParams(location.search).get('google');var el=document.getElementById('google-err');
+(function(){var q=new URLSearchParams(location.search).get('google');var el=document.getElementById('google-err');if(q)el.style.display='block';
 if(q==='unconfigured')el.textContent='Google sign-in isn\u2019t set up yet \u2014 use email for now, mama.';
 if(q==='denied')el.textContent='Google sign-in was cancelled.';
 if(q==='error')el.textContent='Google sign-in hit a snag \u2014 try email instead.';})();
