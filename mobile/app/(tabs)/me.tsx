@@ -296,8 +296,8 @@ export default function MeScreen() {
       {/* Settings */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Settings</Text>
-        <Pressable onPress={() => Linking.openURL('mailto:hello@momni.com')} style={styles.settingRow}>
-          <Text style={styles.settingLink}>Contact us — hello@momni.com</Text>
+        <Pressable onPress={() => Linking.openURL('mailto:support@momni.com')} style={styles.settingRow}>
+          <Text style={styles.settingLink}>Contact us — support@momni.com</Text>
         </Pressable>
         <Pressable onPress={() => Linking.openURL('https://momni.com/terms/')} style={styles.settingRow}>
           <Text style={styles.settingLink}>Terms of Service</Text>
