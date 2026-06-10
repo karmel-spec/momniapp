@@ -89,6 +89,22 @@ CREATE TABLE IF NOT EXISTS legacy_pins (    -- anonymized city-level Momni 1.0 c
 `);
 
 function seed() {
+  // Real data only in production: Circles + anonymized legacy pins always seed;
+  // fictional demo hosts only when SEED_DEMO=1 (local dev).
+  if (db.prepare('SELECT COUNT(*) c FROM circles').get().c === 0) {
+    const insertCircleProd = db.prepare('INSERT INTO circles (name,city,lat,lng,meets,member_count) VALUES (?,?,?,?,?,?)');
+    insertCircleProd.run('Orem Moms Circle','Orem',40.2989,-111.6985,'Tuesdays 10am · Orem City Park',0);
+    insertCircleProd.run('Provo Night Shift Mamas','Provo',40.2400,-111.6500,'First Saturdays · rotating homes',0);
+    insertCircleProd.run('BYU Married Housing Circle','Provo',40.2520,-111.6360,'Thursdays 4pm · Wymount playground',0);
+  }
+  if (db.prepare('SELECT COUNT(*) c FROM legacy_pins').get().c === 0) {
+    const ip = db.prepare('INSERT INTO legacy_pins (city,lat,lng,count) VALUES (?,?,?,?)');
+    ip.run('Salt Lake City',40.7608,-111.8910,420); ip.run('Houston',29.7604,-95.3698,267);
+    ip.run('Dallas',32.7767,-96.7970,198); ip.run('Atlanta',33.7490,-84.3880,154);
+    ip.run('Phoenix',33.4484,-112.0740,96); ip.run('Boise',43.6150,-116.2023,52);
+    ip.run('St. George',37.0965,-113.5684,61);
+  }
+  if (process.env.SEED_DEMO !== '1') return;
   if (db.prepare('SELECT COUNT(*) c FROM users').get().c > 0) {
     console.log('Already seeded.');
     return;
@@ -108,21 +124,6 @@ function seed() {
     ['maren@example.com','Maren H.','Lehi',40.3916,-111.8508,1,'Nurse mama who hosts other nurses’ littles.','["night-shift","right-now"]',1,'$10/hr — paid directly to me','[]'],
   ];
   for (const h of hosts) insertUser.run(h[0],hash,h[1],h[2],h[3],h[4],h[5],h[6],h[7],h[8],h[9],h[10]);
-
-  const insertCircle = db.prepare('INSERT INTO circles (name,city,lat,lng,meets,member_count) VALUES (?,?,?,?,?,?)');
-  insertCircle.run('Orem Moms Circle','Orem',40.2989,-111.6985,'Tuesdays 10am · Orem City Park',24);
-  insertCircle.run('Provo Night Shift Mamas','Provo',40.2400,-111.6500,'First Saturdays · rotating homes',11);
-  insertCircle.run('BYU Married Housing Circle','Provo',40.2520,-111.6360,'Thursdays 4pm · Wymount playground',17);
-
-  const insertPin = db.prepare('INSERT INTO legacy_pins (city,lat,lng,count) VALUES (?,?,?,?)');
-  // City-level only — the 1.0 mamas stay anonymous until they claim their own pin
-  insertPin.run('Salt Lake City',40.7608,-111.8910,420);
-  insertPin.run('Houston',29.7604,-95.3698,267);
-  insertPin.run('Dallas',32.7767,-96.7970,198);
-  insertPin.run('Atlanta',33.7490,-84.3880,154);
-  insertPin.run('Phoenix',33.4484,-112.0740,96);
-  insertPin.run('Boise',43.6150,-116.2023,52);
-  insertPin.run('St. George',37.0965,-113.5684,61);
 
   console.log('Seeded demo data (password for all demo hosts: momni-demo).');
 }

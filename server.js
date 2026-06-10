@@ -15,11 +15,13 @@ const app = express();
 // JSON body parsing everywhere EXCEPT the Stripe webhook (which needs the raw body for signature checks)
 app.use((req, res, next) => req.path === '/api/stripe/webhook' ? next() : express.json()(req, res, next));
 app.use(express.urlencoded({ extended: true }));
+const IS_PROD = process.env.NODE_ENV === 'production';
+if (IS_PROD) app.set('trust proxy', 1); // Render/Netlify-style proxy → secure cookies work
 app.use(session({
   secret: process.env.SESSION_SECRET || 'momni-dev-secret-change-in-prod',
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 * 30 }
+  cookie: { httpOnly: true, sameSite: 'lax', secure: IS_PROD, maxAge: 1000 * 60 * 60 * 24 * 30 }
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
