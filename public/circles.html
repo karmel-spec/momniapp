@@ -58,7 +58,7 @@ h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px}
       <span class="script">Don't see your people?</span>
       <h2>Start a Circle</h2>
       <p>It takes one mama saying "Tuesday, my park, bring snacks." That's it. That's the whole secret.</p>
-      <a href="#">Start a Circle</a>
+      <a href="#" id="start-circle">Start a Circle</a>
     </div>
 
     <p class="note">Circles are member-run gatherings. Momni helps mamas find each other — every Circle sets its own rhythm.</p>
@@ -114,6 +114,13 @@ h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px}
     box.innerHTML = '<p style="font-size:14px;color:var(--muted)">Couldn’t load Circles right now — try again in a moment.</p>';
   });
 })();
+</script>
+<script>
+document.getElementById('start-circle').addEventListener('click',function(e){e.preventDefault();
+var name=prompt('What shall we call your Circle, mama?\n(e.g. "Lehi Park Mamas")');if(!name)return;
+var meets=prompt('When and where will you meet?\n(e.g. "Wednesdays 10am - Lehi City Park")')||'';
+fetch('/api/circles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,meets:meets})})
+.then(function(r){return r.json()}).then(function(d){if(d.ok){location.reload();}else{alert(d.error||'Something went wrong');}});});
 </script>
 </body>
 </html>

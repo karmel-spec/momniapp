@@ -129,8 +129,8 @@ a{text-decoration:none;color:inherit}
         meetup with the kids. It's how you'd get to know any new friend — and
         it's how the Circle works.</p>
         <div class="meet-opts">
-          <a href="#">Suggest a video hello</a>
-          <a href="#">Suggest a park meetup</a>
+          <a href="#" data-suggest="Let’s do a quick video hello before our first Link!">Suggest a video hello</a>
+          <a href="#" data-suggest="Want to meet at the park first so the kids can play?">Suggest a park meetup</a>
         </div>
       </div>
     </div>
@@ -257,6 +257,10 @@ function toggleRecurring(){
     sendLink();
   });
 })();
+</script>
+<script>
+document.querySelectorAll('[data-suggest]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();
+var d=document.querySelector('textarea, input[name=details], #details');if(d){d.value=(d.value?d.value+' ':'')+a.dataset.suggest;d.focus();}});});
 </script>
 </body>
 </html>

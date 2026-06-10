@@ -241,6 +241,15 @@ app.post('/api/reviews', requireAuth, (req, res) => {
 
 // ---------- circles ----------
 app.get('/api/circles', (req, res) => res.json(db.prepare('SELECT * FROM circles').all()));
+app.post('/api/circles', requireAuth, (req, res) => {
+  const { name, city, meets } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Your Circle needs a name, mama.' });
+  const me = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
+  const info = db.prepare('INSERT INTO circles (name,city,meets,member_count) VALUES (?,?,?,1)')
+    .run(name.trim().slice(0, 80), (city || me.city || '').slice(0, 60), (meets || 'Schedule coming soon').slice(0, 120));
+  db.prepare('INSERT INTO circle_members (circle_id,user_id) VALUES (?,?)').run(info.lastInsertRowid, me.id);
+  res.json({ ok: true, circle_id: info.lastInsertRowid });
+});
 app.post('/api/circles/:id/join', requireAuth, (req, res) => {
   try {
     db.prepare('INSERT INTO circle_members (circle_id,user_id) VALUES (?,?)').run(req.params.id, req.session.userId);
