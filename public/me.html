@@ -259,5 +259,13 @@ main{padding:6px 20px 24px}
   });
 })();
 </script>
+<script>
+var cpw=document.getElementById('change-pw');
+if(cpw)cpw.addEventListener('click',function(e){e.preventDefault();
+var cur=prompt('Current password:');if(cur===null)return;
+var nw=prompt('New password (8+ characters):');if(!nw)return;
+fetch('/api/me/password',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:cur,new_password:nw})})
+.then(function(r){return r.json()}).then(function(d){alert(d.ok?'Password changed, mama. 💜':(d.error||'Something went wrong'));});});
+</script>
 </body>
 </html>

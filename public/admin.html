@@ -89,9 +89,15 @@ async function loadUsers(){
   const data = await api('/api/admin/users?q='+encodeURIComponent(q));
   document.getElementById('users').innerHTML = data.map(u=>`
     <div class="item"><strong>${esc(u.name)}</strong> ${u.is_host?'<span class="pill p-teal">host</span>':''} ${u.momni_plus?'<span class="pill p-grey">Momni+</span>':''}
-    <div class="meta">${esc(u.email)} · ${esc(u.city)||'—'} · ${u.links_balance} Links · joined ${esc(u.created_at)}</div></div>`).join('') || '<p class="empty">No mamas match.</p>';
+    <div class="meta">${esc(u.email)} · ${esc(u.city)||'—'} · ${u.links_balance} Links · joined ${esc(u.created_at)}</div>
+    <button class="b-no" onclick="resetPw(${u.id},'${esc(u.name)}')">Reset password</button><span class="meta" id="pw-${u.id}"></span></div>`).join('') || '<p class="empty">No mamas match.</p>';
 }
 init();
+async function resetPw(id,name){
+  if(!confirm('Set a temporary password for '+name+'?'))return;
+  const d=await api('/api/admin/users/'+id+'/reset-password',{method:'POST'});
+  document.getElementById('pw-'+id).textContent=' temp password: '+d.temp_password+' (share privately)';
+}
 </script>
 </body>
 </html>

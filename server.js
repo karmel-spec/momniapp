@@ -143,6 +143,15 @@ app.put('/api/me', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.put('/api/me/password', requireAuth, (req, res) => {
+  const { current_password, new_password } = req.body;
+  if (!new_password || new_password.length < 8) return res.status(400).json({ error: 'New password needs at least 8 characters.' });
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
+  if (!bcrypt.compareSync(current_password || '', u.password_hash)) return res.status(401).json({ error: 'Current password didn’t match.' });
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(new_password, 10), u.id);
+  res.json({ ok: true });
+});
+
 // Member-shared items (e.g., a background check SHE purchased and chooses to display).
 // Stored as her content with her label — never as Momni verification.
 app.post('/api/me/shared-items', requireAuth, (req, res) => {
@@ -377,6 +386,15 @@ app.get('/api/admin/links', requireAdmin, (req, res) => {
     FROM links l JOIN users g ON g.id=l.guest_id JOIN users h ON h.id=l.host_id
     ORDER BY l.created_at DESC LIMIT 50`).all());
 });
+// Admin password reset: HQ sets a temporary password, mama changes it after signing in.
+app.post('/api/admin/users/:id/reset-password', requireAdmin, (req, res) => {
+  const temp = 'circle-' + require('crypto').randomBytes(4).toString('hex');
+  const r = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+    .run(bcrypt.hashSync(temp, 10), req.params.id);
+  if (!r.changes) return res.status(404).json({ error: 'Mama not found.' });
+  res.json({ ok: true, temp_password: temp, note: 'Share this with her privately; she should change it after signing in.' });
+});
+
 app.delete('/api/admin/reviews/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM reviews WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
