@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Momni — Me</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2; --clay:#D9C0A3;
+  --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF; --line:#EEE9F9;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.5;min-height:100vh;display:flex;justify-content:center}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{width:100%;max-width:480px;min-height:100vh;background:var(--white);box-shadow:0 0 40px rgba(109,88,164,0.12);display:flex;flex-direction:column;padding-bottom:76px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px}
+.topbar img{height:34px;display:block}
+main{padding:6px 20px 24px}
+.profile{text-align:center;margin-bottom:22px}
+.avatar{width:84px;height:84px;border-radius:50%;background:var(--purple);color:white;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:32px;margin:8px auto 12px}
+.profile h1{font-size:22px;font-weight:800;letter-spacing:-0.02em}
+.badge{display:inline-block;margin-top:8px;font-size:13px;font-weight:600;color:var(--purple-deep);background:var(--lavender);border-radius:100px;padding:6px 16px}
+.card{border:1.5px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px;background:#FCFBFE}
+.card h2{font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+.stars{font-size:16px;font-weight:700}
+.stars span{color:var(--muted);font-weight:500;font-size:14px}
+.pill{display:inline-block;margin-top:12px;font-size:13px;font-weight:600;color:var(--teal-deep);background:var(--teal-soft);border-radius:100px;padding:7px 14px}
+.fine{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+.links-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.links-row .num{font-family:'Montserrat',sans-serif;font-size:26px;font-weight:800;color:var(--teal)}
+.links-row .lbl{font-size:14px;color:var(--ink)}
+.buy{font-size:13.5px;font-weight:600;color:white;background:var(--teal);border-radius:100px;padding:8px 16px;white-space:nowrap}
+.buy:hover{background:var(--teal-deep)}
+.plus{background:var(--purple);color:white;border:none}
+.plus h2{color:var(--algae)}
+.plus .price{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;margin-bottom:6px}
+.plus p{font-size:14px;color:rgba(255,255,255,0.88);margin-bottom:14px}
+.plus a{display:inline-block;background:white;color:var(--purple);font-weight:600;font-size:14px;padding:10px 24px;border-radius:100px}
+.gives{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.gives .txt h3{font-size:15px;font-weight:700;margin-bottom:3px}
+.gives .txt p{font-size:13px;color:var(--muted)}
+.toggle{position:relative;width:52px;height:30px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:#D8D2E2;border-radius:100px;cursor:pointer;transition:.2s}
+.slider:before{content:"";position:absolute;width:24px;height:24px;border-radius:50%;background:white;top:3px;left:3px;transition:.2s}
+.toggle input:checked + .slider{background:var(--teal)}
+.toggle input:checked + .slider:before{transform:translateX(22px)}
+.settings a{display:block;padding:14px 4px;font-size:15px;font-weight:500;border-bottom:1px solid var(--line)}
+.settings a:last-child{border-bottom:none;color:#B0556A}
+.disclosure{padding:20px 28px 28px;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;border-top:1px solid var(--line);margin-top:10px}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;border-top:1px solid var(--line);display:flex;z-index:50}
+.tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.tab .ico{display:block;font-size:20px;line-height:1.2}
+.tab.active{color:var(--purple)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+  </div>
+  <main>
+    <div class="profile">
+      <div class="avatar" id="avatar"></div>
+      <h1 id="me-name"></h1>
+      <span class="badge" id="me-city"></span>
+    </div>
+
+    <div class="card gives">
+      <div class="txt">
+        <h3>I host (I'm a Momni)</h3>
+        <p>Open your home to other mamas' littles. Hosting is always free.</p>
+      </div>
+      <label class="toggle"><input type="checkbox" id="host-toggle"><span class="slider"></span></label>
+    </div>
+
+    <div class="card" id="host-card" style="display:none">
+      <h2>Care I offer</h2>
+      <div id="care-types" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+      <div class="gives" style="border-top:1px solid var(--line);padding-top:12px">
+        <div class="txt"><h3>Available now</h3><p>Show up with a live teal pin for Right Now care.</p></div>
+        <label class="toggle"><input type="checkbox" id="now-toggle"><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="shares-title">What you share</h2>
+      <div class="stars" id="me-stars" style="display:none"></div>
+      <div id="shared-items"></div>
+      <a class="pill" href="#" id="add-bgc" style="cursor:pointer">+ Add a background check I purchased</a>
+      <p class="fine">These are your own shared items — reviews from other mamas and content you chose to purchase and display. They come from members, not from Momni.</p>
+      <p class="fine" id="shares-msg" style="display:none;color:var(--teal-deep)"></p>
+    </div>
+
+    <div class="card">
+      <h2>Links</h2>
+      <div class="links-row">
+        <div><span class="num" id="links-num">—</span> <span class="lbl" id="links-lbl">Links remaining</span></div>
+        <a class="buy" href="links.html">Buy more · $1 each in bundles</a>
+      </div>
+    </div>
+
+    <div class="card plus">
+      <h2>Momni+</h2>
+      <div class="price">$4.99/mo</div>
+      <p>Unlimited Links, recurring booking tools, and the MomniGPT concierge — a little extra help for your busiest seasons.</p>
+      <a href="#" id="plus-btn">Try Momni+</a>
+    </div>
+
+    <div class="card gives">
+      <div class="txt">
+        <h3>Momni Gives</h3>
+        <p>Give $1/mo to the Momni Foundation. Totally voluntary — it goes to a separate 501(c)(3) that helps mamas in crisis.</p>
+      </div>
+      <label class="toggle"><input type="checkbox" id="gives-toggle"><span class="slider"></span></label>
+    </div>
+
+    <div class="card settings">
+      <a href="#">Settings</a>
+      <a href="#" id="signout">Sign out</a>
+    </div>
+  </main>
+
+  <footer class="disclosure">
+    Momni is a community platform; members make their own care decisions.
+    Care payments happen mom to mom — Momni never touches them.
+    Momni, Inc. and the Momni Foundation (501(c)(3)) are one brand with separate wallets.
+  </footer>
+
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><span class="ico">🏠</span>Home</a>
+    <a class="tab" href="search.html"><span class="ico">🔍</span>Search</a>
+    <a class="tab" href="circles.html"><span class="ico">💜</span>Circles</a>
+    <a class="tab" href="links.html"><span class="ico">🔗</span>Links</a>
+    <a class="tab active" href="me.html"><span class="ico">👤</span>Me</a>
+  </nav>
+</div>
+<script>
+(function(){
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  var CT = [['right-now','Right Now'],['date-night','Date Night'],['my-regulars','My Regulars'],
+            ['night-shift','Night Shift'],['weekend-getaway','Weekend Getaway'],['extended-trip','Extended Trip']];
+  var me = null;
+
+  function put(body){
+    return fetch('/api/me', { method: 'PUT',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function(r){ if (r.status === 401) location = 'index.html'; return r; });
+  }
+
+  function renderCareTypes(){
+    document.getElementById('care-types').innerHTML = CT.map(function(p){
+      var on = me.care_types.indexOf(p[0]) !== -1;
+      return '<label style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:100px;padding:6px 12px;cursor:pointer">' +
+        '<input type="checkbox" value="'+p[0]+'" '+(on?'checked':'')+' style="accent-color:var(--purple)">'+p[1]+'</label>';
+    }).join('');
+    document.getElementById('care-types').querySelectorAll('input').forEach(function(cb){
+      cb.addEventListener('change', function(){
+        var arr = [];
+        document.getElementById('care-types').querySelectorAll('input:checked')
+          .forEach(function(c){ arr.push(c.value); });
+        me.care_types = arr;
+        put({ care_types: arr });
+      });
+    });
+  }
+
+  function renderSharedItems(){
+    document.getElementById('shared-items').innerHTML =
+      (me.shared_items || []).map(function(it){ return '<span class="pill" style="margin-right:6px">'+esc(it.label)+'</span>'; }).join('') || '';
+  }
+
+  function render(){
+    var first = (me.name || '').split(' ')[0];
+    document.getElementById('avatar').textContent = (first[0] || '').toUpperCase();
+    document.getElementById('me-name').textContent = me.name;
+    document.getElementById('me-city').textContent = me.city ? 'Circle member · ' + me.city : 'Circle member';
+    document.getElementById('shares-title').textContent = 'What ' + first + ' shares';
+    if (me.rating) {
+      var st = document.getElementById('me-stars');
+      st.style.display = 'block';
+      st.innerHTML = me.rating + '★ <span>from ' + me.review_count + ' mamas</span>';
+    }
+    document.getElementById('host-toggle').checked = me.is_host;
+    document.getElementById('host-card').style.display = me.is_host ? 'block' : 'none';
+    document.getElementById('now-toggle').checked = me.available_now;
+    document.getElementById('gives-toggle').checked = me.gives_toggle;
+    if (me.momni_plus) {
+      document.getElementById('links-num').textContent = '∞';
+      document.getElementById('links-lbl').textContent = 'Momni+ — unlimited Links';
+      document.getElementById('plus-btn').textContent = 'Momni+ active';
+    } else {
+      document.getElementById('links-num').textContent = me.links_balance;
+    }
+    renderCareTypes();
+    renderSharedItems();
+  }
+
+  fetch('/api/me').then(function(r){
+    if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
+    return r.json();
+  }).then(function(d){ me = d; render(); }).catch(function(){});
+
+  document.getElementById('host-toggle').addEventListener('change', function(){
+    me.is_host = this.checked;
+    document.getElementById('host-card').style.display = this.checked ? 'block' : 'none';
+    put({ is_host: this.checked });
+  });
+  document.getElementById('now-toggle').addEventListener('change', function(){
+    put({ available_now: this.checked });
+  });
+  document.getElementById('gives-toggle').addEventListener('change', function(){
+    put({ gives_toggle: this.checked });
+  });
+
+  document.getElementById('plus-btn').addEventListener('click', function(e){
+    e.preventDefault();
+    if (me && me.momni_plus) return;
+    fetch('/api/purchase/momni-plus', { method: 'POST' }).then(function(r){
+      if (r.status === 401) { location = 'index.html'; return null; }
+      return r.json();
+    }).then(function(d){
+      if (d && d.ok) { me.momni_plus = true; render(); }
+    });
+  });
+
+  document.getElementById('add-bgc').addEventListener('click', function(e){
+    e.preventDefault();
+    var first = (me.name || '').split(' ')[0];
+    fetch('/api/me/shared-items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'background_check',
+        label: 'Background check — purchased and shared by ' + first })
+    }).then(function(r){
+      if (r.status === 401) { location = 'index.html'; return null; }
+      return r.json();
+    }).then(function(d){
+      if (!d) return;
+      var msg = document.getElementById('shares-msg');
+      msg.style.display = 'block';
+      if (d.ok) { me.shared_items = d.shared_items; renderSharedItems(); msg.textContent = 'Added — it now shows on your profile as your own shared content.'; }
+      else msg.textContent = d.error || 'That didn’t go through — try again.';
+    });
+  });
+
+  document.getElementById('signout').addEventListener('click', function(e){
+    e.preventDefault();
+    fetch('/api/logout', { method: 'POST' }).then(function(){ location = 'index.html'; });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search — Momni</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2; --clay:#D9C0A3;
+  --clay-deep:#C99F72; --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.55}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--white);display:flex;flex-direction:column;box-shadow:0 0 40px rgba(109,88,164,0.12)}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #EEE9F9}
+.topbar img{height:34px;display:block}
+.topbar h1{font-size:17px;font-weight:700;color:var(--purple-deep)}
+.content{flex:1;padding-bottom:84px}
+
+/* Filter chips */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 18px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1.5px solid #E5DEF4;border-radius:100px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--purple-deep);background:var(--white);cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--purple);border-color:var(--purple);color:var(--white)}
+
+/* Map */
+.map-wrap{position:relative;margin:0 18px;border-radius:18px;overflow:hidden;border:1.5px solid #EEE9F9}
+#map{height:320px;width:100%}
+.legend{position:absolute;bottom:12px;left:12px;z-index:500;background:rgba(255,255,255,0.95);border-radius:12px;padding:10px 12px;font-size:12px;box-shadow:0 4px 14px rgba(43,34,51,0.15);line-height:1.8}
+.legend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;vertical-align:middle}
+.pop strong{font-family:'Montserrat',sans-serif;font-size:14px}
+.pop .dist{color:var(--muted);font-size:12px;display:block;margin:2px 0 8px}
+.pop .req{display:inline-block;background:var(--teal);color:#fff;border-radius:100px;padding:6px 14px;font-size:12px;font-weight:600}
+.pop.legacy{font-size:13px;max-width:190px}
+.pop.circle strong{color:var(--purple-deep)}
+
+/* Banner */
+.pin-banner{margin:16px 18px;background:var(--purple);color:#fff;border-radius:18px;padding:20px 22px;text-align:center}
+.pin-banner .script{font-size:26px;color:var(--algae);display:block;line-height:1.25;margin-bottom:8px}
+.pin-banner .count{font-size:13px;color:rgba(255,255,255,0.85)}
+
+/* Result list */
+.results{padding:4px 18px}
+.results h2{font-size:16px;font-weight:700;margin:8px 0 12px}
+.card{border:1.5px solid #EEE9F9;border-radius:18px;padding:16px;margin-bottom:12px}
+.card .row{display:flex;gap:12px;align-items:center}
+.avatar{width:48px;height:48px;border-radius:50%;background:var(--teal-soft);color:var(--teal-deep);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:700;font-size:17px;flex-shrink:0}
+.card h3{font-size:16px;font-weight:700}
+.card .meta{font-size:13px;color:var(--muted)}
+.card .stars{color:var(--purple);font-weight:600}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px}
+.pills span{background:var(--lavender);color:var(--purple-deep);border-radius:100px;font-size:12px;font-weight:600;padding:4px 11px}
+.pills-label{font-size:12px;color:var(--muted);margin-top:10px}
+.link-btn{display:block;text-align:center;background:var(--teal);color:#fff;border-radius:100px;padding:11px;font-size:14px;font-weight:600}
+.link-btn:hover{background:var(--teal-deep)}
+
+/* Footer disclosure */
+.disclosure{margin:20px 18px 16px;font-size:11.5px;color:var(--muted);line-height:1.6;border-top:1px solid #EEE9F9;padding-top:14px}
+
+/* Tab bar */
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-top:1px solid #EEE9F9;display:flex;z-index:600}
+.tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11px;font-weight:600;color:var(--muted)}
+.tab .ico{display:block;font-size:20px;line-height:1.2}
+.tab.active{color:var(--purple)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+    <h1>Search</h1>
+  </div>
+
+  <div class="content">
+    <div class="chips" id="chips">
+      <button class="chip" data-ct="">All</button>
+      <button class="chip" data-ct="right-now">Right Now</button>
+      <button class="chip" data-ct="date-night">Date Night</button>
+      <button class="chip" data-ct="my-regulars">My Regulars</button>
+      <button class="chip" data-ct="night-shift">Night Shift</button>
+      <button class="chip" data-ct="weekend-getaway">Weekend Getaway</button>
+      <button class="chip" data-ct="extended-trip">Extended Trip</button>
+      <button class="chip" data-now="1">Available now</button>
+    </div>
+
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="legend">
+        <div><span class="dot" style="background:var(--teal)"></span>Circled up now</div>
+        <div><span class="dot" style="background:var(--clay-deep)"></span>The first mamas (1.0)</div>
+        <div><span class="dot" style="background:var(--purple)"></span>Circles</div>
+      </div>
+    </div>
+
+    <div class="pin-banner">
+      <span class="script">Your pin is still on the map. Come light it up.</span>
+      <div class="count">First mamas: <span id="ct-first">—</span> &middot; Lit up again: <span id="ct-lit">—</span></div>
+    </div>
+
+    <div class="results">
+      <h2>Mamas near you</h2>
+      <div id="host-cards"><p style="font-size:14px;color:var(--muted)">Finding mamas near you…</p></div>
+    </div>
+
+    <div class="disclosure">
+      Momni is a community platform, not a childcare provider. Members make their
+      own care decisions and pay each other directly. Anything a mama shares on
+      her profile is hers — shared by her, for you to weigh the way you'd weigh a
+      friend's word.
+    </div>
+  </div>
+
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><span class="ico">&#8962;</span>Home</a>
+    <a class="tab active" href="search.html"><span class="ico">&#9906;</span>Search</a>
+    <a class="tab" href="circles.html"><span class="ico">&#9711;</span>Circles</a>
+    <a class="tab" href="links.html"><span class="ico">&#128279;</span>Links</a>
+    <a class="tab" href="me.html"><span class="ico">&#9786;</span>Me</a>
+  </nav>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var map = L.map('map').setView([40.27, -111.68], 11);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+var params = new URLSearchParams(location.search);
+var careType = params.get('care_type') || '';
+var availNow = params.get('available_now') === '1';
+
+// Filter chips reflect + set the query params
+document.querySelectorAll('#chips .chip').forEach(function(chip){
+  if (chip.dataset.ct !== undefined) {
+    if (chip.dataset.ct === careType) chip.classList.add('on');
+  } else if (chip.dataset.now && availNow) {
+    chip.classList.add('on');
+  }
+  chip.addEventListener('click', function(){
+    var p = new URLSearchParams(location.search);
+    if (this.dataset.ct !== undefined) {
+      if (this.dataset.ct) p.set('care_type', this.dataset.ct); else p.delete('care_type');
+    } else {
+      if (availNow) p.delete('available_now'); else p.set('available_now', '1');
+    }
+    location = 'search.html' + (p.toString() ? '?' + p.toString() : '');
+  });
+});
+
+var CT_LABELS = {'right-now':'Right Now','date-night':'Date Night','my-regulars':'My Regulars',
+  'night-shift':'Night Shift','weekend-getaway':'Weekend Getaway','extended-trip':'Extended Trip'};
+
+function hostPopup(h){
+  return '<div class="pop"><strong>'+esc(h.name)+'</strong><span class="dist">'+esc(h.city)+
+    (h.hourly_note ? ' &middot; '+esc(h.hourly_note) : '')+'</span>'+
+    '<a class="req" href="booking.html?host_id='+h.id+'">Request a Link</a></div>';
+}
+
+// Map data: teal hosts, clay legacy clusters, purple circles
+fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
+  data.hosts.forEach(function(h){
+    L.circleMarker([h.lat, h.lng],{radius:9,color:'#0D878F',fillColor:'#0D878F',fillOpacity:0.9,weight:2})
+     .addTo(map).bindPopup(hostPopup(h));
+  });
+  data.legacy.forEach(function(p){
+    L.circleMarker([p.lat, p.lng],{radius:5,color:'#C99F72',fillColor:'#C99F72',fillOpacity:0.8,weight:1})
+     .addTo(map).bindPopup('<div class="pop legacy"><strong>'+esc(p.city)+'</strong> &middot; '+p.count+
+       ' first mamas. These mamas were the first Circle. Know her? Invite her back.</div>');
+  });
+  data.circles.forEach(function(c){
+    L.circleMarker([c.lat, c.lng],{radius:9,color:'#6D58A4',fillColor:'#6D58A4',fillOpacity:0.9,weight:2})
+     .addTo(map).bindPopup('<div class="pop circle"><strong>'+esc(c.name)+'</strong><span class="dist">'+esc(c.meets)+'</span></div>');
+  });
+  document.getElementById('ct-first').textContent = data.counters.first_mamas.toLocaleString();
+  document.getElementById('ct-lit').textContent = data.counters.lit_up.toLocaleString();
+}).catch(function(){});
+
+// Host result cards
+(function(){
+  var q = [];
+  if (careType) q.push('care_type=' + encodeURIComponent(careType));
+  if (availNow) q.push('available_now=1');
+  fetch('/api/hosts' + (q.length ? '?' + q.join('&') : ''))
+    .then(function(r){ return r.json(); })
+    .then(function(hosts){
+      var box = document.getElementById('host-cards');
+      if (!hosts.length) {
+        box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No mamas match those filters yet — try widening your search.</p>';
+        return;
+      }
+      box.innerHTML = hosts.map(function(h){
+        var initials = esc(h.name.split(/\s+/).map(function(w){ return w[0]; }).join('').slice(0,2).toUpperCase());
+        var meta = [];
+        if (h.rating) meta.push('<span class="stars">'+h.rating+'&#9733;</span> &middot; '+h.review_count+' review'+(h.review_count===1?'':'s')+' from mamas');
+        meta.push(esc(h.city));
+        var ctChips = (h.care_types || []).map(function(ct){
+          return '<span>'+esc(CT_LABELS[ct] || ct)+'</span>';
+        }).join('');
+        var shared = (h.shared_items || []).map(function(it){ return '<span>'+esc(it.label)+'</span>'; }).join('');
+        return '<div class="card">'+
+          '<div class="row"><div class="avatar">'+initials+'</div><div>'+
+          '<h3>'+esc(h.name)+'</h3><div class="meta">'+meta.join(' &middot; ')+'</div></div></div>'+
+          (ctChips ? '<div class="pills">'+ctChips+'</div>' : '')+
+          (shared ? '<div class="pills-label">What she\'s chosen to share</div><div class="pills">'+shared+'</div>' : '')+
+          (h.hourly_note ? '<div class="pills-label">'+esc(h.hourly_note)+'</div>' : '')+
+          '<a class="link-btn" style="margin-top:10px" href="booking.html?host_id='+h.id+'">Request a Link</a>'+
+          '</div>';
+      }).join('');
+    })
+    .catch(function(){
+      document.getElementById('host-cards').innerHTML =
+        '<p style="font-size:14px;color:var(--muted)">Couldn\'t load mamas right now — try again in a moment.</p>';
+    });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+node_modules/
+momni.db
+momni.db-*
+.env
+nohup.out

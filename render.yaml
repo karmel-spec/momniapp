@@ -1,0 +1,28 @@
+# Production hosting for app.momni.com on Render (render.com)
+# One-time setup: Render dashboard → New → Blueprint → connect the
+# karmel-spec/momniapp GitHub repo. Every push then auto-deploys.
+services:
+  - type: web
+    name: momni-app
+    runtime: node
+    plan: starter            # ~$7/mo; the SQLite disk below needs a paid plan
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /index.html
+    disk:
+      name: momni-data       # persistent disk so the SQLite database survives deploys
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /var/data/momni.db
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: APP_URL
+        value: https://app.momni.com
+      - key: STRIPE_SECRET_KEY
+        sync: false          # paste in the Render dashboard (never in git)
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false

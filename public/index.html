@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Momni — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2; --clay:#D9C0A3;
+  --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF; --line:#EEE9F9;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.55;min-height:100vh;display:flex;justify-content:center;align-items:flex-start}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{width:100%;max-width:480px;min-height:100vh;background:var(--white);box-shadow:0 0 40px rgba(109,88,164,0.12);display:flex;flex-direction:column}
+.auth{flex:1;display:flex;flex-direction:column;justify-content:center;padding:48px 28px 32px;text-align:center}
+.auth img.logo{height:56px;margin:0 auto 8px;display:block;object-fit:contain}
+.auth .script{font-size:30px;color:var(--teal);margin:6px 0 4px}
+.auth h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:28px}
+form{text-align:left}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 6px}
+input{width:100%;padding:13px 16px;border:1.5px solid var(--line);border-radius:14px;font-family:inherit;font-size:16px;color:var(--ink);background:#FCFBFE}
+input:focus{outline:none;border-color:var(--purple)}
+.btn{display:block;width:100%;text-align:center;background:var(--purple);color:white;font-weight:600;font-size:17px;padding:15px;border-radius:100px;margin-top:24px;transition:background .15s}
+.btn:hover{background:var(--purple-deep)}
+.forgot{display:block;text-align:center;font-size:14px;color:var(--muted);margin-top:14px}
+.forgot:hover{color:var(--purple)}
+.join{margin-top:30px;font-size:15px;color:var(--muted)}
+.join a{color:var(--teal);font-weight:600}
+.disclosure{padding:20px 28px 28px;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;border-top:1px solid var(--line)}
+.err{display:none;background:#FDF0F2;border:1.5px solid #E8B9C3;color:#8A3A4D;border-radius:14px;padding:12px 16px;font-size:14px;margin-top:16px;text-align:left}
+.hint{background:var(--teal-soft);border-radius:14px;padding:12px 16px;font-size:13px;color:var(--teal-deep);margin-top:18px;text-align:center}
+.signup-only{display:none}
+button.btn{border:none;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="auth">
+    <img class="logo" src="assets/momni-logo-color-horizontal.png" alt="Momni">
+    <span class="script" id="script-line">Welcome back, mama</span>
+    <h1 id="title-line">Sign in to your Circle</h1>
+    <form id="auth-form">
+      <div class="signup-only">
+        <label for="name">Your name</label>
+        <input id="name" type="text" placeholder="First name & last initial" autocomplete="name">
+      </div>
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@example.com" autocomplete="email">
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+      <div class="signup-only">
+        <label for="city">City</label>
+        <input id="city" type="text" placeholder="Orem, UT" autocomplete="address-level2">
+      </div>
+      <div class="err" id="auth-err"></div>
+      <button class="btn" id="submit-btn" type="submit">Continue</button>
+      <a class="forgot" href="#">Forgot your password?</a>
+    </form>
+    <p class="join" id="join-line">New here? <a href="#" id="mode-toggle">Join the Circle</a></p>
+    <div class="hint">Demo: sarah@example.com / momni-demo</div>
+  </main>
+  <footer class="disclosure">
+    Momni is a community platform that helps mamas find each other.
+    Members make their own care decisions, in their own homes, on their own terms.
+    Momni doesn't handle care payments — those happen mom to mom.
+  </footer>
+</div>
+<script>
+(function(){
+  var signup = false;
+  var form = document.getElementById('auth-form');
+  var errBox = document.getElementById('auth-err');
+  function showErr(msg){ errBox.textContent = msg; errBox.style.display = 'block'; }
+  function hideErr(){ errBox.style.display = 'none'; }
+
+  document.getElementById('mode-toggle').addEventListener('click', function(e){
+    e.preventDefault();
+    signup = !signup;
+    hideErr();
+    document.querySelectorAll('.signup-only').forEach(function(el){ el.style.display = signup ? 'block' : 'none'; });
+    document.getElementById('script-line').textContent = signup ? 'Come on in, mama' : 'Welcome back, mama';
+    document.getElementById('title-line').textContent = signup ? 'Join the Circle' : 'Sign in to your Circle';
+    document.getElementById('submit-btn').textContent = signup ? 'Join the Circle' : 'Continue';
+    document.getElementById('join-line').firstChild.textContent = signup ? 'Already with us? ' : 'New here? ';
+    this.textContent = signup ? 'Sign in' : 'Join the Circle';
+    document.getElementById('password').autocomplete = signup ? 'new-password' : 'current-password';
+  });
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    hideErr();
+    var body = {
+      email: document.getElementById('email').value.trim(),
+      password: document.getElementById('password').value
+    };
+    if (signup) {
+      body.name = document.getElementById('name').value.trim();
+      body.city = document.getElementById('city').value.trim();
+    }
+    fetch(signup ? '/api/register' : '/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(res){
+        if (res.ok) { location = 'home.html'; }
+        else { showErr(res.d.error || 'Something went wrong — try again.'); }
+      })
+      .catch(function(){ showErr('Couldn’t reach Momni — check your connection.'); });
+  });
+})();
+</script>
+</body>
+</html>

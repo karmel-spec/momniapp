@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Momni — Circles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2; --clay:#D9C0A3;
+  --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF; --line:#EEE9F9;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.5;min-height:100vh;display:flex;justify-content:center}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{width:100%;max-width:480px;min-height:100vh;background:var(--white);box-shadow:0 0 40px rgba(109,88,164,0.12);display:flex;flex-direction:column;padding-bottom:76px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px}
+.topbar img{height:34px;display:block}
+main{padding:6px 20px 24px}
+h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px}
+.lede{font-size:14.5px;color:var(--muted);margin-bottom:20px}
+.circle{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1.5px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:12px;background:#FCFBFE}
+.circle .mark{width:46px;height:46px;border-radius:50%;background:var(--lavender);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.circle .mark img{width:30px;height:30px;object-fit:contain}
+.circle .info{flex:1}
+.circle h2{font-size:15.5px;font-weight:700;margin-bottom:2px}
+.circle p{font-size:13px;color:var(--muted)}
+.join-btn{font-size:13.5px;font-weight:600;color:white;background:var(--teal);border-radius:100px;padding:7px 18px;transition:background .15s;white-space:nowrap}
+.join-btn:hover{background:var(--teal-deep)}
+.start{background:var(--purple);color:white;border-radius:18px;padding:24px;text-align:center;margin-top:22px}
+.start .script{font-size:26px;color:var(--algae);display:block;margin-bottom:6px}
+.start h2{font-size:19px;font-weight:800;margin-bottom:6px}
+.start p{font-size:14px;color:rgba(255,255,255,0.85);margin-bottom:16px}
+.start a{display:inline-block;background:white;color:var(--purple);font-weight:600;font-size:15px;padding:11px 28px;border-radius:100px}
+.note{font-size:13px;color:var(--muted);text-align:center;margin-top:20px;line-height:1.6}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;border-top:1px solid var(--line);display:flex;z-index:50}
+.tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.tab .ico{display:block;font-size:20px;line-height:1.2}
+.tab.active{color:var(--purple)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+  </div>
+  <main>
+    <h1>Circles</h1>
+    <p class="lede">Circles are where mamas meet each other long before anyone ever books. Playgroups, park days, real friendships first.</p>
+
+    <div id="circles-list"><p style="font-size:14px;color:var(--muted)">Finding Circles near you…</p></div>
+
+    <div class="start">
+      <span class="script">Don't see your people?</span>
+      <h2>Start a Circle</h2>
+      <p>It takes one mama saying "Tuesday, my park, bring snacks." That's it. That's the whole secret.</p>
+      <a href="#">Start a Circle</a>
+    </div>
+
+    <p class="note">Circles are member-run gatherings. Momni helps mamas find each other — every Circle sets its own rhythm.</p>
+  </main>
+
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><span class="ico">🏠</span>Home</a>
+    <a class="tab" href="search.html"><span class="ico">🔍</span>Search</a>
+    <a class="tab active" href="circles.html"><span class="ico">💜</span>Circles</a>
+    <a class="tab" href="links.html"><span class="ico">🔗</span>Links</a>
+    <a class="tab" href="me.html"><span class="ico">👤</span>Me</a>
+  </nav>
+</div>
+<script>
+(function(){
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  var box = document.getElementById('circles-list');
+  fetch('/api/circles').then(function(r){ return r.json(); }).then(function(circles){
+    if (!circles.length) {
+      box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No Circles yet — be the first mama to start one.</p>';
+      return;
+    }
+    box.innerHTML = circles.map(function(c){
+      return '<div class="circle">' +
+        '<span class="mark"><img src="assets/momni-icon-color.png" alt=""></span>' +
+        '<div class="info"><h2>'+esc(c.name)+'</h2>' +
+        '<p><span data-count="'+c.id+'">'+c.member_count+'</span> mamas &middot; '+esc(c.meets)+' &middot; '+esc(c.city)+'</p></div>' +
+        '<a class="join-btn" href="#" data-join="'+c.id+'">Join</a></div>';
+    }).join('');
+    box.querySelectorAll('[data-join]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        var id = this.dataset.join, self = this;
+        fetch('/api/circles/' + id + '/join', { method: 'POST' }).then(function(r){
+          if (r.status === 401) { location = 'index.html'; return null; }
+          return r.json();
+        }).then(function(d){
+          if (!d) return;
+          fetch('/api/circles').then(function(r){ return r.json(); }).then(function(cs){
+            var c = cs.find(function(x){ return String(x.id) === id; });
+            if (c) box.querySelector('[data-count="'+id+'"]').textContent = c.member_count;
+          });
+          self.textContent = 'Joined';
+          self.style.background = 'var(--purple)';
+        });
+      });
+    });
+  }).catch(function(){
+    box.innerHTML = '<p style="font-size:14px;color:var(--muted)">Couldn’t load Circles right now — try again in a moment.</p>';
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Request a Link — Momni</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2; --clay:#D9C0A3;
+  --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.55}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--white);display:flex;flex-direction:column;box-shadow:0 0 40px rgba(109,88,164,0.12)}
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #EEE9F9}
+.back{font-size:20px;color:var(--purple);font-weight:700}
+.topbar img{height:30px;display:block}
+.topbar h1{font-size:16px;font-weight:700;color:var(--purple-deep);margin-left:auto}
+.content{flex:1;padding:18px 18px 96px}
+
+.step{margin-bottom:26px}
+.step-label{font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--teal);margin-bottom:4px}
+.step h2{font-size:18px;font-weight:700;margin-bottom:12px}
+
+/* Radio cards */
+.radio-cards{display:grid;gap:10px}
+.rcard{display:flex;align-items:flex-start;gap:12px;border:1.5px solid #E5DEF4;border-radius:16px;padding:14px 16px;cursor:pointer}
+.rcard input{margin-top:4px;accent-color:var(--purple)}
+.rcard strong{font-family:'Montserrat',sans-serif;font-size:15px}
+.rcard p{font-size:13px;color:var(--muted)}
+.rcard:has(input:checked){border-color:var(--purple);background:var(--lavender)}
+
+/* Inputs */
+.field{margin-bottom:12px}
+.field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.field input{width:100%;border:1.5px solid #E5DEF4;border-radius:12px;padding:11px 13px;font-family:inherit;font-size:15px;color:var(--ink)}
+.field input:focus{outline:none;border-color:var(--purple)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#recurring-days{display:none;margin-top:4px}
+.weekdays{display:flex;gap:6px;flex-wrap:wrap}
+.weekdays label{flex:1;text-align:center;border:1.5px solid #E5DEF4;border-radius:10px;padding:8px 0;font-size:13px;font-weight:600;cursor:pointer;min-width:44px}
+.weekdays input{display:none}
+.weekdays label:has(input:checked){background:var(--purple);border-color:var(--purple);color:#fff}
+
+/* Meet her first */
+.meet{background:var(--teal-soft);border-radius:16px;padding:16px 18px}
+.meet .script{font-size:22px;color:var(--teal-deep);display:block;margin-bottom:4px}
+.meet p{font-size:14px}
+.meet-opts{display:flex;gap:8px;margin-top:12px}
+.meet-opts a{flex:1;text-align:center;border:1.5px solid var(--teal);color:var(--teal-deep);border-radius:100px;padding:8px;font-size:13px;font-weight:600;background:#fff}
+
+/* Clickwrap */
+.clickwrap{background:var(--lavender);border:2px solid var(--purple);border-radius:16px;padding:16px 18px;display:flex;gap:12px;align-items:flex-start}
+.clickwrap input{margin-top:3px;width:18px;height:18px;accent-color:var(--purple);flex-shrink:0}
+.clickwrap p{font-size:13.5px;line-height:1.6;color:var(--ink)}
+
+/* Submit */
+.send-btn{display:block;width:100%;border:none;background:var(--teal);color:#fff;border-radius:100px;padding:15px;font-family:'Albert Sans',sans-serif;font-size:16px;font-weight:600;cursor:pointer;margin-top:18px}
+.send-btn:disabled{background:#C9C2D6;cursor:not-allowed}
+.send-note{font-size:12.5px;color:var(--muted);text-align:center;margin-top:10px}
+
+.disclosure{margin-top:24px;font-size:11.5px;color:var(--muted);line-height:1.6;border-top:1px solid #EEE9F9;padding-top:14px}
+
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-top:1px solid #EEE9F9;display:flex;z-index:600}
+.tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11px;font-weight:600;color:var(--muted)}
+.tab .ico{display:block;font-size:20px;line-height:1.2}
+.tab.active{color:var(--purple)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="search.html">&#8592;</a>
+    <img src="assets/momni-icon-color.png" alt="Momni">
+    <h1 id="page-title">Request a Link</h1>
+  </div>
+
+  <div class="content">
+
+    <div class="step">
+      <div class="step-label">Step 1</div>
+      <h2>What kind of care?</h2>
+      <div class="radio-cards">
+        <label class="rcard"><input type="radio" name="caretype" value="one-time" checked onchange="toggleRecurring()">
+          <span><strong>One-time</strong><p>A single stretch — date night, an appointment, right now.</p></span></label>
+        <label class="rcard"><input type="radio" name="caretype" value="recurring" onchange="toggleRecurring()">
+          <span><strong>Recurring</strong><p>Your regulars — the same mornings or afternoons every week.</p></span></label>
+        <label class="rcard"><input type="radio" name="caretype" value="overnight" onchange="toggleRecurring()">
+          <span><strong>Overnight / multi-day</strong><p>A weekend getaway or an extended trip.</p></span></label>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-label">Step 2</div>
+      <h2>When?</h2>
+      <div class="row2">
+        <div class="field"><label for="start-date">Start date</label><input type="date" id="start-date"></div>
+        <div class="field"><label for="end-date">End date (if multi-day)</label><input type="date" id="end-date"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="start-time">Drop-off</label><input type="time" id="start-time"></div>
+        <div class="field"><label for="end-time">Pick-up</label><input type="time" id="end-time"></div>
+      </div>
+      <div class="field" id="recurring-days">
+        <label>Which days each week?</label>
+        <div class="weekdays">
+          <label><input type="checkbox" value="Mon">Mon</label>
+          <label><input type="checkbox" value="Tue">Tue</label>
+          <label><input type="checkbox" value="Wed">Wed</label>
+          <label><input type="checkbox" value="Thu">Thu</label>
+          <label><input type="checkbox" value="Fri">Fri</label>
+          <label><input type="checkbox" value="Sat">Sat</label>
+          <label><input type="checkbox" value="Sun">Sun</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-label">Step 3</div>
+      <h2>Meet her first</h2>
+      <div class="meet">
+        <span class="script">Mamas meet before the first Link.</span>
+        <p>Before your first Link, we encourage a quick video hello or a park
+        meetup with the kids. It's how you'd get to know any new friend — and
+        it's how the Circle works.</p>
+        <div class="meet-opts">
+          <a href="#">Suggest a video hello</a>
+          <a href="#">Suggest a park meetup</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-label">Step 4</div>
+      <h2>One honest acknowledgment</h2>
+      <label class="clickwrap">
+        <input type="checkbox" id="ack" onchange="document.getElementById('send').disabled = !this.checked">
+        <p id="ack-text">Loading the acknowledgment…</p>
+      </label>
+      <button class="send-btn" id="send" disabled>Send Link request — $1</button>
+      <p class="send-note">Your $1 Link connects you. Care payments go directly
+      to your Momni — she keeps every penny.</p>
+      <div id="msg-box" style="display:none;margin-top:16px;border-radius:16px;padding:16px 18px;font-size:14px;line-height:1.6"></div>
+    </div>
+
+    <div class="disclosure">
+      Momni is a community platform, not a childcare provider. Members make
+      their own care decisions and pay each other directly.
+    </div>
+  </div>
+
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><span class="ico">&#8962;</span>Home</a>
+    <a class="tab active" href="search.html"><span class="ico">&#9906;</span>Search</a>
+    <a class="tab" href="circles.html"><span class="ico">&#9711;</span>Circles</a>
+    <a class="tab" href="links.html"><span class="ico">&#128279;</span>Links</a>
+    <a class="tab" href="me.html"><span class="ico">&#9786;</span>Me</a>
+  </nav>
+</div>
+
+<script>
+function toggleRecurring(){
+  var on = document.querySelector('input[name="caretype"]:checked').value === 'recurring';
+  document.getElementById('recurring-days').style.display = on ? 'block' : 'none';
+}
+
+(function(){
+  var hostId = new URLSearchParams(location.search).get('host_id');
+  var msgBox = document.getElementById('msg-box');
+
+  function showMsg(html, kind){
+    msgBox.style.display = 'block';
+    msgBox.style.background = kind === 'ok' ? 'var(--teal-soft)' : 'var(--lavender)';
+    msgBox.style.border = '1.5px solid ' + (kind === 'ok' ? 'var(--teal)' : 'var(--purple)');
+    msgBox.innerHTML = html;
+  }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  if (hostId) {
+    fetch('/api/hosts/' + encodeURIComponent(hostId)).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(h){
+        if (h) document.getElementById('page-title').textContent =
+          'Requesting a Link with ' + h.name + ' · ' + h.city;
+      }).catch(function(){});
+  }
+
+  fetch('/api/acknowledgment').then(function(r){ return r.json(); }).then(function(d){
+    document.getElementById('ack-text').textContent = d.text;
+  }).catch(function(){
+    document.getElementById('ack-text').textContent =
+      'The acknowledgment couldn’t load — refresh before sending your Link.';
+  });
+
+  function collectDetails(){
+    var details = {
+      start_date: document.getElementById('start-date').value,
+      end_date: document.getElementById('end-date').value,
+      start_time: document.getElementById('start-time').value,
+      end_time: document.getElementById('end-time').value
+    };
+    var days = [];
+    document.querySelectorAll('#recurring-days input:checked').forEach(function(c){ days.push(c.value); });
+    if (days.length) details.weekdays = days;
+    return details;
+  }
+
+  function sendLink(){
+    var careType = document.querySelector('input[name="caretype"]:checked').value;
+    var btn = document.getElementById('send');
+    btn.disabled = true;
+    fetch('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host_id: Number(hostId), care_type: careType,
+        details: collectDetails(), acknowledged: true })
+    }).then(function(r){
+      if (r.status === 401) { location = 'index.html'; return; }
+      return r.json().then(function(d){
+        if (r.ok) {
+          showMsg('<strong>Link request sent to ' + esc(d.host_name) +
+            ' — watch your Links tab.</strong><br>' +
+            '<a href="links.html" style="display:inline-block;margin-top:10px;background:var(--teal);color:#fff;border-radius:100px;padding:9px 20px;font-weight:600">Go to Links</a>', 'ok');
+          btn.style.display = 'none';
+        } else if (r.status === 402) {
+          showMsg(esc(d.error) + '<br>' +
+            '<button id="buy-retry" style="margin-top:10px;border:none;cursor:pointer;background:var(--purple);color:#fff;border-radius:100px;padding:9px 20px;font-family:inherit;font-size:14px;font-weight:600">Buy a bundle — 10 for $10</button>');
+          btn.disabled = false;
+          document.getElementById('buy-retry').addEventListener('click', function(){
+            fetch('/api/purchase/links', { method: 'POST' }).then(function(pr){
+              if (pr.ok) { msgBox.style.display = 'none'; sendLink(); }
+              else showMsg('The bundle purchase didn’t go through — try again.');
+            });
+          });
+        } else {
+          showMsg(esc(d.error || 'Something went wrong — try again.'));
+          btn.disabled = false;
+        }
+      });
+    }).catch(function(){
+      showMsg('Couldn’t reach Momni — check your connection.');
+      btn.disabled = false;
+    });
+  }
+
+  document.getElementById('send').addEventListener('click', function(){
+    if (!hostId) { showMsg('Pick a mama from the search map first.'); return; }
+    if (!document.getElementById('ack').checked) return;
+    sendLink();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Links — Momni</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2; --clay:#D9C0A3;
+  --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.55}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--white);display:flex;flex-direction:column;box-shadow:0 0 40px rgba(109,88,164,0.12)}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #EEE9F9}
+.topbar img{height:34px;display:block}
+.topbar h1{font-size:17px;font-weight:700;color:var(--purple-deep)}
+.content{flex:1;padding:18px 18px 96px}
+
+/* Balance card */
+.balance{background:var(--purple);color:#fff;border-radius:18px;padding:22px;margin-bottom:22px}
+.balance .num{font-family:'Montserrat',sans-serif;font-size:40px;font-weight:800;color:var(--algae);line-height:1.1}
+.balance .lbl{font-size:14px;color:rgba(255,255,255,0.85);margin-bottom:14px}
+.buy-btn{display:inline-block;background:var(--algae);color:#0B4A36;border-radius:100px;padding:10px 20px;font-size:14px;font-weight:600}
+.balance .fine{font-size:12px;color:rgba(255,255,255,0.7);margin-top:10px}
+
+h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--teal);margin:18px 0 10px}
+
+.lcard{border:1.5px solid #EEE9F9;border-radius:16px;padding:14px 16px;margin-bottom:10px;display:flex;gap:12px;align-items:center}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--teal-soft);color:var(--teal-deep);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:700;font-size:15px;flex-shrink:0}
+.lcard .info{flex:1}
+.lcard h3{font-size:15px;font-weight:700}
+.lcard .meta{font-size:13px;color:var(--muted)}
+.badge{font-size:11px;font-weight:700;border-radius:100px;padding:4px 11px;white-space:nowrap}
+.badge.confirmed,.badge.completed{background:var(--teal-soft);color:var(--teal-deep)}
+.badge.active,.badge.requested{background:var(--lavender);color:var(--purple-deep)}
+.badge.declined,.badge.cancelled{background:#F4EFEA;color:#8A6F4D}
+.actbtn{border:none;cursor:pointer;font-family:inherit;background:var(--teal);color:#fff;border-radius:100px;padding:7px 16px;font-size:12.5px;font-weight:600}
+.actbtn.ghost{background:#fff;border:1.5px solid var(--muted);color:var(--muted)}
+.rev-form{margin-top:10px;border-top:1px solid #EEE9F9;padding-top:10px;width:100%}
+.rev-form select,.rev-form textarea{width:100%;border:1.5px solid #E5DEF4;border-radius:10px;padding:8px;font-family:inherit;font-size:13px;margin-bottom:8px}
+.inline-msg{font-size:12.5px;color:var(--teal-deep);margin-top:6px}
+.actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.rebook{background:var(--teal);color:#fff;border-radius:100px;padding:7px 16px;font-size:12.5px;font-weight:600}
+.review{font-size:12px;font-weight:600;color:var(--purple)}
+
+/* Explainer */
+.explainer{background:var(--teal-soft);border-radius:16px;padding:16px 18px;margin-top:20px}
+.explainer .script{font-size:22px;color:var(--teal-deep);display:block;margin-bottom:4px}
+.explainer p{font-size:14px}
+
+.disclosure{margin-top:24px;font-size:11.5px;color:var(--muted);line-height:1.6;border-top:1px solid #EEE9F9;padding-top:14px}
+
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-top:1px solid #EEE9F9;display:flex;z-index:600}
+.tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11px;font-weight:600;color:var(--muted)}
+.tab .ico{display:block;font-size:20px;line-height:1.2}
+.tab.active{color:var(--purple)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+    <h1>Links</h1>
+  </div>
+
+  <div class="content">
+
+    <div class="balance">
+      <div class="num" id="balance-num">—</div>
+      <div class="lbl" id="balance-lbl">Links remaining</div>
+      <a class="buy-btn" href="#" id="buy-bundle">Buy a bundle — 10 for $10</a>
+      <div class="fine">A Link is $1. Always $1. That's the whole price list.</div>
+      <div class="fine" id="balance-msg" style="display:none"></div>
+    </div>
+
+    <div id="links-list"><p style="font-size:14px;color:var(--muted)">Loading your Links…</p></div>
+
+    <div class="explainer">
+      <span class="script">What's a Link?</span>
+      <p>A Link is a $1 match between mamas. It's the only thing Momni ever
+      charges for care. Once you're linked, everything else — including
+      payment — is between you and your Momni. She keeps every penny.</p>
+    </div>
+
+    <div class="disclosure">
+      Momni is a community platform, not a childcare provider. Members make
+      their own care decisions and pay each other directly.
+    </div>
+  </div>
+
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><span class="ico">&#8962;</span>Home</a>
+    <a class="tab" href="search.html"><span class="ico">&#9906;</span>Search</a>
+    <a class="tab" href="circles.html"><span class="ico">&#9711;</span>Circles</a>
+    <a class="tab active" href="links.html"><span class="ico">&#128279;</span>Links</a>
+    <a class="tab" href="me.html"><span class="ico">&#9786;</span>Me</a>
+  </nav>
+</div>
+<script>
+(function(){
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  var CT_LABELS = {'one-time':'One-time','recurring':'Recurring','overnight':'Overnight'};
+
+  function loadBalance(){
+    fetch('/api/me').then(function(r){
+      if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
+      return r.json();
+    }).then(function(me){
+      if (me.momni_plus) {
+        document.getElementById('balance-num').textContent = '∞';
+        document.getElementById('balance-lbl').textContent = 'Momni+ — unlimited Links';
+      } else {
+        document.getElementById('balance-num').textContent = me.links_balance;
+      }
+    }).catch(function(){});
+  }
+
+  document.getElementById('buy-bundle').addEventListener('click', function(e){
+    e.preventDefault();
+    var msg = document.getElementById('balance-msg');
+    fetch('/api/purchase/links', { method: 'POST' }).then(function(r){
+      if (r.status === 401) { location = 'index.html'; return; }
+      return r.json();
+    }).then(function(d){
+      if (!d) return;
+      msg.style.display = 'block';
+      msg.textContent = d.ok ? '10 Links added to your bundle.' : (d.error || 'That didn’t go through — try again.');
+      loadBalance();
+    }).catch(function(){
+      msg.style.display = 'block';
+      msg.textContent = 'Couldn’t reach Momni — try again.';
+    });
+  });
+
+  function linkCard(l){
+    var who = l.i_am_host ? l.guest_name : l.host_name;
+    var initials = esc(who.split(/\s+/).map(function(w){ return w[0]; }).join('').slice(0,2).toUpperCase());
+    var statusCls = esc(l.status);
+    var meta = (CT_LABELS[l.care_type] || esc(l.care_type)) +
+      (l.details && l.details.start_date ? ' &middot; ' + esc(l.details.start_date) : '') +
+      (l.i_am_host ? ' &middot; she requested you' : '');
+    var actions = '';
+    if (l.i_am_host && l.status === 'requested') {
+      actions = '<button class="actbtn" data-act="confirmed" data-id="'+l.id+'">Confirm</button>' +
+                '<button class="actbtn ghost" data-act="declined" data-id="'+l.id+'">Decline</button>';
+    } else if (!l.i_am_host && l.status === 'requested') {
+      actions = '<button class="actbtn ghost" data-act="cancelled" data-id="'+l.id+'">Cancel</button>';
+    }
+    if (l.status === 'confirmed') {
+      actions += '<button class="actbtn" data-act="completed" data-id="'+l.id+'">Mark completed</button>';
+    }
+    var review = '';
+    if (l.status === 'completed') {
+      review = '<div class="rev-form" id="rev-'+l.id+'">' +
+        '<a class="review" href="#" data-revtoggle="'+l.id+'">Leave a review</a>' +
+        '<div style="display:none" data-revbody="'+l.id+'">' +
+        '<select data-rating="'+l.id+'"><option value="5">5 — wonderful</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select>' +
+        '<textarea rows="2" data-text="'+l.id+'" placeholder="How did it go, mama?"></textarea>' +
+        '<button class="actbtn" data-sendreview="'+l.id+'">Send review</button>' +
+        '<div class="inline-msg" data-revmsg="'+l.id+'"></div>' +
+        '</div></div>';
+    }
+    return '<div class="lcard" style="flex-wrap:wrap">' +
+      '<div class="avatar">'+initials+'</div>' +
+      '<div class="info"><h3>'+esc(who)+'</h3><div class="meta">'+meta+'</div></div>' +
+      '<span class="badge '+statusCls+'">'+esc(l.status.charAt(0).toUpperCase()+l.status.slice(1))+'</span>' +
+      (actions ? '<div class="actions" style="flex-direction:row;width:100%;justify-content:flex-end">'+actions+'</div>' : '') +
+      review + '</div>';
+  }
+
+  function loadLinks(){
+    fetch('/api/links').then(function(r){
+      if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
+      return r.json();
+    }).then(function(links){
+      var box = document.getElementById('links-list');
+      if (!links.length) {
+        box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No Links yet — find a mama on the Search tab.</p>';
+        return;
+      }
+      var active = links.filter(function(l){ return l.status === 'requested' || l.status === 'confirmed'; });
+      var past = links.filter(function(l){ return l.status !== 'requested' && l.status !== 'confirmed'; });
+      var html = '';
+      if (active.length) html += '<h2 class="sec">Active Links</h2>' + active.map(linkCard).join('');
+      if (past.length) html += '<h2 class="sec">Past Links</h2>' + past.map(linkCard).join('');
+      box.innerHTML = html;
+
+      box.querySelectorAll('[data-act]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          fetch('/api/links/' + this.dataset.id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: this.dataset.act })
+          }).then(function(r){
+            if (r.status === 401) { location = 'index.html'; return; }
+            loadLinks();
+          });
+        });
+      });
+      box.querySelectorAll('[data-revtoggle]').forEach(function(a){
+        a.addEventListener('click', function(e){
+          e.preventDefault();
+          var body = box.querySelector('[data-revbody="'+this.dataset.revtoggle+'"]');
+          body.style.display = body.style.display === 'none' ? 'block' : 'none';
+        });
+      });
+      box.querySelectorAll('[data-sendreview]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var id = this.dataset.sendreview;
+          var msg = box.querySelector('[data-revmsg="'+id+'"]');
+          fetch('/api/reviews', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              link_id: Number(id),
+              rating: Number(box.querySelector('[data-rating="'+id+'"]').value),
+              body: box.querySelector('[data-text="'+id+'"]').value
+            })
+          }).then(function(r){
+            if (r.status === 401) { location = 'index.html'; return; }
+            return r.json();
+          }).then(function(d){
+            if (!d) return;
+            msg.textContent = d.ok ? 'Review sent — thanks, mama.' : (d.error || 'That didn’t go through.');
+          });
+        });
+      });
+    }).catch(function(){});
+  }
+
+  loadBalance();
+  loadLinks();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "momni-app",
+  "version": "2.0.0",
+  "description": "app.momni.com — Momni 2.0 web app (mom-to-mom caresharing)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node db.js --seed"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.0.0",
+    "express": "^4.19.0",
+    "express-session": "^1.18.0",
+    "stripe": "^22.2.0"
+  }
+}

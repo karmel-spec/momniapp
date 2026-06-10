@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Momni — Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2; --clay:#D9C0A3;
+  --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF; --line:#EEE9F9;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.5;min-height:100vh;display:flex;justify-content:center}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{width:100%;max-width:480px;min-height:100vh;background:var(--white);box-shadow:0 0 40px rgba(109,88,164,0.12);display:flex;flex-direction:column;padding-bottom:76px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px}
+.topbar img{height:34px;display:block}
+.topbar .hello{font-family:'Caveat',cursive;font-size:22px;color:var(--teal)}
+main{padding:6px 20px 24px}
+.tile{display:block;border-radius:18px;padding:20px;margin-bottom:14px;transition:transform .15s}
+.tile:hover{transform:translateY(-2px)}
+.tile h2{font-size:19px;font-weight:800;letter-spacing:-0.01em;margin-bottom:4px}
+.tile p{font-size:14px}
+.tile-now{background:var(--teal);color:white}
+.tile-now p{color:rgba(255,255,255,0.9)}
+.live{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;font-weight:600;color:var(--algae)}
+.pulse{width:10px;height:10px;border-radius:50%;background:var(--algae);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(146,226,193,.7)}70%{box-shadow:0 0 0 10px rgba(146,226,193,0)}100%{box-shadow:0 0 0 0 rgba(146,226,193,0)}}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.row2 .tile{margin-bottom:0}
+.tile-date{background:var(--lavender)}
+.tile-date h2{color:var(--purple-deep)}
+.tile-reg{background:var(--teal-soft)}
+.tile-reg h2{color:var(--teal-deep)}
+.tile-date p,.tile-reg p{color:var(--muted)}
+.tile-over{background:#FBF6EE;border:1.5px solid var(--clay)}
+.tile-over p{color:var(--muted)}
+.chips{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.chip{font-size:13px;font-weight:600;padding:6px 14px;border-radius:100px;background:white;border:1.5px solid var(--clay);color:var(--ink)}
+.tile-daycare{background:var(--purple);color:white;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.tile-daycare h2{font-size:17px}
+.tile-daycare p{font-size:12.5px;color:rgba(255,255,255,0.85)}
+.tile-daycare .arrow{font-size:22px;font-weight:700}
+.section-title{font-size:15px;font-weight:800;font-family:'Montserrat',sans-serif;margin:24px 0 12px}
+.rebook{display:flex;gap:14px}
+.momni{flex:1;text-align:center;background:#FCFBFE;border:1.5px solid var(--line);border-radius:16px;padding:16px 10px}
+.avatar{width:54px;height:54px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:700;font-size:20px;color:white}
+.a1{background:var(--purple)}.a2{background:var(--teal)}.a3{background:var(--clay);color:var(--ink)}
+.momni .name{font-size:14px;font-weight:600;margin-bottom:8px}
+.rebook-btn{display:inline-block;font-size:13px;font-weight:600;color:var(--teal);border:1.5px solid var(--teal);border-radius:100px;padding:4px 16px;transition:all .15s}
+.rebook-btn:hover{background:var(--teal);color:white}
+.circle-card{background:var(--lavender);border-radius:16px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.circle-card h3{font-size:15px;font-weight:700;color:var(--purple-deep);margin-bottom:2px}
+.circle-card p{font-size:13.5px;color:var(--muted)}
+.circle-card .script{font-size:20px;color:var(--purple);white-space:nowrap}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;border-top:1px solid var(--line);display:flex;z-index:50}
+.tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.tab .ico{display:block;font-size:20px;line-height:1.2}
+.tab.active{color:var(--purple)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+    <span class="hello" id="hello"></span>
+  </div>
+  <main>
+    <a class="tile tile-now" href="search.html?care_type=right-now&available_now=1">
+      <h2>Right Now</h2>
+      <p>Care today — sometimes within the hour.</p>
+      <span class="live"><span class="pulse"></span><span id="live-count">Momnis near you right now…</span></span>
+    </a>
+
+    <div class="row2">
+      <a class="tile tile-date" href="search.html?care_type=date-night">
+        <h2>Date Night</h2>
+        <p>An evening out, kiddos in good hands.</p>
+      </a>
+      <a class="tile tile-reg" href="search.html?care_type=my-regulars">
+        <h2>My Regulars</h2>
+        <p>The same mama, every week.</p>
+      </a>
+    </div>
+
+    <a class="tile tile-over" href="search.html?care_type=weekend-getaway">
+      <h2>Overnights</h2>
+      <p>From one night to a whole stretch — mamas who host.</p>
+      <span class="chips">
+        <span class="chip" data-ct="night-shift">Night Shift</span>
+        <span class="chip" data-ct="weekend-getaway">Weekend Getaway</span>
+        <span class="chip" data-ct="extended-trip">Extended Trip</span>
+      </span>
+    </a>
+
+    <a class="tile tile-daycare" href="search.html">
+      <div>
+        <h2>Find a Daycare</h2>
+        <p>Momni doesn't vet or endorse — here's what's licensed near you.</p>
+      </div>
+      <span class="arrow">›</span>
+    </a>
+
+    <h2 class="section-title">Your Momnis</h2>
+    <div class="rebook">
+      <div class="momni"><span class="avatar a1">S</span><div class="name">Sarah</div><a class="rebook-btn" href="search.html">Rebook</a></div>
+      <div class="momni"><span class="avatar a2">J</span><div class="name">Jess</div><a class="rebook-btn" href="search.html">Rebook</a></div>
+      <div class="momni"><span class="avatar a3">K</span><div class="name">Kristy</div><a class="rebook-btn" href="search.html">Rebook</a></div>
+    </div>
+
+    <h2 class="section-title">Your Circle this week</h2>
+    <a class="circle-card" href="circles.html">
+      <div>
+        <h3>Orem Moms Circle</h3>
+        <p>Tuesday playgroup · 10am · Orem Park</p>
+      </div>
+      <span class="script">See you there!</span>
+    </a>
+  </main>
+
+  <nav class="tabbar">
+    <a class="tab active" href="home.html"><span class="ico">🏠</span>Home</a>
+    <a class="tab" href="search.html"><span class="ico">🔍</span>Search</a>
+    <a class="tab" href="circles.html"><span class="ico">💜</span>Circles</a>
+    <a class="tab" href="links.html"><span class="ico">🔗</span>Links</a>
+    <a class="tab" href="me.html"><span class="ico">👤</span>Me</a>
+  </nav>
+</div>
+<script>
+(function(){
+  fetch('/api/me').then(function(r){
+    if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
+    return r.json();
+  }).then(function(me){
+    var first = (me.name || '').split(' ')[0];
+    document.getElementById('hello').textContent = 'Hi, ' + first + '!';
+  }).catch(function(){});
+
+  // chips inside the overnight tile route to their own care type
+  document.querySelectorAll('.chip[data-ct]').forEach(function(chip){
+    chip.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      location = 'search.html?care_type=' + this.dataset.ct;
+    });
+  });
+
+  fetch('/api/hosts?available_now=1').then(function(r){ return r.json(); }).then(function(hosts){
+    var n = hosts.length;
+    document.getElementById('live-count').textContent =
+      n + ' Momni' + (n === 1 ? '' : 's') + ' available near you right now';
+  }).catch(function(){
+    document.getElementById('live-count').textContent = 'Momnis near you right now';
+  });
+})();
+</script>
+</body>
+</html>
