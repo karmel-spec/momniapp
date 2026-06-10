@@ -64,6 +64,60 @@ app.post('/api/login', (req, res) => {
 
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
 
+// ---------- Google sign-in (OAuth 2.0 authorization-code flow) ----------
+// Configure at console.cloud.google.com → Credentials → OAuth client ID (Web).
+// Authorized redirect URI: {APP_URL}/auth/google/callback
+const GOOGLE_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+app.get('/auth/google', (req, res) => {
+  if (!GOOGLE_ID) return res.redirect('/index.html?google=unconfigured');
+  const params = new URLSearchParams({
+    client_id: GOOGLE_ID,
+    redirect_uri: `${process.env.APP_URL || 'http://localhost:3000'}/auth/google/callback`,
+    response_type: 'code',
+    scope: 'openid email profile',
+    prompt: 'select_account',
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+  try {
+    if (!req.query.code) return res.redirect('/index.html?google=denied');
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code: req.query.code,
+        client_id: GOOGLE_ID,
+        client_secret: GOOGLE_SECRET,
+        redirect_uri: `${process.env.APP_URL || 'http://localhost:3000'}/auth/google/callback`,
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokens = await tokenRes.json();
+    const infoRes = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    const info = await infoRes.json();
+    if (!info.email || !info.email_verified) return res.redirect('/index.html?google=denied');
+    const email = info.email.toLowerCase();
+    let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    if (!user) {
+      const placeholder = bcrypt.hashSync(require('crypto').randomBytes(24).toString('hex'), 10);
+      const ins = db.prepare('INSERT INTO users (email,password_hash,name) VALUES (?,?,?)')
+        .run(email, placeholder, info.given_name ? `${info.given_name} ${(info.family_name || '').charAt(0)}.`.trim() : email.split('@')[0]);
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(ins.lastInsertRowid);
+    }
+    req.session.userId = user.id;
+    res.redirect('/home.html');
+  } catch (e) {
+    console.error('google auth error', e);
+    res.redirect('/index.html?google=error');
+  }
+});
+
 // ---------- me ----------
 app.get('/api/me', requireAuth, (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
