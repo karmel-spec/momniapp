@@ -110,6 +110,18 @@ const TEMPLATES = {
       v.subject || 'News from the Circle'),
   }),
 
+  // Password reset — single-use link, 1-hour expiry.
+  password_reset: (v) => ({
+    subject: 'Reset your Momni password',
+    html: layout(
+      h1('Choose a new password') +
+      p(`Hi ${esc(v.name || 'mama')} — tap below to set a new password for your Momni account. The link works once and expires in an hour.`) +
+      `<p style="margin:20px 0">${btn(v.resetHref, 'Choose a new password')}</p>` +
+      p('If you didn’t ask for this, just ignore this email — your password is unchanged.') +
+      script('— Momni'),
+      'Reset your Momni password'),
+  }),
+
   // Circle Leader reminder to her members about a gathering.
   circle_reminder: (v) => ({
     subject: v.subject || `Reminder: ${v.circle || 'your Circle'} is getting together`,

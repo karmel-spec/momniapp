@@ -271,6 +271,15 @@ CREATE TABLE IF NOT EXISTS campfire_comments (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Password reset tokens: stored hashed, single-use, 1-hour lifetime
+CREATE TABLE IF NOT EXISTS password_resets (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  expires_at INTEGER NOT NULL,            -- epoch ms
+  used INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 -- Badges a member has earned or purchased; auto-badges are computed live, these are the awarded/bought ones
 CREATE TABLE IF NOT EXISTS user_badges (
   user_id INTEGER NOT NULL REFERENCES users(id),

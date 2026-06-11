@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reset your password — Momni</title>
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--purple:#6D58A4;--purple-deep:#4A3880;--teal:#0D878F;--algae:#92E2C1;--lavender:#F5F0FE;--ink:#2B2233;--muted:#6B6477}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:linear-gradient(180deg,var(--lavender),#fff);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#fff;border:1.5px solid #E5E0F0;border-radius:24px;padding:38px 32px;max-width:420px;width:100%;box-shadow:0 18px 48px rgba(43,34,51,.10);text-align:center}
+.card img{height:44px;margin-bottom:16px}
+.script{font-family:'Caveat',cursive;color:var(--teal);font-size:21px;display:block;margin-bottom:4px}
+h1{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;margin-bottom:8px}
+.sub{font-size:14.5px;color:var(--muted);margin-bottom:18px;line-height:1.55}
+label{display:block;text-align:left;font-size:12.5px;font-weight:700;margin:0 0 4px 2px}
+input{width:100%;border:1.5px solid #E5E0F0;border-radius:12px;padding:13px 15px;font:inherit;font-size:15px;margin-bottom:12px}
+input:focus{outline:none;border-color:var(--purple)}
+button{width:100%;background:var(--algae);color:#0B4A36;border:none;border-radius:100px;padding:13px;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.6;cursor:default}
+.err{color:#B4434E;font-size:13.5px;margin-top:10px;min-height:18px;display:none}
+.ok{color:var(--teal);font-size:14px;font-weight:600;margin-top:12px;display:none}
+.note{font-size:12.5px;color:var(--muted);margin-top:16px}
+.note a{color:var(--teal);font-weight:600;text-decoration:none}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <img src="/assets/momni-logo-color-horizontal.png" alt="Momni">
+
+  <!-- mode 1: request a link -->
+  <div id="request">
+    <span class="script">It happens to every mama</span>
+    <h1>Forgot your password?</h1>
+    <p class="sub">Tell us your email and we'll send a link to choose a new one.</p>
+    <form id="req-form" novalidate>
+      <label for="email">Email</label>
+      <input type="email" id="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com">
+      <button type="submit" id="req-btn">Email me a reset link</button>
+    </form>
+    <p class="ok" id="req-ok"></p>
+    <p class="err" id="req-err"></p>
+    <p class="note"><a href="/index.html">← Back to sign in</a></p>
+  </div>
+
+  <!-- mode 2: set a new password (arrived via emailed token) -->
+  <div id="set" class="hidden">
+    <span class="script">Welcome back, mama</span>
+    <h1>Choose a new password</h1>
+    <p class="sub">Make it at least 8 characters — then you'll sign in fresh on all your devices.</p>
+    <form id="set-form" novalidate>
+      <label for="pw1">New password</label>
+      <input type="password" id="pw1" autocomplete="new-password" placeholder="At least 8 characters">
+      <label for="pw2">Type it again</label>
+      <input type="password" id="pw2" autocomplete="new-password" placeholder="Same one, one more time">
+      <button type="submit" id="set-btn">Set my new password</button>
+    </form>
+    <p class="err" id="set-err"></p>
+    <p class="note"><a href="/index.html">← Back to sign in</a></p>
+  </div>
+
+  <!-- success -->
+  <div id="done" class="hidden">
+    <span class="script">All set 💜</span>
+    <h1>Password updated</h1>
+    <p class="sub">You're signed out everywhere for a fresh start. Sign in with your new password.</p>
+    <a href="/index.html" style="display:inline-block;background:var(--algae);color:#0B4A36;font-weight:700;border-radius:100px;padding:13px 30px;text-decoration:none">Sign in</a>
+  </div>
+</div>
+
+<script>
+(function () {
+  var token = new URLSearchParams(location.search).get('token') || '';
+  if (token) { document.getElementById('request').classList.add('hidden'); document.getElementById('set').classList.remove('hidden'); }
+
+  function show(id, msg) { var el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
+  function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+  document.getElementById('req-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('req-btn'); if (btn.disabled) return;
+    hide('req-err'); hide('req-ok'); btn.disabled = true;
+    fetch('/api/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: document.getElementById('email').value }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.disabled = false;
+        show('req-ok', d.note || 'If that email is in the Circle, a reset link is on its way.');
+      })
+      .catch(function () { btn.disabled = false; show('req-err', 'Couldn’t reach the Circle — check your connection and try again.'); });
+  });
+
+  document.getElementById('set-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('set-btn'); if (btn.disabled) return;
+    hide('set-err');
+    var p1 = document.getElementById('pw1').value, p2 = document.getElementById('pw2').value;
+    if (p1.length < 8) return show('set-err', 'Password needs at least 8 characters.');
+    if (p1 !== p2) return show('set-err', 'Those two don’t match — try again.');
+    btn.disabled = true;
+    fetch('/api/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, password: p1 }) })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (x) {
+        btn.disabled = false;
+        if (!x.ok) return show('set-err', x.d.error || 'That didn’t work — request a fresh link.');
+        document.getElementById('set').classList.add('hidden');
+        document.getElementById('done').classList.remove('hidden');
+      })
+      .catch(function () { btn.disabled = false; show('set-err', 'Couldn’t reach the Circle — try again.'); });
+  });
+})();
+</script>
+</body>
+</html>

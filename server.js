@@ -183,6 +183,39 @@ app.post('/api/login', authLimiter, (req, res) => {
 
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
 
+// ---------- forgot / reset password ----------
+// Always answers the same whether or not the email exists (no account enumeration).
+app.post('/api/forgot-password', authLimiter, (req, res) => {
+  const email = String(req.body.email || '').toLowerCase().trim();
+  const generic = { ok: true, note: 'If that email is in the Circle, a reset link is on its way.' };
+  if (!email) return res.json(generic);
+  const u = db.prepare('SELECT id, name, email FROM users WHERE email = ?').get(email);
+  if (!u) return res.json(generic);
+  const c = require('crypto');
+  const token = c.randomBytes(32).toString('hex');
+  db.prepare('DELETE FROM password_resets WHERE user_id = ?').run(u.id); // one live link per mama
+  db.prepare('INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (?,?,?)')
+    .run(c.createHash('sha256').update(token).digest('hex'), u.id, Date.now() + 60 * 60 * 1000);
+  mailer.send({ to: u.email, to_user_id: u.id, template: 'password_reset',
+    vars: { name: u.name, resetHref: `${process.env.APP_URL || 'http://localhost:3000'}/reset.html?token=${token}` } });
+  res.json(generic);
+});
+
+app.post('/api/reset-password', authLimiter, (req, res) => {
+  const { token, password } = req.body;
+  if (!password || String(password).length < 8) return res.status(400).json({ error: 'Password needs at least 8 characters.' });
+  const hash = require('crypto').createHash('sha256').update(String(token || '')).digest('hex');
+  const row = db.prepare('SELECT * FROM password_resets WHERE token_hash = ?').get(hash);
+  if (!row || row.used || row.expires_at < Date.now()) {
+    return res.status(400).json({ error: 'That reset link is expired or already used — request a fresh one.' });
+  }
+  db.prepare('UPDATE password_resets SET used = 1 WHERE token_hash = ?').run(hash);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(String(password), 10), row.user_id);
+  // Sign her out everywhere — a reset should close any session an intruder might hold.
+  try { db.prepare('DELETE FROM sessions WHERE sess LIKE ?').run('%"userId":' + row.user_id + '%'); } catch (e) { /* store may be absent in tests */ }
+  res.json({ ok: true });
+});
+
 // ---------- Google sign-in (OAuth 2.0 authorization-code flow) ----------
 // Configure at console.cloud.google.com → Credentials → OAuth client ID (Web).
 // Authorized redirect URI: {APP_URL}/auth/google/callback
@@ -1042,6 +1075,7 @@ const oauthSweep = () => {
   try {
     db.prepare('DELETE FROM oauth_codes WHERE expires_at <= ? OR used = 1').run(Date.now() - 60 * 1000);
     db.prepare('DELETE FROM oauth_tokens WHERE expires_at <= ?').run(Date.now());
+    db.prepare('DELETE FROM password_resets WHERE expires_at <= ? OR used = 1').run(Date.now());
   } catch (e) { /* ignore */ }
 };
 oauthSweep();
