@@ -296,6 +296,16 @@ export default function MeScreen() {
       {/* Settings */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Settings</Text>
+        <Pressable
+          onPress={() =>
+            Linking.openURL(
+              'mailto:developer@momni.com?subject=Beta%20feedback%20—%20Momni&body=What%20I%20was%20doing%3A%0A%0AWhat%20I%20loved%3A%0A%0AWhat%20bugged%20me%3A%0A%0AWhat%20I%27d%20change%3A%0A%0A(page%3A%20app%20—%20Me%20tab)'
+            )
+          }
+          style={styles.settingRow}
+        >
+          <Text style={styles.settingLink}>💬 Beta feedback — help us refine the Circle</Text>
+        </Pressable>
         <Pressable onPress={() => Linking.openURL('mailto:support@momni.com')} style={styles.settingRow}>
           <Text style={styles.settingLink}>Contact us — support@momni.com</Text>
         </Pressable>

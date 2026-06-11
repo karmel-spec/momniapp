@@ -158,5 +158,22 @@ main{padding:6px 20px 24px}
   });
 })();
 </script>
+
+<!-- momni-beta-feedback -->
+<div id="momni-beta-feedback">
+  <style>
+    #momni-beta-feedback{position:fixed;top:84px;right:16px;z-index:60;font-family:'Albert Sans',sans-serif;}
+    #momni-beta-feedback .mbf-btn{display:inline-block;background:#92E2C1;color:#0B4A36;border:none;border-radius:100px;padding:8px 16px;font-family:'Albert Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(43,34,51,.12);}
+    #momni-beta-feedback .mbf-tip{display:none;position:absolute;top:calc(100% + 8px);right:0;max-width:260px;width:max-content;background:#fff;border:1.5px solid #E5E0F0;border-radius:14px;padding:12px 14px;font-size:13px;color:#2B2233;line-height:1.45;box-shadow:0 6px 18px rgba(43,34,51,.10);}
+    #momni-beta-feedback:hover .mbf-tip,#momni-beta-feedback .mbf-btn:focus + .mbf-tip{display:block;}
+  </style>
+  <button type="button" class="mbf-btn" aria-describedby="mbf-tip">💬 Beta feedback</button>
+  <div class="mbf-tip" id="mbf-tip" role="tooltip">This is our beta, mama — tell us what you love, what bugs you, and what you'd change. The Circle is being refined by YOU before the official launch. 💜</div>
+  <script>
+    document.querySelector('#momni-beta-feedback .mbf-btn').addEventListener('click',function(){
+      window.location.href='mailto:developer@momni.com?subject=Beta%20feedback%20—%20Momni&body=What%20I%20was%20doing%3A%0A%0AWhat%20I%20loved%3A%0A%0AWhat%20bugged%20me%3A%0A%0AWhat%20I%27d%20change%3A%0A%0A(page%3A%20'+encodeURIComponent(location.href)+')';
+    });
+  </script>
+</div>
 </body>
 </html>
