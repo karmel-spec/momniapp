@@ -37,6 +37,10 @@ input:focus{outline:none;border-color:var(--purple)}
 .hint{background:var(--teal-soft);border-radius:14px;padding:12px 16px;font-size:13px;color:var(--teal-deep);margin-top:18px;text-align:center}
 .signup-only{display:none}
 button.btn{border:none;cursor:pointer;font-family:inherit}
+button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
+.clickwrap{background:var(--lavender);border:2px solid var(--purple);border-radius:16px;padding:16px 18px;display:flex;gap:12px;align-items:flex-start;margin:18px 0 0}
+.clickwrap input{width:18px;height:18px;margin-top:3px;padding:0;border:none;background:none;accent-color:var(--purple);flex-shrink:0}
+.clickwrap p{font-size:13.5px;line-height:1.6;color:var(--ink);font-weight:400}
 </style>
 </head>
 <body>
@@ -57,6 +61,12 @@ button.btn{border:none;cursor:pointer;font-family:inherit}
       <div class="signup-only">
         <label for="city">City</label>
         <input id="city" type="text" placeholder="Orem, UT" autocomplete="address-level2">
+      </div>
+      <div class="signup-only">
+        <label class="clickwrap">
+          <input type="checkbox" id="signup-ack">
+          <p id="signup-ack-text">Loading the acknowledgment…</p>
+        </label>
       </div>
       <div class="err" id="auth-err"></div>
       <button class="btn" id="submit-btn" type="submit">Continue</button>
@@ -84,8 +94,25 @@ button.btn{border:none;cursor:pointer;font-family:inherit}
   var signup = false;
   var form = document.getElementById('auth-form');
   var errBox = document.getElementById('auth-err');
+  var ackBox = document.getElementById('signup-ack');
+  var ackLoaded = false;
   function showErr(msg){ errBox.textContent = msg; errBox.style.display = 'block'; }
   function hideErr(){ errBox.style.display = 'none'; }
+  function loadAck(){
+    if (ackLoaded) return;
+    ackLoaded = true;
+    fetch('/api/acknowledgment').then(function(r){ return r.json(); }).then(function(d){
+      document.getElementById('signup-ack-text').textContent = d.text;
+    }).catch(function(){
+      ackLoaded = false;
+      document.getElementById('signup-ack-text').textContent =
+        'The acknowledgment couldn’t load — refresh before joining, mama.';
+    });
+  }
+  function syncSubmit(){
+    document.getElementById('submit-btn').disabled = signup && !ackBox.checked;
+  }
+  ackBox.addEventListener('change', syncSubmit);
 
   document.getElementById('mode-toggle').addEventListener('click', function(e){
     e.preventDefault();
@@ -98,6 +125,8 @@ button.btn{border:none;cursor:pointer;font-family:inherit}
     document.getElementById('join-line').firstChild.textContent = signup ? 'Already with us? ' : 'New here? ';
     this.textContent = signup ? 'Sign in' : 'Join the Circle';
     document.getElementById('password').autocomplete = signup ? 'new-password' : 'current-password';
+    if (signup) loadAck();
+    syncSubmit();
   });
 
   form.addEventListener('submit', function(e){
@@ -110,6 +139,7 @@ button.btn{border:none;cursor:pointer;font-family:inherit}
     if (signup) {
       body.name = document.getElementById('name').value.trim();
       body.city = document.getElementById('city').value.trim();
+      body.acknowledged = ackBox.checked;
     }
     fetch(signup ? '/api/register' : '/api/login', {
       method: 'POST',

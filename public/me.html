@@ -31,6 +31,19 @@ main{padding:6px 20px 24px}
 .stars span{color:var(--muted);font-weight:500;font-size:14px}
 .pill{display:inline-block;margin-top:12px;font-size:13px;font-weight:600;color:var(--teal-deep);background:var(--teal-soft);border-radius:100px;padding:7px 14px}
 .fine{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.field input,.field textarea{width:100%;border:1.5px solid #E5DEF4;border-radius:12px;padding:11px 13px;font-family:inherit;font-size:15px;color:var(--ink);background:#fff}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--purple)}
+.field textarea{resize:vertical;min-height:74px}
+.save-btn{display:inline-block;background:var(--algae);color:#0B4A36;border:none;border-radius:100px;padding:10px 22px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.save-btn:disabled{opacity:.6;cursor:default}
+.avail{display:grid;grid-template-columns:34px repeat(4,1fr);gap:5px}
+.avail .hdr{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;text-align:center;align-self:end;padding-bottom:2px}
+.avail .day{font-size:12px;font-weight:700;color:var(--muted);align-self:center}
+.avail .chip{border:1.5px solid #E5DEF4;border-radius:10px;background:#fff;height:30px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit}
+.avail .chip.on{background:var(--purple);border-color:var(--purple);color:#fff}
+.avail .chip.on::after{content:"✓"}
 .links-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .links-row .num{font-family:'Montserrat',sans-serif;font-size:26px;font-weight:800;color:var(--teal)}
 .links-row .lbl{font-size:14px;color:var(--ink)}
@@ -69,6 +82,25 @@ main{padding:6px 20px 24px}
       <div class="avatar" id="avatar"></div>
       <h1 id="me-name"></h1>
       <span class="badge" id="me-city"></span>
+      <p class="fine" id="completeness"></p>
+    </div>
+
+    <div class="card">
+      <h2>About you</h2>
+      <div class="field">
+        <label for="bio-input">Your story</label>
+        <textarea id="bio-input" rows="3" placeholder="Tell the Circle a little about you and your family…"></textarea>
+      </div>
+      <div class="field">
+        <label for="kids-input">Your littles</label>
+        <input id="kids-input" type="text" placeholder="18mo &amp; 4yr">
+      </div>
+      <div class="field">
+        <label for="hood-input">Your neighborhood</label>
+        <input id="hood-input" type="text" placeholder="Edgemont, Provo">
+      </div>
+      <button class="save-btn" id="about-save" type="button">Save</button>
+      <p class="fine" id="about-msg" style="display:none;color:var(--teal-deep)"></p>
     </div>
 
     <div class="card gives">
@@ -82,6 +114,24 @@ main{padding:6px 20px 24px}
     <div class="card" id="host-card" style="display:none">
       <h2>Care I offer</h2>
       <div id="care-types" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+      <div class="field">
+        <label for="hourly-note">Your rate — paid directly to you, every penny</label>
+        <input id="hourly-note" type="text" placeholder="$12/hr — paid directly to me">
+      </div>
+      <div class="field">
+        <label for="home-highlights">Your home</label>
+        <input id="home-highlights" type="text" placeholder="Big backyard, fenced, no pets">
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:8px">When you're usually open</label>
+        <div class="avail" id="avail-grid"></div>
+      </div>
+      <div style="border-top:1px solid var(--line);padding-top:12px;margin-bottom:14px">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:3px">Put your pin on the map <span id="pin-state" style="color:var(--teal-deep);font-size:13px;font-weight:600"></span></h3>
+        <p class="fine" style="margin-top:2px">Your pin shows at neighborhood level — never your exact address.</p>
+        <button class="save-btn" id="pin-btn" type="button" style="margin-top:10px">Use my location</button>
+        <p class="fine" id="pin-msg" style="display:none;color:var(--teal-deep)"></p>
+      </div>
       <div class="gives" style="border-top:1px solid var(--line);padding-top:12px">
         <div class="txt"><h3>Available now</h3><p>Show up with a live teal pin for Right Now care.</p></div>
         <label class="toggle"><input type="checkbox" id="now-toggle"><span class="slider"></span></label>
@@ -93,7 +143,7 @@ main{padding:6px 20px 24px}
       <div class="stars" id="me-stars" style="display:none"></div>
       <div id="shared-items"></div>
       <a class="pill" href="#" id="add-bgc" style="cursor:pointer">+ Add a background check I purchased</a>
-      <p class="fine">These are your own shared items — reviews from other mamas and content you chose to purchase and display. They come from members, not from Momni.</p>
+      <p class="fine">These are your own shared items — reviews from other mamas and content you chose to purchase and display. The reviews are written by members and reflect their opinions, not Momni's — Momni simply invites both mamas to review each other after every visit.</p>
       <p class="fine" id="shares-msg" style="display:none;color:var(--teal-deep)"></p>
     </div>
 
@@ -171,6 +221,7 @@ main{padding:6px 20px 24px}
           .forEach(function(c){ arr.push(c.value); });
         me.care_types = arr;
         put({ care_types: arr });
+        updateCompleteness();
       });
     });
   }
@@ -178,6 +229,66 @@ main{padding:6px 20px 24px}
   function renderSharedItems(){
     document.getElementById('shared-items').innerHTML =
       (me.shared_items || []).map(function(it){ return '<span class="pill" style="margin-right:6px">'+esc(it.label)+'</span>'; }).join('') || '';
+  }
+
+  var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var BLOCKS = [['am','Morning'],['pm','Afternoon'],['eve','Evening'],['overnight','Overnight']];
+
+  function buildAvailGrid(){
+    var html = '<span></span>' + BLOCKS.map(function(b){ return '<span class="hdr">'+b[1]+'</span>'; }).join('');
+    DAYS.forEach(function(day){
+      html += '<span class="day">'+day+'</span>' + BLOCKS.map(function(b){
+        return '<button type="button" class="chip" data-day="'+day+'" data-block="'+b[0]+'" aria-pressed="false" aria-label="'+day+' '+b[1]+'"></button>';
+      }).join('');
+    });
+    document.getElementById('avail-grid').innerHTML = html;
+    document.getElementById('avail-grid').querySelectorAll('.chip').forEach(function(ch){
+      ch.addEventListener('click', function(){
+        this.classList.toggle('on');
+        this.setAttribute('aria-pressed', this.classList.contains('on') ? 'true' : 'false');
+        var avail = {};
+        document.getElementById('avail-grid').querySelectorAll('.chip.on').forEach(function(c){
+          (avail[c.dataset.day] = avail[c.dataset.day] || []).push(c.dataset.block);
+        });
+        me.availability = avail;
+        put({ availability: avail });
+        updateCompleteness();
+      });
+    });
+  }
+
+  function renderAvail(){
+    document.getElementById('avail-grid').querySelectorAll('.chip').forEach(function(ch){
+      var on = ((me.availability || {})[ch.dataset.day] || []).indexOf(ch.dataset.block) !== -1;
+      ch.classList.toggle('on', on);
+      ch.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
+  function pinIsLive(){ return me.lat != null && me.lng != null; }
+
+  function renderPin(){
+    document.getElementById('pin-state').textContent = pinIsLive() ? 'Your pin is live 📍' : '';
+    document.getElementById('pin-btn').textContent = pinIsLive() ? 'Update my location' : 'Use my location';
+  }
+
+  function hasAvailability(){
+    var a = me.availability || {};
+    return Object.keys(a).some(function(d){ return (a[d] || []).length > 0; });
+  }
+
+  function updateCompleteness(){
+    var parts = [me.name, me.city, me.bio, me.kids_note];
+    if (me.is_host) {
+      parts.push((me.care_types || []).length ? 'x' : '');
+      parts.push(me.hourly_note);
+      parts.push(hasAvailability() ? 'x' : '');
+      parts.push(pinIsLive() ? 'x' : '');
+    }
+    var filled = parts.filter(function(v){ return v && String(v).trim(); }).length;
+    var pct = Math.round(filled / parts.length * 100);
+    document.getElementById('completeness').textContent =
+      pct >= 100 ? 'Your Circle profile: 100% there 💜' : 'Your Circle profile: ' + pct + '% there';
   }
 
   function render(){
@@ -202,19 +313,91 @@ main{padding:6px 20px 24px}
     } else {
       document.getElementById('links-num').textContent = me.links_balance;
     }
+    document.getElementById('bio-input').value = me.bio || '';
+    document.getElementById('kids-input').value = me.kids_note || '';
+    document.getElementById('hood-input').value = me.neighborhood || '';
+    document.getElementById('hourly-note').value = me.hourly_note || '';
+    document.getElementById('home-highlights').value = me.home_highlights || '';
     renderCareTypes();
     renderSharedItems();
+    renderAvail();
+    renderPin();
+    updateCompleteness();
   }
+
+  buildAvailGrid();
 
   fetch('/api/me').then(function(r){
     if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
     return r.json();
   }).then(function(d){ me = d; render(); }).catch(function(){});
 
+  document.getElementById('about-save').addEventListener('click', function(){
+    var bio = document.getElementById('bio-input').value.trim();
+    var kids = document.getElementById('kids-input').value.trim();
+    var hood = document.getElementById('hood-input').value.trim();
+    put({ bio: bio, kids_note: kids, neighborhood: hood }).then(function(r){
+      return r.json();
+    }).then(function(d){
+      var msg = document.getElementById('about-msg');
+      msg.style.display = 'block';
+      if (d && d.ok) {
+        me.bio = bio; me.kids_note = kids; me.neighborhood = hood;
+        msg.textContent = 'Saved — your Circle can get to know you now. 💜';
+        updateCompleteness();
+      } else {
+        msg.textContent = (d && d.error) || 'That didn’t save — try again, mama.';
+      }
+    });
+  });
+
+  document.getElementById('hourly-note').addEventListener('change', function(){
+    me.hourly_note = this.value.trim();
+    put({ hourly_note: me.hourly_note });
+    updateCompleteness();
+  });
+  document.getElementById('home-highlights').addEventListener('change', function(){
+    me.home_highlights = this.value.trim();
+    put({ home_highlights: me.home_highlights });
+  });
+
+  document.getElementById('pin-btn').addEventListener('click', function(){
+    var btn = this, msg = document.getElementById('pin-msg');
+    if (!navigator.geolocation) {
+      msg.style.display = 'block';
+      msg.textContent = 'This browser can’t share location — no worries, mama. Try again from your phone anytime.';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Finding you…';
+    navigator.geolocation.getCurrentPosition(function(pos){
+      put({ lat: pos.coords.latitude, lng: pos.coords.longitude }).then(function(r){
+        return r.json();
+      }).then(function(d){
+        btn.disabled = false;
+        msg.style.display = 'block';
+        if (d && d.ok) {
+          me.lat = pos.coords.latitude; me.lng = pos.coords.longitude;
+          msg.textContent = 'Your pin is on the map — neighborhood level only. 💜';
+          updateCompleteness();
+        } else {
+          msg.textContent = (d && d.error) || 'That didn’t go through — try again.';
+        }
+        renderPin();
+      });
+    }, function(){
+      btn.disabled = false;
+      renderPin();
+      msg.style.display = 'block';
+      msg.textContent = 'No location this time — totally okay. Allow location in your browser settings and tap again whenever you’re ready.';
+    }, { timeout: 10000 });
+  });
+
   document.getElementById('host-toggle').addEventListener('change', function(){
     me.is_host = this.checked;
     document.getElementById('host-card').style.display = this.checked ? 'block' : 'none';
     put({ is_host: this.checked });
+    updateCompleteness();
   });
   document.getElementById('now-toggle').addEventListener('change', function(){
     put({ available_now: this.checked });

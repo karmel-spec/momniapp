@@ -31,7 +31,8 @@ a{text-decoration:none;color:inherit}
 
 h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--teal);margin:18px 0 10px}
 
-.lcard{border:1.5px solid #EEE9F9;border-radius:16px;padding:14px 16px;margin-bottom:10px;display:flex;gap:12px;align-items:center}
+.lcard{border:1.5px solid #EEE9F9;border-radius:16px;padding:14px 16px;margin-bottom:10px}
+.lhead{display:flex;gap:12px;align-items:center;cursor:pointer}
 .avatar{width:44px;height:44px;border-radius:50%;background:var(--teal-soft);color:var(--teal-deep);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:700;font-size:15px;flex-shrink:0}
 .lcard .info{flex:1}
 .lcard h3{font-size:15px;font-weight:700}
@@ -40,14 +41,39 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
 .badge.confirmed,.badge.completed{background:var(--teal-soft);color:var(--teal-deep)}
 .badge.active,.badge.requested{background:var(--lavender);color:var(--purple-deep)}
 .badge.declined,.badge.cancelled{background:#F4EFEA;color:#8A6F4D}
+.badge.scheduled{background:var(--lavender);color:var(--purple-deep)}
+.badge.checked_in{background:var(--algae);color:#0B4A36}
 .actbtn{border:none;cursor:pointer;font-family:inherit;background:var(--teal);color:#fff;border-radius:100px;padding:7px 16px;font-size:12.5px;font-weight:600}
 .actbtn.ghost{background:#fff;border:1.5px solid var(--muted);color:var(--muted)}
 .rev-form{margin-top:10px;border-top:1px solid #EEE9F9;padding-top:10px;width:100%}
 .rev-form select,.rev-form textarea{width:100%;border:1.5px solid #E5DEF4;border-radius:10px;padding:8px;font-family:inherit;font-size:13px;margin-bottom:8px}
 .inline-msg{font-size:12.5px;color:var(--teal-deep);margin-top:6px}
-.actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
 .rebook{background:var(--teal);color:#fff;border-radius:100px;padding:7px 16px;font-size:12.5px;font-weight:600}
 .review{font-size:12px;font-weight:600;color:var(--purple)}
+.lcard .sum{font-size:12.5px;font-weight:600;color:var(--purple);margin-top:2px}
+
+/* Expanded card: message thread + shared visit timeline */
+.panel{border-top:1px solid #EEE9F9;margin-top:12px;padding-top:12px}
+.panel h4{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:var(--purple-deep);margin-bottom:8px}
+.thread{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;margin-bottom:8px}
+.bubble{max-width:82%;border-radius:14px;padding:8px 12px;font-size:13.5px;overflow-wrap:break-word}
+.bubble.mine{align-self:flex-end;background:#E9E1F9;border-bottom-right-radius:4px}
+.bubble.hers{align-self:flex-start;background:var(--lavender);border-bottom-left-radius:4px}
+.sendrow{display:flex;gap:8px}
+.sendrow input{flex:1;border:1.5px solid #E5DEF4;border-radius:100px;padding:8px 14px;font-family:inherit;font-size:13px}
+.vintro{font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.vsub{font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+.visit{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid #F4F0FB}
+.visit .vwhen{flex:1;font-size:13px;min-width:140px}
+.vbtn{border:none;cursor:pointer;font-family:inherit;background:var(--teal);color:#fff;border-radius:100px;padding:5px 12px;font-size:11.5px;font-weight:600}
+.vbtn.ghost{background:#fff;border:1.5px solid #E5DEF4;color:var(--muted)}
+.paynote{background:var(--lavender);color:var(--purple-deep);border-radius:12px;padding:10px 14px;font-size:13px;margin-top:10px}
+.addvisit{margin-top:12px;background:#FBF9FF;border:1.5px dashed #E5DEF4;border-radius:12px;padding:12px}
+.addvisit .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.addvisit .fld{flex:1;min-width:88px}
+.addvisit label{font-size:11.5px;color:var(--muted);display:block;margin-bottom:2px}
+.addvisit input{width:100%;border:1.5px solid #E5DEF4;border-radius:10px;padding:7px 10px;font-family:inherit;font-size:13px}
 
 /* Explainer */
 .explainer{background:var(--teal-soft);border-radius:16px;padding:16px 18px;margin-top:20px}
@@ -75,7 +101,7 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
       <div class="num" id="balance-num">—</div>
       <div class="lbl" id="balance-lbl">Links remaining</div>
       <a class="buy-btn" href="#" id="buy-bundle">Buy a bundle — 10 for $10</a>
-      <div class="fine">A Link is $1. Always $1. That's the whole price list.</div>
+      <div class="fine">A Link is $1 — one for every booking. Always $1. That's the whole price list.</div>
       <div class="fine" id="balance-msg" style="display:none"></div>
     </div>
 
@@ -83,9 +109,9 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
 
     <div class="explainer">
       <span class="script">What's a Link?</span>
-      <p>A Link is a $1 match between mamas. It's the only thing Momni ever
-      charges for care. Once you're linked, everything else — including
-      payment — is between you and your Momni. She keeps every penny.</p>
+      <p>A Link is a single booking with a Momni — and it's $1, every time you
+      book. Each booking is one Link. That dollar is the only thing Momni ever
+      charges; the care itself you pay your Momni directly, and she keeps every penny.</p>
     </div>
 
     <div class="disclosure">
@@ -110,6 +136,28 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
     });
   }
   var CT_LABELS = {'one-time':'One-time','recurring':'Recurring','overnight':'Overnight'};
+  var VISIT_LABELS = {scheduled:'Scheduled', checked_in:'Checked in', completed:'Completed', cancelled:'Cancelled'};
+  var PAY_NOTE = 'Time to pay your Momni directly — Venmo or cash, her choice. She keeps every penny. 💜';
+  var DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var MON_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  var linksCache = [];
+  var openId = null;       // the one expanded card (one at a time)
+  var pollTimer = null;    // 5s message polling — only while a panel is open
+  var notes = {};          // link id -> note under the visit timeline (e.g. the pay-her copy)
+  var lastMsgCount = {};   // link id -> rendered message count, so polling skips useless re-renders
+
+  function fmtDate(d){
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || ''));
+    if (!m) return String(d || '');
+    var dt = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    return DAY_NAMES[dt.getUTCDay()] + ' ' + MON_NAMES[dt.getUTCMonth()] + ' ' + dt.getUTCDate();
+  }
+
+  function findLink(id){
+    for (var i = 0; i < linksCache.length; i++) if (linksCache[i].id === id) return linksCache[i];
+    return null;
+  }
 
   function loadBalance(){
     fetch('/api/me').then(function(r){
@@ -142,6 +190,67 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
     });
   });
 
+  function summaryLine(l){
+    var parts = [];
+    var nv = l.next_visit;
+    if (nv) {
+      var t = 'Next: ' + fmtDate(nv.date);
+      if (nv.start_time) t += ' · ' + nv.start_time + (nv.end_time ? '–' + nv.end_time : '');
+      parts.push(t);
+    } else if (l.visits_total > 0) {
+      parts.push(l.visits_completed + ' of ' + l.visits_total + (l.visits_total === 1 ? ' visit' : ' visits') + ' done');
+    }
+    if (l.message_count > 0) parts.push('💬 ' + l.message_count);
+    return parts.join(' · ');
+  }
+
+  function visitRow(v){
+    var when = esc(fmtDate(v.date)) + (v.end_date ? ' → ' + esc(fmtDate(v.end_date)) : '');
+    var times = '';
+    if (v.start_time && v.end_time) times = esc(v.start_time) + '–' + esc(v.end_time);
+    else if (v.start_time) times = 'drop-off ' + esc(v.start_time);
+    else if (v.end_time) times = 'pick-up ' + esc(v.end_time);
+    var btns = '';
+    if (v.status === 'scheduled') {
+      btns = '<button class="vbtn" data-vact="checkin" data-vid="'+v.id+'">Check in</button>' +
+             '<button class="vbtn" data-vact="checkout" data-vid="'+v.id+'">Check out</button>' +
+             '<button class="vbtn ghost" data-vact="cancel" data-vid="'+v.id+'">Cancel</button>';
+    } else if (v.status === 'checked_in') {
+      btns = '<button class="vbtn" data-vact="checkout" data-vid="'+v.id+'">Check out</button>';
+    }
+    return '<div class="visit"><div class="vwhen">' + when + (times ? ' · ' + times : '') + '</div>' +
+      '<span class="badge ' + esc(v.status) + '">' + esc(VISIT_LABELS[v.status] || v.status) + '</span>' + btns + '</div>';
+  }
+
+  function panelHtml(l){
+    var html = '<div class="panel">' +
+      '<h4>Messages</h4>' +
+      '<div class="thread" data-thread="'+l.id+'"><p style="font-size:13px;color:var(--muted)">Loading the thread…</p></div>' +
+      '<div class="sendrow">' +
+      '<input type="text" maxlength="2000" placeholder="Message her, mama…" data-msginput="'+l.id+'">' +
+      '<button class="actbtn" data-sendmsg="'+l.id+'">Send</button>' +
+      '</div>' +
+      '<div class="inline-msg" data-msgnote="'+l.id+'"></div>' +
+      '<h4 style="margin-top:14px">Visits</h4>' +
+      '<p class="vintro">Your shared visit timeline — drop-offs and pick-ups you both can see.</p>' +
+      '<div data-visitlist="'+l.id+'"><p style="font-size:13px;color:var(--muted)">Loading the timeline…</p></div>' +
+      (notes[l.id] ? '<div class="paynote">' + esc(notes[l.id]) + '</div>' : '') +
+      '<div class="inline-msg" data-vnote="'+l.id+'"></div>';
+    if (l.status === 'confirmed') {
+      html += '<div class="addvisit">' +
+        '<strong style="font-size:13px">Add a visit</strong>' +
+        '<div class="row">' +
+        '<div class="fld"><label>Date</label><input type="date" data-vd="'+l.id+'"></div>' +
+        '<div class="fld"><label>Drop-off</label><input type="time" data-vs="'+l.id+'"></div>' +
+        '<div class="fld"><label>Pick-up</label><input type="time" data-ve="'+l.id+'"></div>' +
+        '</div>' +
+        '<button class="actbtn" data-addvisit="'+l.id+'">Add visit</button>' +
+        '<div class="inline-msg" data-addnote="'+l.id+'"></div>' +
+        '</div>';
+    }
+    return html + '</div>';
+  }
+
   function linkCard(l){
     var who = l.i_am_host ? l.guest_name : l.host_name;
     var initials = esc(who.split(/\s+/).map(function(w){ return w[0]; }).join('').slice(0,2).toUpperCase());
@@ -159,23 +268,256 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
     if (l.status === 'confirmed') {
       actions += '<button class="actbtn" data-act="completed" data-id="'+l.id+'">Mark completed</button>';
     }
-    var review = '';
-    if (l.status === 'completed') {
-      review = '<div class="rev-form" id="rev-'+l.id+'">' +
-        '<a class="review" href="#" data-revtoggle="'+l.id+'">Leave a review</a>' +
-        '<div style="display:none" data-revbody="'+l.id+'">' +
-        '<select data-rating="'+l.id+'"><option value="5">5 — wonderful</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select>' +
-        '<textarea rows="2" data-text="'+l.id+'" placeholder="How did it go, mama?"></textarea>' +
-        '<button class="actbtn" data-sendreview="'+l.id+'">Send review</button>' +
-        '<div class="inline-msg" data-revmsg="'+l.id+'"></div>' +
-        '</div></div>';
+    if (!l.i_am_host && l.status === 'completed') {
+      actions += '<a class="rebook" href="booking.html?host_id='+l.host_id+'">Rebook</a>';
     }
-    return '<div class="lcard" style="flex-wrap:wrap">' +
+    var review = '';
+    if (l.status === 'completed' || l.visits_completed > 0) {
+      var inner = '';
+      if (l.my_review) {
+        inner = '<div class="inline-msg">✓ You reviewed her</div>';
+      } else {
+        inner = '<a class="review" href="#" data-revtoggle="'+l.id+'">Leave a review</a>' +
+          '<div style="display:none" data-revbody="'+l.id+'">' +
+          '<select data-rating="'+l.id+'"><option value="5">5 — wonderful</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select>' +
+          '<textarea rows="2" data-text="'+l.id+'" placeholder="How did it go, mama?"></textarea>' +
+          '<button class="actbtn" data-sendreview="'+l.id+'">Send review</button>' +
+          '<div class="inline-msg" data-revmsg="'+l.id+'"></div>' +
+          '</div>';
+      }
+      if (l.their_review) inner += '<div class="inline-msg">She reviewed you ⭐</div>';
+      review = '<div class="rev-form" id="rev-'+l.id+'">' + inner + '</div>';
+    }
+    return '<div class="lcard">' +
+      '<div class="lhead" data-toggle="'+l.id+'">' +
       '<div class="avatar">'+initials+'</div>' +
-      '<div class="info"><h3>'+esc(who)+'</h3><div class="meta">'+meta+'</div></div>' +
+      '<div class="info"><h3>'+esc(who)+'</h3><div class="meta">'+meta+'</div>' +
+      '<div class="sum" data-sum="'+l.id+'">'+esc(summaryLine(l))+'</div></div>' +
       '<span class="badge '+statusCls+'">'+esc(l.status.charAt(0).toUpperCase()+l.status.slice(1))+'</span>' +
-      (actions ? '<div class="actions" style="flex-direction:row;width:100%;justify-content:flex-end">'+actions+'</div>' : '') +
-      review + '</div>';
+      '</div>' +
+      (actions ? '<div class="actions">'+actions+'</div>' : '') +
+      review +
+      (l.id === openId ? panelHtml(l) : '') +
+      '</div>';
+  }
+
+  function stopPoll(){
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  function startPoll(id){
+    stopPoll();
+    pollTimer = setInterval(function(){
+      if (openId !== id) { stopPoll(); return; }
+      loadMessages(id);
+    }, 5000);
+  }
+
+  function toggle(id){
+    if (openId === id) {
+      openId = null;
+      stopPoll();
+      delete notes[id];
+      delete lastMsgCount[id];
+    } else {
+      if (openId != null) { delete notes[openId]; delete lastMsgCount[openId]; }
+      openId = id;
+    }
+    render();
+  }
+
+  function loadMessages(id){
+    fetch('/api/links/' + id + '/messages').then(function(r){
+      if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
+      return r.json();
+    }).then(function(msgs){
+      var el = document.querySelector('[data-thread="' + id + '"]');
+      if (!el || openId !== id || !Array.isArray(msgs)) return;
+      if (lastMsgCount[id] === msgs.length) return; // nothing new — leave her scroll alone
+      lastMsgCount[id] = msgs.length;
+      if (!msgs.length) {
+        el.innerHTML = '<p style="font-size:13px;color:var(--muted)">No messages yet — say hello, mama.</p>';
+        return;
+      }
+      el.innerHTML = msgs.map(function(m){
+        return '<div class="bubble ' + (m.mine ? 'mine' : 'hers') + '" title="' + esc(m.created_at) + '">' + esc(m.body) + '</div>';
+      }).join('');
+      el.scrollTop = el.scrollHeight;
+    }).catch(function(){});
+  }
+
+  function sendMessage(id){
+    var input = document.querySelector('[data-msginput="' + id + '"]');
+    var note = document.querySelector('[data-msgnote="' + id + '"]');
+    if (!input) return;
+    var body = input.value.trim();
+    if (!body) return;
+    fetch('/api/links/' + id + '/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: body })
+    }).then(function(r){
+      if (r.status === 401) { location = 'index.html'; return; }
+      return r.json();
+    }).then(function(d){
+      if (!d) return;
+      if (!d.ok) { if (note) note.textContent = d.error || 'That didn’t go through — try again.'; return; }
+      input.value = '';
+      if (note) note.textContent = '';
+      var l = findLink(id);
+      if (l) {
+        l.message_count++;
+        var sumEl = document.querySelector('[data-sum="' + id + '"]');
+        if (sumEl) sumEl.textContent = summaryLine(l);
+      }
+      loadMessages(id);
+    }).catch(function(){ if (note) note.textContent = 'Couldn’t reach Momni — try again.'; });
+  }
+
+  function loadVisits(id){
+    fetch('/api/links/' + id + '/visits').then(function(r){
+      if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
+      return r.json();
+    }).then(function(visits){
+      var el = document.querySelector('[data-visitlist="' + id + '"]');
+      if (!el || openId !== id || !Array.isArray(visits)) return;
+      var upcoming = visits.filter(function(v){ return v.status === 'scheduled' || v.status === 'checked_in'; });
+      var past = visits.filter(function(v){ return v.status === 'completed' || v.status === 'cancelled'; });
+      var html = '';
+      if (!visits.length) html = '<p style="font-size:13px;color:var(--muted)">No visits on the timeline yet.</p>';
+      if (upcoming.length) html += '<div class="vsub">Upcoming</div>' + upcoming.map(visitRow).join('');
+      if (past.length) html += '<div class="vsub">Past</div>' + past.map(visitRow).join('');
+      el.innerHTML = html;
+      el.querySelectorAll('[data-vact]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          visitAction(id, this.dataset.vid, this.dataset.vact);
+        });
+      });
+    }).catch(function(){});
+  }
+
+  function visitAction(linkId, visitId, action){
+    fetch('/api/visits/' + visitId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: action })
+    }).then(function(r){
+      if (r.status === 401) { location = 'index.html'; return; }
+      return r.json();
+    }).then(function(d){
+      if (!d) return;
+      if (!d.ok) {
+        var note = document.querySelector('[data-vnote="' + linkId + '"]');
+        if (note) note.textContent = d.error || 'That didn’t go through — try again.';
+        return;
+      }
+      if (action === 'checkout') notes[linkId] = PAY_NOTE;
+      loadLinks(); // refresh badges, summary, timeline — the Link itself may have completed
+    }).catch(function(){});
+  }
+
+  function addVisit(id){
+    var date = (document.querySelector('[data-vd="' + id + '"]') || {}).value || '';
+    var st = (document.querySelector('[data-vs="' + id + '"]') || {}).value || '';
+    var et = (document.querySelector('[data-ve="' + id + '"]') || {}).value || '';
+    var note = document.querySelector('[data-addnote="' + id + '"]');
+    if (!date) { if (note) note.textContent = 'Pick a date first, mama.'; return; }
+    fetch('/api/links/' + id + '/visits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: date, start_time: st || null, end_time: et || null })
+    }).then(function(r){
+      if (r.status === 401) { location = 'index.html'; return; }
+      return r.json();
+    }).then(function(d){
+      if (!d) return;
+      if (!d.ok) { if (note) note.textContent = d.error || 'That didn’t go through — try again.'; return; }
+      loadLinks();
+    }).catch(function(){ if (note) note.textContent = 'Couldn’t reach Momni — try again.'; });
+  }
+
+  function wire(box){
+    box.querySelectorAll('[data-toggle]').forEach(function(head){
+      head.addEventListener('click', function(){ toggle(Number(this.dataset.toggle)); });
+    });
+    box.querySelectorAll('[data-act]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        fetch('/api/links/' + this.dataset.id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: this.dataset.act })
+        }).then(function(r){
+          if (r.status === 401) { location = 'index.html'; return; }
+          loadLinks();
+        });
+      });
+    });
+    box.querySelectorAll('[data-revtoggle]').forEach(function(a){
+      a.addEventListener('click', function(e){
+        e.preventDefault();
+        var body = box.querySelector('[data-revbody="'+this.dataset.revtoggle+'"]');
+        body.style.display = body.style.display === 'none' ? 'block' : 'none';
+      });
+    });
+    box.querySelectorAll('[data-sendreview]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = this.dataset.sendreview;
+        var msg = box.querySelector('[data-revmsg="'+id+'"]');
+        fetch('/api/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            link_id: Number(id),
+            rating: Number(box.querySelector('[data-rating="'+id+'"]').value),
+            body: box.querySelector('[data-text="'+id+'"]').value
+          })
+        }).then(function(r){
+          if (r.status === 401) { location = 'index.html'; return; }
+          return r.json();
+        }).then(function(d){
+          if (!d) return;
+          if (d.ok) { loadLinks(); return; } // re-render flips to "✓ You reviewed her"
+          msg.textContent = d.error || 'That didn’t go through.';
+        });
+      });
+    });
+    box.querySelectorAll('[data-sendmsg]').forEach(function(btn){
+      btn.addEventListener('click', function(){ sendMessage(Number(this.dataset.sendmsg)); });
+    });
+    box.querySelectorAll('[data-msginput]').forEach(function(inp){
+      inp.addEventListener('keydown', function(e){
+        if (e.key === 'Enter') { e.preventDefault(); sendMessage(Number(this.dataset.msginput)); }
+      });
+    });
+    box.querySelectorAll('[data-addvisit]').forEach(function(btn){
+      btn.addEventListener('click', function(){ addVisit(Number(this.dataset.addvisit)); });
+    });
+  }
+
+  function render(){
+    var box = document.getElementById('links-list');
+    if (!linksCache.length) {
+      box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No Links yet — find a mama on the Search tab.</p>';
+      return;
+    }
+    var active = linksCache.filter(function(l){ return l.status === 'requested' || l.status === 'confirmed'; });
+    var past = linksCache.filter(function(l){ return l.status !== 'requested' && l.status !== 'confirmed'; });
+    var html = '';
+    if (active.length) html += '<h2 class="sec">Active Links</h2>' + active.map(linkCard).join('');
+    if (past.length) html += '<h2 class="sec">Past Links</h2>' + past.map(linkCard).join('');
+    box.innerHTML = html;
+    wire(box);
+    if (openId != null) {
+      if (findLink(openId)) {
+        delete lastMsgCount[openId]; // the thread was re-rendered to a fresh shell
+        loadMessages(openId);
+        loadVisits(openId);
+        startPoll(openId);
+      } else {
+        openId = null;
+        stopPoll();
+      }
+    }
   }
 
   function loadLinks(){
@@ -183,58 +525,8 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
       if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
       return r.json();
     }).then(function(links){
-      var box = document.getElementById('links-list');
-      if (!links.length) {
-        box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No Links yet — find a mama on the Search tab.</p>';
-        return;
-      }
-      var active = links.filter(function(l){ return l.status === 'requested' || l.status === 'confirmed'; });
-      var past = links.filter(function(l){ return l.status !== 'requested' && l.status !== 'confirmed'; });
-      var html = '';
-      if (active.length) html += '<h2 class="sec">Active Links</h2>' + active.map(linkCard).join('');
-      if (past.length) html += '<h2 class="sec">Past Links</h2>' + past.map(linkCard).join('');
-      box.innerHTML = html;
-
-      box.querySelectorAll('[data-act]').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          fetch('/api/links/' + this.dataset.id, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: this.dataset.act })
-          }).then(function(r){
-            if (r.status === 401) { location = 'index.html'; return; }
-            loadLinks();
-          });
-        });
-      });
-      box.querySelectorAll('[data-revtoggle]').forEach(function(a){
-        a.addEventListener('click', function(e){
-          e.preventDefault();
-          var body = box.querySelector('[data-revbody="'+this.dataset.revtoggle+'"]');
-          body.style.display = body.style.display === 'none' ? 'block' : 'none';
-        });
-      });
-      box.querySelectorAll('[data-sendreview]').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          var id = this.dataset.sendreview;
-          var msg = box.querySelector('[data-revmsg="'+id+'"]');
-          fetch('/api/reviews', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              link_id: Number(id),
-              rating: Number(box.querySelector('[data-rating="'+id+'"]').value),
-              body: box.querySelector('[data-text="'+id+'"]').value
-            })
-          }).then(function(r){
-            if (r.status === 401) { location = 'index.html'; return; }
-            return r.json();
-          }).then(function(d){
-            if (!d) return;
-            msg.textContent = d.ok ? 'Review sent — thanks, mama.' : (d.error || 'That didn’t go through.');
-          });
-        });
-      });
+      linksCache = links;
+      render();
     }).catch(function(){});
   }
 

@@ -14,11 +14,13 @@ create table public.profiles (
   neighborhood text,
   bio text default '',
   kids_ages int[] default '{}',
+  kids_note text default '',                 -- her littles, in her own words ("18mo & 4yr")
   role text not null default 'find-care' check (role in ('host','find-care','both')),
   hourly_rate_note text default '',          -- she sets it; paid directly to her
   home_highlights text default '',
   care_types text[] default '{}',            -- right-now, date-night, my-regulars, night-shift, weekend-getaway, extended-trip
   available_now boolean default false,
+  availability jsonb default '{}',           -- weekly grid: { "Mon": ["am","pm"], ... } blocks: am | pm | eve | overnight
   -- precise location: PRIVATE (RLS below). public map uses city_lat/lng only.
   precise_lat double precision,
   precise_lng double precision,
@@ -44,8 +46,8 @@ create policy "users insert own profile"
 
 -- Public-facing view: NEVER exposes precise coords or acknowledgment records.
 create view public.profiles_public as
-  select id, name, photo_url, city, neighborhood, bio, kids_ages, role,
-         hourly_rate_note, home_highlights, care_types, available_now,
+  select id, name, photo_url, city, neighborhood, bio, kids_ages, kids_note, role,
+         hourly_rate_note, home_highlights, care_types, available_now, availability,
          city_lat, city_lng, legacy_claimed, created_at
   from public.profiles;
 
@@ -115,7 +117,32 @@ create policy "participants read messages" on public.messages for select using (
 create policy "participants send messages" on public.messages for insert with check (
   sender_id = auth.uid() and
   exists (select 1 from public.connections c where c.id = connection_id and auth.uid() in (c.guest_id, c.host_id)
-          and c.status = 'accepted')
+          and c.status in ('requested','accepted'))   -- 'requested' lets her say hello with her Link, like the web app
+);
+
+-- ===== visits (the shared drop-off/pick-up timeline both mamas can see — coordination, never supervision) =====
+create table public.visits (
+  id uuid primary key default gen_random_uuid(),
+  connection_id uuid not null references public.connections(id) on delete cascade,
+  date date not null,
+  end_date date,                             -- multi-day/overnight only
+  start_time time,                           -- drop-off
+  end_time time,                             -- pick-up
+  status text not null default 'scheduled' check (status in ('scheduled','checked_in','completed','cancelled')),
+  checkin_at timestamptz,
+  checkout_at timestamptz,
+  created_at timestamptz default now()
+);
+alter table public.visits enable row level security;
+create policy "participants see visits" on public.visits for select using (
+  exists (select 1 from public.connections c where c.id = connection_id and auth.uid() in (c.guest_id, c.host_id))
+);
+create policy "participants add visits" on public.visits for insert with check (
+  exists (select 1 from public.connections c where c.id = connection_id and auth.uid() in (c.guest_id, c.host_id)
+          and c.status = 'accepted')                   -- 'accepted' = the web app's 'confirmed'
+);
+create policy "participants update visits" on public.visits for update using (
+  exists (select 1 from public.connections c where c.id = connection_id and auth.uid() in (c.guest_id, c.host_id))
 );
 
 -- ===== circles =====

@@ -38,14 +38,16 @@ a{text-decoration:none;color:inherit}
 /* Inputs */
 .field{margin-bottom:12px}
 .field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
-.field input{width:100%;border:1.5px solid #E5DEF4;border-radius:12px;padding:11px 13px;font-family:inherit;font-size:15px;color:var(--ink)}
-.field input:focus{outline:none;border-color:var(--purple)}
+.field input,.field textarea{width:100%;border:1.5px solid #E5DEF4;border-radius:12px;padding:11px 13px;font-family:inherit;font-size:15px;color:var(--ink)}
+.field textarea{min-height:96px;resize:vertical;line-height:1.5}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--purple)}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 #recurring-days{display:none;margin-top:4px}
 .weekdays{display:flex;gap:6px;flex-wrap:wrap}
 .weekdays label{flex:1;text-align:center;border:1.5px solid #E5DEF4;border-radius:10px;padding:8px 0;font-size:13px;font-weight:600;cursor:pointer;min-width:44px}
 .weekdays input{display:none}
 .weekdays label:has(input:checked){background:var(--purple);border-color:var(--purple);color:#fff}
+.preview{display:none;margin-top:4px;background:var(--teal-soft);border-radius:12px;padding:9px 14px;font-size:13.5px;font-weight:600;color:var(--teal-deep)}
 
 /* Meet her first */
 .meet{background:var(--teal-soft);border-radius:16px;padding:16px 18px}
@@ -118,6 +120,7 @@ a{text-decoration:none;color:inherit}
           <label><input type="checkbox" value="Sun">Sun</label>
         </div>
       </div>
+      <p class="preview" id="schedule-preview" aria-live="polite"></p>
     </div>
 
     <div class="step">
@@ -140,14 +143,22 @@ a{text-decoration:none;color:inherit}
 
     <div class="step">
       <div class="step-label">Step 4</div>
+      <h2><label for="details">Say hello</label></h2>
+      <div class="field">
+        <textarea id="details" rows="4" maxlength="2000" placeholder="Introduce yourself and your littles — what would you want a new friend to know?"></textarea>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-label">Step 5</div>
       <h2>One honest acknowledgment</h2>
       <label class="clickwrap">
         <input type="checkbox" id="ack" onchange="document.getElementById('send').disabled = !this.checked">
         <p id="ack-text">Loading the acknowledgment…</p>
       </label>
       <button class="send-btn" id="send" disabled>Send Link request — $1</button>
-      <p class="send-note">Your $1 Link connects you. Care payments go directly
-      to your Momni — she keeps every penny.</p>
+      <p class="send-note">Every booking is a $1 Link — that's all Momni charges.
+      You pay your Momni her rate directly, and she keeps every penny.</p>
       <div id="msg-box" style="display:none;margin-top:16px;border-radius:16px;padding:16px 18px;font-size:14px;line-height:1.6"></div>
     </div>
 
@@ -216,21 +227,78 @@ function toggleRecurring(){
     return details;
   }
 
+  var DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function parseDateUTC(s){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+    return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;
+  }
+  function fmtDay(d){ return DAY_NAMES[d.getUTCDay()] + ' ' + MONTH_NAMES[d.getUTCMonth()] + ' ' + d.getUTCDate(); }
+  function fmtTime(t){
+    var m = /^(\d{1,2}):(\d{2})/.exec(t || '');
+    if (!m) return '';
+    var h = +m[1];
+    return (h % 12 || 12) + ':' + m[2] + ' ' + (h >= 12 ? 'PM' : 'AM');
+  }
+
+  function updatePreview(){
+    var box = document.getElementById('schedule-preview');
+    var care = document.querySelector('input[name="caretype"]:checked').value;
+    var start = parseDateUTC(document.getElementById('start-date').value);
+    var st = fmtTime(document.getElementById('start-time').value);
+    var et = fmtTime(document.getElementById('end-time').value);
+    var times = (st && et) ? st + '–' + et : '';
+    var text = '';
+    if (start && care === 'one-time') {
+      text = fmtDay(start) + (times ? ', ' + times : '');
+    } else if (start && care === 'overnight') {
+      var end = parseDateUTC(document.getElementById('end-date').value);
+      if (end) text = fmtDay(start) + ' → ' + fmtDay(end);
+    } else if (start && care === 'recurring') {
+      var days = [];
+      document.querySelectorAll('#recurring-days input:checked').forEach(function(c){ days.push(c.value); });
+      if (days.length) {
+        var count = 0;
+        for (var i = 0; i < 28; i++) { // same 28-day window the server schedules from
+          if (days.indexOf(DAY_NAMES[new Date(start.getTime() + i * 86400000).getUTCDay()]) !== -1) count++;
+        }
+        text = (days.length === 1 ? days[0] : days.slice(0, -1).join(', ') + ' & ' + days[days.length - 1]) +
+          (times ? ', ' + times : '') +
+          ', starting ' + MONTH_NAMES[start.getUTCMonth()] + ' ' + start.getUTCDate() +
+          ' — ' + count + (count === 1 ? ' visit' : ' visits') + ' over 4 weeks';
+      }
+    }
+    box.textContent = text;
+    box.style.display = text ? 'block' : 'none';
+  }
+  ['start-date','end-date','start-time','end-time'].forEach(function(id){
+    var el = document.getElementById(id);
+    el.addEventListener('input', updatePreview);
+    el.addEventListener('change', updatePreview);
+  });
+  document.querySelectorAll('input[name="caretype"]').forEach(function(r){ r.addEventListener('change', updatePreview); });
+  document.querySelectorAll('#recurring-days input').forEach(function(c){ c.addEventListener('change', updatePreview); });
+  updatePreview();
+
   function sendLink(){
     var careType = document.querySelector('input[name="caretype"]:checked').value;
     var btn = document.getElementById('send');
+    var hello = document.getElementById('details').value.trim().slice(0, 2000);
+    var payload = { host_id: Number(hostId), care_type: careType,
+      details: collectDetails(), acknowledged: true };
+    if (hello) payload.message = hello;
     btn.disabled = true;
     fetch('/api/links', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ host_id: Number(hostId), care_type: careType,
-        details: collectDetails(), acknowledged: true })
+      body: JSON.stringify(payload)
     }).then(function(r){
       if (r.status === 401) { location = 'index.html'; return; }
       return r.json().then(function(d){
         if (r.ok) {
-          showMsg('<strong>Link request sent to ' + esc(d.host_name) +
-            ' — watch your Links tab.</strong><br>' +
+          showMsg('<strong>Link request sent to ' + esc(d.host_name) + '.</strong><br>' +
+            (hello ? 'Your request and your hello note are' : 'Your request is') +
+            ' waiting in your Links tab — that’s where you two take it from here.<br>' +
             '<a href="links.html" style="display:inline-block;margin-top:10px;background:var(--teal);color:#fff;border-radius:100px;padding:9px 20px;font-weight:600">Go to Links</a>', 'ok');
           btn.style.display = 'none';
         } else if (r.status === 402) {

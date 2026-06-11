@@ -10,6 +10,14 @@ db.pragma('foreign_keys = ON');
 // migration: is_admin flag (no-op if present)
 try { db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
 
+// migrations: lifecycle refinement profile columns (no-op if present)
+try { db.exec("ALTER TABLE users ADD COLUMN kids_note TEXT DEFAULT ''"); } catch (e) { /* exists */ }
+try { db.exec("ALTER TABLE users ADD COLUMN neighborhood TEXT DEFAULT ''"); } catch (e) { /* exists */ }
+try { db.exec("ALTER TABLE users ADD COLUMN home_highlights TEXT DEFAULT ''"); } catch (e) { /* exists */ }
+try { db.exec("ALTER TABLE users ADD COLUMN availability TEXT DEFAULT '{}'"); } catch (e) { /* exists */ }
+try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_text TEXT'); } catch (e) { /* exists */ }
+try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_at TEXT'); } catch (e) { /* exists */ }
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,6 +32,12 @@ CREATE TABLE IF NOT EXISTS users (
   available_now INTEGER DEFAULT 0,
   hourly_note TEXT DEFAULT '',           -- e.g. "$8/hr — paid directly to me"; Momni never touches it
   shared_items TEXT DEFAULT '[]',        -- JSON array of member-shared items, e.g. {"type":"background_check","label":"Background check — purchased and shared by <name>"}
+  kids_note TEXT DEFAULT '',             -- her littles, free text ("18mo & 4yr")
+  neighborhood TEXT DEFAULT '',
+  home_highlights TEXT DEFAULT '',       -- host only ("big backyard, no pets")
+  availability TEXT DEFAULT '{}',        -- JSON { "Mon": ["am","pm"], ... }; blocks: am | pm | eve | overnight
+  signup_ack_text TEXT,                  -- clickwrap record at signup
+  signup_ack_at TEXT,
   legacy_1_0 INTEGER DEFAULT 0,
   links_balance INTEGER DEFAULT 2,       -- free tier: a couple of Links to start
   momni_plus INTEGER DEFAULT 0,
@@ -41,6 +55,25 @@ CREATE TABLE IF NOT EXISTS links (
   status TEXT DEFAULT 'requested',       -- requested | confirmed | completed | declined | cancelled
   acknowledgment_text TEXT NOT NULL,     -- exact clickwrap text the guest accepted
   acknowledged_at TEXT NOT NULL,         -- timestamp of acceptance (the legal record)
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS messages (      -- the thread between the two mamas on a Link
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  link_id INTEGER NOT NULL REFERENCES links(id),
+  sender_id INTEGER NOT NULL REFERENCES users(id),
+  body TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS visits (        -- shared drop-off/pick-up timeline both mamas can see — coordination, never supervision
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  link_id INTEGER NOT NULL REFERENCES links(id),
+  date TEXT NOT NULL,                      -- YYYY-MM-DD
+  end_date TEXT,                           -- multi-day/overnight only
+  start_time TEXT, end_time TEXT,          -- HH:MM
+  status TEXT DEFAULT 'scheduled',         -- scheduled | checked_in | completed | cancelled
+  checkin_at TEXT, checkout_at TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -87,6 +120,19 @@ CREATE TABLE IF NOT EXISTS suggestions (   -- founder approval queue: feedback a
   body TEXT NOT NULL,
   page TEXT DEFAULT '',
   status TEXT DEFAULT 'pending' CHECK(status IN ('pending','approved','declined','shipped')),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS emails (        -- transactional email log (one row per send attempt; dev-mode rows too)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  to_email TEXT NOT NULL,
+  to_user_id INTEGER,
+  template TEXT NOT NULL,                  -- welcome | onboarding | reactivation | review_request | booking_request | booking_confirmed | newsletter
+  subject TEXT,
+  status TEXT DEFAULT 'queued',            -- sent | dev-logged | failed
+  related_type TEXT,                       -- e.g. 'link' (for dedupe)
+  related_id TEXT,
+  error TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 

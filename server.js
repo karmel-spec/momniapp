@@ -17,6 +17,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const { db, seed } = require('./db');
+const mailer = require('./mailer');
 
 seed(); // no-op if already seeded
 
@@ -40,22 +41,31 @@ function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Please sign in first, mama.' });
   next();
 }
+// Privacy: public payloads only ever carry ~neighborhood-level coords (2 decimals);
+// precise lat/lng stays in the DB and never leaves the server.
+const round2 = (v) => (v == null ? v : Math.round(v * 100) / 100);
 const userPublic = (u) => ({
-  id: u.id, name: u.name, city: u.city, lat: u.lat, lng: u.lng,
+  id: u.id, name: u.name, city: u.city, lat: round2(u.lat), lng: round2(u.lng),
   is_host: !!u.is_host, bio: u.bio, care_types: JSON.parse(u.care_types || '[]'),
+  kids_note: u.kids_note || '', neighborhood: u.neighborhood || '',
+  home_highlights: u.home_highlights || '',
+  availability: JSON.parse(u.availability || '{}'),
   available_now: !!u.available_now, hourly_note: u.hourly_note,
   shared_items: JSON.parse(u.shared_items || '[]'), legacy_1_0: !!u.legacy_1_0
 });
 
 // ---------- auth ----------
 app.post('/api/register', (req, res) => {
-  const { email, password, name, city } = req.body;
+  const { email, password, name, city, acknowledged } = req.body;
   if (!email || !password || !name) return res.status(400).json({ error: 'Name, email, and password are required.' });
   if (password.length < 8) return res.status(400).json({ error: 'Password needs at least 8 characters.' });
+  if (!acknowledged) return res.status(400).json({ error: 'One quick checkbox first, mama — it’s how we all stay on the same page about how Momni works.' });
   try {
-    const info = db.prepare('INSERT INTO users (email,password_hash,name,city) VALUES (?,?,?,?)')
-      .run(email.toLowerCase().trim(), bcrypt.hashSync(password, 10), name.trim(), (city || '').trim());
+    const info = db.prepare(`INSERT INTO users (email,password_hash,name,city,signup_ack_text,signup_ack_at)
+      VALUES (?,?,?,?,?,datetime('now'))`)
+      .run(email.toLowerCase().trim(), bcrypt.hashSync(password, 10), name.trim(), (city || '').trim(), ACKNOWLEDGMENT_TEXT);
     req.session.userId = info.lastInsertRowid;
+    mailer.send({ to: email.toLowerCase().trim(), to_user_id: info.lastInsertRowid, template: 'welcome', vars: { name: name.trim() } });
     res.json({ ok: true, id: info.lastInsertRowid });
   } catch (e) {
     if (String(e).includes('UNIQUE')) return res.status(409).json({ error: 'That email is already in the Circle — try signing in.' });
@@ -139,11 +149,13 @@ app.get('/api/me', requireAuth, (req, res) => {
 });
 
 app.put('/api/me', requireAuth, (req, res) => {
-  const allowed = ['name','city','bio','is_host','care_types','available_now','hourly_note','gives_toggle','lat','lng'];
+  const allowed = ['name','city','bio','is_host','care_types','available_now','hourly_note','gives_toggle','lat','lng',
+    'kids_note','neighborhood','home_highlights','availability'];
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
   const updates = {};
   for (const k of allowed) if (k in req.body) updates[k] = req.body[k];
   if ('care_types' in updates) updates.care_types = JSON.stringify(updates.care_types);
+  if ('availability' in updates) updates.availability = JSON.stringify(updates.availability);
   for (const boolKey of ['is_host','available_now','gives_toggle']) if (boolKey in updates) updates[boolKey] = updates[boolKey] ? 1 : 0;
   const keys = Object.keys(updates);
   if (!keys.length) return res.json({ ok: true });
@@ -174,14 +186,43 @@ app.post('/api/me/shared-items', requireAuth, (req, res) => {
 });
 
 // ---------- search ----------
+function haversineMi(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return 2 * 3958.8 * Math.asin(Math.sqrt(a)); // Earth radius in miles
+}
+
 app.get('/api/hosts', (req, res) => {
-  const { care_type, available_now } = req.query;
+  const { care_type, available_now, lat, lng, radius_mi } = req.query;
   let rows = db.prepare('SELECT * FROM users WHERE is_host = 1').all();
   if (care_type) rows = rows.filter(r => JSON.parse(r.care_types).includes(care_type));
   if (available_now === '1') rows = rows.filter(r => r.available_now);
+  // Nearness: distance is computed from the SAME rounded coords we expose (userPublic), never the precise
+  // DB coords — otherwise repeated probes could trilaterate a host's exact home and defeat the neighborhood
+  // blur that protects her ("never your exact address"). Distance can't resolve finer than ~0.7mi.
+  const qLat = parseFloat(lat), qLng = parseFloat(lng);
+  const hasPoint = Number.isFinite(qLat) && Number.isFinite(qLng);
+  const dist = new Map();
+  if (hasPoint) {
+    for (const r of rows) dist.set(r.id, (r.lat == null || r.lng == null) ? null : haversineMi(qLat, qLng, round2(r.lat), round2(r.lng)));
+    const radius = parseFloat(radius_mi);
+    if (radius_mi && radius_mi !== 'all' && Number.isFinite(radius) && radius > 0) {
+      rows = rows.filter(r => dist.get(r.id) != null && dist.get(r.id) <= radius);
+    }
+    rows.sort((a, b) => {
+      const da = dist.get(a.id), dbv = dist.get(b.id);
+      if (da == null && dbv == null) return 0;
+      if (da == null) return 1;
+      if (dbv == null) return -1;
+      return da - dbv;
+    });
+  }
   const ratings = db.prepare('SELECT subject_id, AVG(rating) avg, COUNT(*) n FROM reviews GROUP BY subject_id').all()
     .reduce((m, r) => (m[r.subject_id] = r, m), {});
   res.json(rows.map(r => ({ ...userPublic(r),
+    ...(hasPoint ? { distance_mi: dist.get(r.id) == null ? null : Number(dist.get(r.id).toFixed(1)) } : {}),
     rating: ratings[r.id] ? Number(ratings[r.id].avg.toFixed(1)) : null,
     review_count: ratings[r.id] ? ratings[r.id].n : 0 })));
 });
@@ -203,9 +244,9 @@ app.get('/api/map', (req, res) => {
   res.json({ hosts, circles, legacy, counters: { first_mamas: firstMamas, lit_up: litUp + 287 } });
 });
 
-// ---------- links (the $1 match — the ONLY thing Momni ever charges for care) ----------
+// ---------- links (a $1 Link per booking — the ONLY thing Momni ever charges for care) ----------
 app.post('/api/links', requireAuth, (req, res) => {
-  const { host_id, care_type, details, acknowledged } = req.body;
+  const { host_id, care_type, details, acknowledged, message } = req.body;
   if (!acknowledged) return res.status(400).json({ error: 'The acknowledgment checkbox is required before a Link can be sent.' });
   if (!['one-time','recurring','overnight'].includes(care_type)) return res.status(400).json({ error: 'Unknown care type.' });
   const host = db.prepare('SELECT * FROM users WHERE id = ? AND is_host = 1').get(host_id);
@@ -218,16 +259,37 @@ app.post('/api/links', requireAuth, (req, res) => {
   const info = db.prepare(`INSERT INTO links (guest_id,host_id,care_type,details,acknowledgment_text,acknowledged_at)
     VALUES (?,?,?,?,?,datetime('now'))`)
     .run(me.id, host.id, care_type, JSON.stringify(details || {}), ACKNOWLEDGMENT_TEXT);
+  const firstMessage = typeof message === 'string' ? message.trim().slice(0, 2000) : '';
+  if (firstMessage) db.prepare('INSERT INTO messages (link_id,sender_id,body) VALUES (?,?,?)')
+    .run(info.lastInsertRowid, me.id, firstMessage);
   if (!me.momni_plus) db.prepare('UPDATE users SET links_balance = links_balance - 1 WHERE id = ?').run(me.id);
+  mailer.send({ to: host.email, to_user_id: host.id, template: 'booking_request', vars: { guest: me.name, care_type }, related_type: 'link', related_id: info.lastInsertRowid });
   res.json({ ok: true, link_id: info.lastInsertRowid, host_name: host.name });
 });
 
 app.get('/api/links', requireAuth, (req, res) => {
+  const me = req.session.userId;
   const rows = db.prepare(`SELECT l.*, h.name host_name, g.name guest_name
     FROM links l JOIN users h ON h.id = l.host_id JOIN users g ON g.id = l.guest_id
     WHERE l.guest_id = ? OR l.host_id = ? ORDER BY l.created_at DESC`)
-    .all(req.session.userId, req.session.userId);
-  res.json(rows.map(r => ({ ...r, details: JSON.parse(r.details), i_am_host: r.host_id === req.session.userId })));
+    .all(me, me);
+  const nextVisitStmt = db.prepare(`SELECT * FROM visits WHERE link_id = ?
+    AND status IN ('scheduled','checked_in') ORDER BY date, id LIMIT 1`);
+  const visitCountStmt = db.prepare(`SELECT COUNT(*) total,
+    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) done FROM visits WHERE link_id = ?`);
+  const msgStmt = db.prepare('SELECT COUNT(*) n, MAX(created_at) last FROM messages WHERE link_id = ?');
+  const reviewStmt = db.prepare('SELECT author_id FROM reviews WHERE link_id = ?');
+  res.json(rows.map(r => {
+    const vc = visitCountStmt.get(r.id);
+    const mc = msgStmt.get(r.id);
+    const reviewers = reviewStmt.all(r.id).map(x => x.author_id);
+    return { ...r, details: JSON.parse(r.details), i_am_host: r.host_id === me,
+      next_visit: nextVisitStmt.get(r.id) || null,
+      visits_total: vc.total, visits_completed: vc.done || 0,
+      message_count: mc.n, last_message_at: mc.last,
+      my_review: reviewers.includes(me),
+      their_review: reviewers.some(id => id !== me) };
+  }));
 });
 
 app.put('/api/links/:id', requireAuth, (req, res) => {
@@ -239,16 +301,147 @@ app.put('/api/links/:id', requireAuth, (req, res) => {
   const allowed = isHost ? ['confirmed','declined','completed'] : ['cancelled','completed'];
   if (!allowed.includes(status)) return res.status(400).json({ error: 'Not a change you can make on this Link.' });
   db.prepare('UPDATE links SET status = ? WHERE id = ?').run(status, link.id);
+  if (status === 'confirmed') {
+    generateVisitsForLink(link);
+    const guest = db.prepare('SELECT id,email FROM users WHERE id = ?').get(link.guest_id);
+    const host = db.prepare('SELECT name FROM users WHERE id = ?').get(link.host_id);
+    if (guest) mailer.send({ to: guest.email, to_user_id: guest.id, template: 'booking_confirmed', vars: { host: host ? host.name : 'your Momni' }, related_type: 'link', related_id: link.id });
+  }
   res.json({ ok: true });
+});
+
+// ---------- messages (the thread between the two mamas on a Link — participants only) ----------
+function linkForParticipant(req, res) {
+  const link = db.prepare('SELECT * FROM links WHERE id = ?').get(req.params.id);
+  if (!link) { res.status(404).json({ error: 'Not found' }); return null; }
+  if (link.guest_id !== req.session.userId && link.host_id !== req.session.userId) {
+    res.status(403).json({ error: 'Not your Link.' });
+    return null;
+  }
+  return link;
+}
+
+app.get('/api/links/:id/messages', requireAuth, (req, res) => {
+  const link = linkForParticipant(req, res);
+  if (!link) return;
+  const rows = db.prepare(`SELECT m.id, m.sender_id, u.name sender_name, m.body, m.created_at
+    FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.link_id = ? ORDER BY m.created_at, m.id`).all(link.id);
+  res.json(rows.map(m => ({ ...m, mine: m.sender_id === req.session.userId })));
+});
+
+app.post('/api/links/:id/messages', requireAuth, (req, res) => {
+  const link = linkForParticipant(req, res);
+  if (!link) return;
+  const body = String(req.body.body || '').trim().slice(0, 2000);
+  if (!body) return res.status(400).json({ error: 'Say a little something first, mama.' });
+  const info = db.prepare('INSERT INTO messages (link_id,sender_id,body) VALUES (?,?,?)')
+    .run(link.id, req.session.userId, body);
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+
+// ---------- visits (the shared drop-off/pick-up timeline both mamas can see — coordination, never supervision) ----------
+// When a host confirms, build the timeline from the Link's details (once; never duplicates).
+function generateVisitsForLink(link) {
+  if (db.prepare('SELECT COUNT(*) c FROM visits WHERE link_id = ?').get(link.id).c > 0) return;
+  let d;
+  try { d = JSON.parse(link.details || '{}'); } catch (e) { d = {}; }
+  if (!d.start_date) return; // nothing to schedule from
+  const ins = db.prepare('INSERT INTO visits (link_id,date,end_date,start_time,end_time) VALUES (?,?,?,?,?)');
+  const st = d.start_time || null, et = d.end_time || null;
+  if (link.care_type === 'overnight') return void ins.run(link.id, d.start_date, d.end_date || null, st, et);
+  if (link.care_type === 'recurring' && Array.isArray(d.weekdays) && d.weekdays.length) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d.start_date));
+    if (!m) return;
+    const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const startUtc = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+    const tx = db.transaction(() => {
+      for (let i = 0; i < 28; i++) { // 28 days from start_date; start_date itself counts if it matches
+        const day = new Date(startUtc + i * 86400000);
+        if (d.weekdays.includes(names[day.getUTCDay()])) ins.run(link.id, day.toISOString().slice(0, 10), null, st, et);
+      }
+    });
+    tx();
+    return;
+  }
+  // one-time — or recurring with no weekdays picked — gets a single visit on start_date
+  ins.run(link.id, d.start_date, null, st, et);
+}
+
+app.get('/api/links/:id/visits', requireAuth, (req, res) => {
+  const link = linkForParticipant(req, res);
+  if (!link) return;
+  res.json(db.prepare('SELECT * FROM visits WHERE link_id = ? ORDER BY date, id').all(link.id));
+});
+
+app.post('/api/links/:id/visits', requireAuth, (req, res) => {
+  const link = linkForParticipant(req, res);
+  if (!link) return;
+  if (link.status !== 'confirmed') return res.status(400).json({ error: 'Visits can be added once the Link is confirmed.' });
+  const { date, end_date, start_time, end_time } = req.body;
+  if (!date) return res.status(400).json({ error: 'Pick a date first, mama.' });
+  const info = db.prepare('INSERT INTO visits (link_id,date,end_date,start_time,end_time) VALUES (?,?,?,?,?)')
+    .run(link.id, String(date), end_date || null, start_time || null, end_time || null);
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+
+app.put('/api/visits/:id', requireAuth, (req, res) => {
+  const { action } = req.body;
+  const visit = db.prepare('SELECT * FROM visits WHERE id = ?').get(req.params.id);
+  if (!visit) return res.status(404).json({ error: 'Not found' });
+  const link = db.prepare('SELECT * FROM links WHERE id = ?').get(visit.link_id);
+  if (link.guest_id !== req.session.userId && link.host_id !== req.session.userId) {
+    return res.status(403).json({ error: 'Not your Link.' });
+  }
+  if (action === 'checkin') {
+    if (visit.status !== 'scheduled') return res.status(400).json({ error: 'Only a scheduled visit can be checked in.' });
+    db.prepare(`UPDATE visits SET status = 'checked_in', checkin_at = datetime('now') WHERE id = ?`).run(visit.id);
+    return res.json({ ok: true, status: 'checked_in', link_status: link.status });
+  }
+  if (action === 'checkout') {
+    if (visit.status !== 'checked_in' && visit.status !== 'scheduled') {
+      return res.status(400).json({ error: 'This visit is already wrapped up.' });
+    }
+    db.prepare(`UPDATE visits SET status = 'completed', checkout_at = datetime('now') WHERE id = ?`).run(visit.id);
+    // One-time and overnight Links complete themselves when the last visit checks out.
+    // Recurring Links stay confirmed until a mama marks them completed herself.
+    let linkStatus = link.status;
+    if ((link.care_type === 'one-time' || link.care_type === 'overnight') && link.status === 'confirmed') {
+      const open = db.prepare(`SELECT COUNT(*) c FROM visits WHERE link_id = ?
+        AND status IN ('scheduled','checked_in')`).get(link.id).c;
+      if (!open) {
+        db.prepare(`UPDATE links SET status = 'completed' WHERE id = ?`).run(link.id);
+        linkStatus = 'completed';
+      }
+    }
+    // Both mamas get one review request per Link the moment a visit wraps up (guarded against double-sends).
+    const g = db.prepare('SELECT id,name,email FROM users WHERE id = ?').get(link.guest_id);
+    const h = db.prepare('SELECT id,name,email FROM users WHERE id = ?').get(link.host_id);
+    for (const [who, other] of [[g, h], [h, g]]) {
+      if (who && other && !mailer.alreadySent({ template: 'review_request', to_user_id: who.id, related_type: 'link', related_id: link.id })) {
+        mailer.send({ to: who.email, to_user_id: who.id, template: 'review_request', vars: { other: other.name }, related_type: 'link', related_id: link.id });
+      }
+    }
+    return res.json({ ok: true, status: 'completed', link_status: linkStatus });
+  }
+  if (action === 'cancel') {
+    if (visit.status !== 'scheduled') return res.status(400).json({ error: 'Only a scheduled visit can be cancelled.' });
+    db.prepare(`UPDATE visits SET status = 'cancelled' WHERE id = ?`).run(visit.id);
+    return res.json({ ok: true, status: 'cancelled', link_status: link.status });
+  }
+  return res.status(400).json({ error: 'Unknown action.' });
 });
 
 // ---------- reviews (member content, both directions) ----------
 app.post('/api/reviews', requireAuth, (req, res) => {
   const { link_id, rating, body } = req.body;
-  const link = db.prepare('SELECT * FROM links WHERE id = ? AND status = ?').get(link_id, 'completed');
-  if (!link) return res.status(400).json({ error: 'Reviews come after a completed Link.' });
+  const link = db.prepare('SELECT * FROM links WHERE id = ?').get(link_id);
+  if (!link) return res.status(400).json({ error: 'Reviews come after a completed visit or Link.' });
   const me = req.session.userId;
   if (me !== link.guest_id && me !== link.host_id) return res.status(403).json({ error: 'Not your Link.' });
+  const completedVisit = db.prepare(`SELECT id FROM visits WHERE link_id = ? AND status = 'completed' LIMIT 1`).get(link.id);
+  if (link.status !== 'completed' && !completedVisit) {
+    return res.status(400).json({ error: 'Reviews come after a completed visit or Link.' });
+  }
   const subject = me === link.guest_id ? link.host_id : link.guest_id;
   const dup = db.prepare('SELECT id FROM reviews WHERE link_id = ? AND author_id = ?').get(link_id, me);
   if (dup) return res.status(409).json({ error: 'You already reviewed this Link.' });
@@ -437,6 +630,37 @@ app.put('/api/admin/suggestions/:id', requireAdmin, (req, res) => {
 app.delete('/api/admin/reviews/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM reviews WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
+});
+
+// ---------- email log + manual sends (welcome / onboarding / reactivation / newsletter) ----------
+app.get('/api/admin/emails', requireAdmin, (req, res) => {
+  res.json(db.prepare(`SELECT id,to_email,to_user_id,template,subject,status,related_type,related_id,error,created_at
+    FROM emails ORDER BY id DESC LIMIT 200`).all());
+});
+// Send a template to one user (user_id or to=email) or a segment (all | legacy). Dev-safe: logs in dev mode.
+app.post('/api/admin/email', requireAdmin, async (req, res) => {
+  const { template, user_id, to, segment, vars } = req.body;
+  if (!mailer.TEMPLATES[template]) return res.status(400).json({ error: 'Unknown template.' });
+  let recipients = [];
+  if (user_id) {
+    const u = db.prepare('SELECT id,name,email FROM users WHERE id = ?').get(user_id);
+    if (u) recipients = [u];
+  } else if (to) {
+    recipients = [{ id: null, name: '', email: String(to) }];
+  } else if (segment === 'all') {
+    recipients = db.prepare('SELECT id,name,email FROM users').all();
+  } else if (segment === 'legacy') {
+    recipients = db.prepare('SELECT id,name,email FROM users WHERE legacy_1_0 = 1').all();
+  } else {
+    return res.status(400).json({ error: 'Provide user_id, to, or segment (all | legacy).' });
+  }
+  if (!recipients.length) return res.status(404).json({ error: 'No recipients matched.' });
+  let sent = 0;
+  for (const u of recipients) {
+    const r = await mailer.send({ to: u.email, to_user_id: u.id, template, vars: Object.assign({ name: u.name }, vars || {}) });
+    if (r.status !== 'failed') sent++;
+  }
+  res.json({ ok: true, recipients: recipients.length, sent, mode: mailer.LIVE ? 'live' : 'dev (logged, not sent)' });
 });
 
 const PORT = process.env.PORT || 3000;

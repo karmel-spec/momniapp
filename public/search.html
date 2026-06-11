@@ -39,6 +39,8 @@ a{text-decoration:none;color:inherit}
 .pop .req{display:inline-block;background:var(--teal);color:#fff;border-radius:100px;padding:6px 14px;font-size:12px;font-weight:600}
 .pop.legacy{font-size:13px;max-width:190px}
 .pop.circle strong{color:var(--purple-deep)}
+.you-tip{background:var(--white);border:1.5px solid var(--purple);color:var(--purple-deep);border-radius:100px;padding:1px 9px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(43,34,51,0.15)}
+.you-tip::before{display:none}
 
 /* Banner */
 .pin-banner{margin:16px 18px;background:var(--purple);color:#fff;border-radius:18px;padding:20px 22px;text-align:center}
@@ -87,6 +89,10 @@ a{text-decoration:none;color:inherit}
       <button class="chip" data-ct="weekend-getaway">Weekend Getaway</button>
       <button class="chip" data-ct="extended-trip">Extended Trip</button>
       <button class="chip" data-now="1">Available now</button>
+      <button class="chip" data-r="5">5 mi</button>
+      <button class="chip" data-r="10">10 mi</button>
+      <button class="chip" data-r="25">25 mi</button>
+      <button class="chip" data-r="all">Everywhere</button>
     </div>
 
     <div class="map-wrap">
@@ -141,6 +147,9 @@ function esc(s){
 var params = new URLSearchParams(location.search);
 var careType = params.get('care_type') || '';
 var availNow = params.get('available_now') === '1';
+var radiusMi = params.get('radius_mi') || '10';
+if (['5','10','25','all'].indexOf(radiusMi) === -1) radiusMi = '10';
+var userLoc = null; // set by locate(); null when geolocation is unavailable/declined
 
 // Filter chips reflect + set the query params
 document.querySelectorAll('#chips .chip').forEach(function(chip){
@@ -153,6 +162,8 @@ document.querySelectorAll('#chips .chip').forEach(function(chip){
     var p = new URLSearchParams(location.search);
     if (this.dataset.ct !== undefined) {
       if (this.dataset.ct) p.set('care_type', this.dataset.ct); else p.delete('care_type');
+    } else if (this.dataset.r) {
+      if (this.dataset.r === '10') p.delete('radius_mi'); else p.set('radius_mi', this.dataset.r);
     } else {
       if (availNow) p.delete('available_now'); else p.set('available_now', '1');
     }
@@ -163,17 +174,90 @@ document.querySelectorAll('#chips .chip').forEach(function(chip){
 var CT_LABELS = {'right-now':'Right Now','date-night':'Date Night','my-regulars':'My Regulars',
   'night-shift':'Night Shift','weekend-getaway':'Weekend Getaway','extended-trip':'Extended Trip'};
 
+// Same formula the server uses (R = 3958.8 mi) — only for map popups,
+// where /api/map carries no distance_mi. Coords are neighborhood-level.
+function haversineMi(lat1, lng1, lat2, lng2){
+  var toRad = function(d){ return d * Math.PI / 180; };
+  var dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  var a = Math.sin(dLat/2)*Math.sin(dLat/2)
+    + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return 2 * 3958.8 * Math.asin(Math.sqrt(a));
+}
+
+var distById = {}; // server-computed distance_mi from /api/hosts, keyed by host id
+
+function hostDistance(h){
+  if (distById[h.id] != null) return distById[h.id];
+  if (userLoc && h.lat != null && h.lng != null) {
+    return Number(haversineMi(userLoc.lat, userLoc.lng, h.lat, h.lng).toFixed(1));
+  }
+  return null;
+}
+
 function hostPopup(h){
+  var d = hostDistance(h);
   return '<div class="pop"><strong>'+esc(h.name)+'</strong><span class="dist">'+esc(h.city)+
+    (d != null ? ' &middot; '+esc(d)+' mi away' : '')+
     (h.hourly_note ? ' &middot; '+esc(h.hourly_note) : '')+'</span>'+
     '<a class="req" href="booking.html?host_id='+h.id+'">Request a Link</a></div>';
+}
+
+// Availability JSON {Mon:['am','pm'],...} -> "Mornings · Mon Tue Thu", longest block first
+var DAY_ORDER = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+var BLOCK_LABELS = {am:'Mornings', pm:'Afternoons', eve:'Evenings', overnight:'Overnights'};
+var BLOCK_ORDER = ['am','pm','eve','overnight'];
+
+function availSummary(avail){
+  if (!avail) return '';
+  var byBlock = {};
+  DAY_ORDER.forEach(function(day){
+    var blocks = avail[day];
+    if (!Array.isArray(blocks)) return;
+    blocks.forEach(function(b){
+      if (!BLOCK_LABELS[b]) return;
+      (byBlock[b] = byBlock[b] || []).push(day);
+    });
+  });
+  var blocks = BLOCK_ORDER.filter(function(b){ return byBlock[b]; });
+  if (!blocks.length) return '';
+  blocks.sort(function(a, b){ return byBlock[b].length - byBlock[a].length; });
+  return blocks.map(function(b){
+    var days = byBlock[b];
+    return BLOCK_LABELS[b] + ' · ' + (days.length === 7 ? 'every day' : days.join(' '));
+  }).join(', ');
+}
+
+function locate(done){
+  var settled = false;
+  function finish(loc){
+    if (settled) return;
+    settled = true;
+    userLoc = loc;
+    if (loc) {
+      map.setView([loc.lat, loc.lng], 12);
+      // "You're here" — purple outline only; teal/clay/plum stay reserved for pins
+      L.circleMarker([loc.lat, loc.lng],{radius:5,color:'#6D58A4',weight:2,fillColor:'#FFFFFF',fillOpacity:0.9,interactive:false})
+        .addTo(map).bindTooltip("You're here",{permanent:true,direction:'top',offset:[0,-6],className:'you-tip'});
+    }
+    done(loc);
+  }
+  if (!navigator.geolocation) return finish(null);
+  var fallback = setTimeout(function(){ finish(null); }, 3000);
+  navigator.geolocation.getCurrentPosition(function(pos){
+    clearTimeout(fallback);
+    finish({lat: pos.coords.latitude, lng: pos.coords.longitude});
+  }, function(){
+    clearTimeout(fallback);
+    finish(null);
+  }, {timeout: 3000, maximumAge: 300000});
 }
 
 // Map data: teal hosts, clay legacy clusters, purple circles
 fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
   data.hosts.forEach(function(h){
+    // Popup content built at open time, so distance is there once we know where you are
     L.circleMarker([h.lat, h.lng],{radius:9,color:'#0D878F',fillColor:'#0D878F',fillOpacity:0.9,weight:2})
-     .addTo(map).bindPopup(hostPopup(h));
+     .addTo(map).bindPopup(function(){ return hostPopup(h); });
   });
   var cv = L.canvas({padding:0.5});
   var legacyPopup = L.popup();
@@ -192,15 +276,20 @@ fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
   document.getElementById('ct-lit').textContent = data.counters.lit_up.toLocaleString();
 }).catch(function(){});
 
-// Host result cards
-(function(){
+// Host result cards — runs once we know where you are (or that we don't)
+function loadHosts(){
   var q = [];
   if (careType) q.push('care_type=' + encodeURIComponent(careType));
   if (availNow) q.push('available_now=1');
+  if (userLoc) {
+    q.push('lat=' + userLoc.lat, 'lng=' + userLoc.lng);
+    if (radiusMi !== 'all') q.push('radius_mi=' + encodeURIComponent(radiusMi));
+  }
   fetch('/api/hosts' + (q.length ? '?' + q.join('&') : ''))
     .then(function(r){ return r.json(); })
     .then(function(hosts){
       var box = document.getElementById('host-cards');
+      hosts.forEach(function(h){ if (h.distance_mi != null) distById[h.id] = h.distance_mi; });
       if (!hosts.length) {
         box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No mamas match those filters yet — try widening your search.</p>';
         return;
@@ -210,6 +299,8 @@ fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
         var meta = [];
         if (h.rating) meta.push('<span class="stars">'+h.rating+'&#9733;</span> &middot; '+h.review_count+' review'+(h.review_count===1?'':'s')+' from mamas');
         meta.push(esc(h.city));
+        if (h.distance_mi != null) meta.push(esc(h.distance_mi)+' mi away');
+        var avail = availSummary(h.availability);
         var ctChips = (h.care_types || []).map(function(ct){
           return '<span>'+esc(CT_LABELS[ct] || ct)+'</span>';
         }).join('');
@@ -217,6 +308,7 @@ fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
         return '<div class="card">'+
           '<div class="row"><div class="avatar">'+initials+'</div><div>'+
           '<h3>'+esc(h.name)+'</h3><div class="meta">'+meta.join(' &middot; ')+'</div></div></div>'+
+          (avail ? '<div class="meta" style="margin-top:8px">'+esc(avail)+'</div>' : '')+
           (ctChips ? '<div class="pills">'+ctChips+'</div>' : '')+
           (shared ? '<div class="pills-label">What she\'s chosen to share</div><div class="pills">'+shared+'</div>' : '')+
           (h.hourly_note ? '<div class="pills-label">'+esc(h.hourly_note)+'</div>' : '')+
@@ -228,7 +320,16 @@ fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
       document.getElementById('host-cards').innerHTML =
         '<p style="font-size:14px;color:var(--muted)">Couldn\'t load mamas right now — try again in a moment.</p>';
     });
-})();
+}
+
+locate(function(loc){
+  // No location -> Everywhere, nothing hidden; radius chips light up only when they can do their job
+  var effective = loc ? radiusMi : 'all';
+  document.querySelectorAll('#chips .chip').forEach(function(chip){
+    if (chip.dataset.r) chip.classList.toggle('on', chip.dataset.r === effective);
+  });
+  loadHosts();
+});
 </script>
 
 <!-- momni-beta-feedback -->
