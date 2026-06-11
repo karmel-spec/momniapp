@@ -21,6 +21,12 @@ const mailer = require('./mailer');
 const calendar = require('./calendar');
 
 seed(); // no-op if already seeded
+// One-time full demo data: set SEED_DEMO_FULL=1 in the environment to populate hosts,
+// guests, bookings, reviews, etc. on boot (idempotent), then remove the variable.
+if (process.env.SEED_DEMO_FULL === '1') {
+  try { const r = require('./demo-data').seedDemoFull(db); console.log(r.skipped ? 'Demo data already present.' : 'Full demo data seeded on boot.'); }
+  catch (e) { console.error('Demo seed failed (non-fatal):', e.message); }
+}
 
 const app = express();
 // JSON body parsing everywhere EXCEPT the Stripe webhook (which needs the raw body for signature checks)
