@@ -136,6 +136,13 @@ main{padding:6px 20px 24px}
         <div class="txt"><h3>Available now</h3><p>Show up with a live teal pin for Right Now care.</p></div>
         <label class="toggle"><input type="checkbox" id="now-toggle"><span class="slider"></span></label>
       </div>
+      <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:3px">Sync your calendar <span id="cal-state" style="color:var(--teal-deep);font-size:13px;font-weight:600"></span></h3>
+        <p class="fine" style="margin-top:2px">Connect the calendar you already use — your availability stays current on its own, and confirmed bookings land on it automatically.</p>
+        <button class="save-btn" id="cal-btn" type="button" style="margin-top:10px">Connect my calendar</button>
+        <a id="cal-disconnect" href="#" style="display:none;font-size:13px;font-weight:600;color:#B0556A;margin-left:12px">Disconnect</a>
+        <p class="fine" id="cal-msg" style="display:none;color:var(--teal-deep)"></p>
+      </div>
     </div>
 
     <div class="card">
@@ -402,6 +409,29 @@ main{padding:6px 20px 24px}
   document.getElementById('now-toggle').addEventListener('change', function(){
     put({ available_now: this.checked });
   });
+
+  function loadCalendar(){
+    fetch('/api/me/calendar').then(function(r){ return r.json(); }).then(function(c){
+      var st=document.getElementById('cal-state'), btn=document.getElementById('cal-btn'), dis=document.getElementById('cal-disconnect');
+      if (!c.enabled){ st.textContent=''; btn.textContent='Calendar sync — coming soon'; btn.disabled=true; btn.style.opacity=0.6; dis.style.display='none'; return; }
+      if (c.connected){ st.textContent='✓ Connected'+(c.email?' · '+c.email:''); btn.style.display='none'; dis.style.display='inline'; }
+      else { st.textContent=''; btn.textContent='Connect my calendar'; btn.disabled=false; btn.style.opacity=1; btn.style.display='inline-block'; dis.style.display='none'; }
+    }).catch(function(){});
+  }
+  document.getElementById('cal-btn').addEventListener('click', function(){ if(!this.disabled) location.href='/auth/google/calendar'; });
+  document.getElementById('cal-disconnect').addEventListener('click', function(e){
+    e.preventDefault();
+    fetch('/api/me/calendar', { method:'DELETE' }).then(function(){ loadCalendar(); });
+  });
+  (function(){
+    var c=new URLSearchParams(location.search).get('calendar'); if(!c) return;
+    var msg=document.getElementById('cal-msg'); msg.style.display='block';
+    msg.textContent = c==='connected'?'Your calendar is connected, mama. 💜'
+      : c==='unconfigured'?'Calendar sync isn’t turned on yet — coming soon.'
+      : c==='denied'?'Calendar connection was cancelled.' : 'Calendar connection hit a snag — try again.';
+    if(c==='denied'||c==='error') msg.style.color='#B0556A';
+  })();
+  loadCalendar();
   document.getElementById('gives-toggle').addEventListener('change', function(){
     put({ gives_toggle: this.checked });
   });

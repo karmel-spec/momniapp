@@ -18,6 +18,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const { db, seed } = require('./db');
 const mailer = require('./mailer');
+const calendar = require('./calendar');
 
 seed(); // no-op if already seeded
 
@@ -137,6 +138,32 @@ app.get('/auth/google/callback', async (req, res) => {
     console.error('google auth error', e);
     res.redirect('/index.html?google=error');
   }
+});
+
+// ---------- calendar sync (host connects the calendar she already uses; inert until Google creds + OAuth verification are set up) ----------
+app.get('/auth/google/calendar', requireAuth, (req, res) => {
+  if (!calendar.isEnabled()) return res.redirect('/me.html?calendar=unconfigured');
+  res.redirect(calendar.connectUrl(req.session.userId));
+});
+app.get('/auth/google/calendar/callback', async (req, res) => {
+  if (!req.session.userId) return res.redirect('/index.html');
+  if (!req.query.code) return res.redirect('/me.html?calendar=denied');
+  try {
+    const r = await calendar.handleCallback(req.query.code, req.session.userId);
+    res.redirect(r.ok ? '/me.html?calendar=connected' : '/me.html?calendar=error');
+  } catch (e) { console.error('calendar callback', e); res.redirect('/me.html?calendar=error'); }
+});
+app.get('/api/me/calendar', requireAuth, (req, res) => {
+  const conn = calendar.getConnection(req.session.userId);
+  res.json({ enabled: calendar.isEnabled(), connected: !!conn, email: conn ? conn.calendar_email : null });
+});
+app.delete('/api/me/calendar', requireAuth, (req, res) => { calendar.disconnect(req.session.userId); res.json({ ok: true }); });
+// A host's busy blocks, for showing real availability (times only — never event titles/details). Sign-in required.
+app.get('/api/hosts/:id/freebusy', requireAuth, async (req, res) => {
+  const { from, to } = req.query;
+  if (!from || !to) return res.status(400).json({ error: 'from and to (ISO timestamps) are required.' });
+  const busy = await calendar.getBusy(Number(req.params.id), from, to);
+  res.json({ connected: busy !== null, busy: busy || [] });
 });
 
 // ---------- me ----------
@@ -303,9 +330,20 @@ app.put('/api/links/:id', requireAuth, (req, res) => {
   db.prepare('UPDATE links SET status = ? WHERE id = ?').run(status, link.id);
   if (status === 'confirmed') {
     generateVisitsForLink(link);
-    const guest = db.prepare('SELECT id,email FROM users WHERE id = ?').get(link.guest_id);
-    const host = db.prepare('SELECT name FROM users WHERE id = ?').get(link.host_id);
+    const guest = db.prepare('SELECT id,name,email FROM users WHERE id = ?').get(link.guest_id);
+    const host = db.prepare('SELECT id,name FROM users WHERE id = ?').get(link.host_id);
     if (guest) mailer.send({ to: guest.email, to_user_id: guest.id, template: 'booking_confirmed', vars: { host: host ? host.name : 'your Momni' }, related_type: 'link', related_id: link.id });
+    // Drop each scheduled visit onto the host's connected calendar (inert if she hasn't connected one).
+    if (calendar.isConnected(link.host_id)) {
+      for (const v of db.prepare("SELECT * FROM visits WHERE link_id = ? AND status = 'scheduled'").all(link.id)) {
+        calendar.createEvent(link.host_id, {
+          summary: `Momni: ${guest ? guest.name : 'a mama'}'s littles`,
+          description: `Booked through Momni (${link.care_type}). Care payment is arranged directly between you two.`,
+          date: v.date, startTime: v.start_time, endTime: v.end_time,
+          attendeeEmail: guest ? guest.email : null,
+        }).catch(() => {});
+      }
+    }
   }
   res.json({ ok: true });
 });

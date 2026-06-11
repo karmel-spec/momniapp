@@ -58,6 +58,28 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
     </div>
     <div>
       <div class="card"><h2>👩‍👧 Mamas <input id="q" placeholder="Search name, email, or city…" oninput="loadUsers()"></h2><div id="users"></div></div>
+      <div class="card"><h2>✉️ Email — campaigns &amp; log</h2>
+        <select id="em-template" onchange="emTemplateChange()" style="width:100%;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit;font-size:14px;margin-bottom:8px">
+          <option value="onboarding">Onboarding nudge</option>
+          <option value="reactivation">Reactivation — come back, mama</option>
+          <option value="newsletter">Newsletter / update</option>
+          <option value="welcome">Welcome (manual)</option>
+        </select>
+        <select id="em-target" onchange="emTargetChange()" style="width:100%;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit;font-size:14px;margin-bottom:8px">
+          <option value="all">Everyone in the Circle</option>
+          <option value="legacy">First Mamas (1.0 only)</option>
+          <option value="one">One mama (by email)</option>
+        </select>
+        <input id="em-email" placeholder="mama@example.com" style="display:none">
+        <div id="em-news" style="display:none">
+          <input id="em-subject" placeholder="Subject">
+          <textarea id="em-body" placeholder="Write your update to the Circle…" style="width:100%;min-height:70px;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit;font-size:14px;margin-bottom:8px"></textarea>
+        </div>
+        <button class="b-ok" onclick="sendCampaign()">Send</button>
+        <span class="meta" id="em-result"></span>
+        <p class="meta" style="margin-top:6px">In dev mode, emails are logged (not sent). Add RESEND_API_KEY + EMAIL_FROM to send for real.</p>
+        <div id="emails" style="margin-top:10px"><p class="empty">Loading…</p></div>
+      </div>
     </div>
   </div>
   <p style="font-size:12px;color:var(--muted)">No burn rate. No investor metrics. The dashboard measures a healthy Circle. 🐘</p>
@@ -71,7 +93,7 @@ async function init(){
     document.getElementById('hq').style.display='block';
     const labels = {mamas:'Mamas in the Circle',hosts:'Hosting mamas',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',gives:'Momni Gives mamas',open_reports:'Open reports'};
     document.getElementById('stats').innerHTML = Object.entries(labels).map(([k,l])=>`<div class="stat"><div class="n">${o[k]}</div><div class="l">${l}</div></div>`).join('');
-    loadReports(); loadSuggestions(); loadLinks(); loadUsers();
+    loadReports(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails();
   }catch(e){}
 }
 async function loadReports(){
@@ -124,6 +146,26 @@ async function resetPw(id,name){
   if(!confirm('Set a temporary password for '+name+'?'))return;
   const d=await api('/api/admin/users/'+id+'/reset-password',{method:'POST'});
   document.getElementById('pw-'+id).textContent=' temp password: '+d.temp_password+' (share privately)';
+}
+function emTargetChange(){ document.getElementById('em-email').style.display = document.getElementById('em-target').value==='one'?'block':'none'; }
+function emTemplateChange(){ document.getElementById('em-news').style.display = document.getElementById('em-template').value==='newsletter'?'block':'none'; }
+async function loadEmails(){
+  const rows = await api('/api/admin/emails');
+  document.getElementById('emails').innerHTML = rows.length ? rows.slice(0,40).map(e=>`
+    <div class="item"><span class="pill ${e.status==='sent'?'p-teal':'p-grey'}">${esc(e.status)}</span>
+    ${esc(e.template)} → ${esc(e.to_email)}<div class="meta">${esc(e.subject||'')}${e.created_at?' · '+esc(e.created_at):''}</div></div>`).join('')
+    : '<p class="empty">No emails yet.</p>';
+}
+async function sendCampaign(){
+  const template=document.getElementById('em-template').value, target=document.getElementById('em-target').value, body={template};
+  if(target==='one'){ const to=document.getElementById('em-email').value.trim(); if(!to){alert('Enter an email address, mama.');return;} body.to=to; }
+  else { body.segment=target;
+    if(!confirm('Send "'+template+'" to '+(target==='all'?'EVERYONE in the Circle':'all First Mamas (1.0)')+'?')) return; }
+  if(template==='newsletter') body.vars={subject:document.getElementById('em-subject').value||'News from the Circle', heading:document.getElementById('em-subject').value||'', body:document.getElementById('em-body').value||''};
+  const res=document.getElementById('em-result'); res.textContent=' sending…';
+  try{ const d=await api('/api/admin/email',{method:'POST',body:JSON.stringify(body)});
+    res.textContent = d.ok ? ' '+d.sent+'/'+d.recipients+' — '+d.mode : ' '+(d.error||'failed'); loadEmails();
+  }catch(e){ res.textContent=' failed'; }
 }
 </script>
 

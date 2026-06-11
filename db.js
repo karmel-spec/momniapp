@@ -123,6 +123,16 @@ CREATE TABLE IF NOT EXISTS suggestions (   -- founder approval queue: feedback a
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS calendar_connections (  -- a host's connected calendar (OAuth tokens, server-side only — never exposed via API)
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  provider TEXT DEFAULT 'google',          -- google (Nylas/others slot in later)
+  access_token TEXT,
+  refresh_token TEXT,
+  token_expiry INTEGER,                    -- unix seconds
+  calendar_email TEXT,
+  connected_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS emails (        -- transactional email log (one row per send attempt; dev-mode rows too)
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   to_email TEXT NOT NULL,
