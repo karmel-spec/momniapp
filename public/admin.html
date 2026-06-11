@@ -165,7 +165,8 @@ async function sendCampaign(){
   const template=document.getElementById('em-template').value, target=document.getElementById('em-target').value, body={template};
   if(target==='one'){ const to=document.getElementById('em-email').value.trim(); if(!to){alert('Enter an email address, mama.');return;} body.to=to; }
   else { body.segment=target;
-    if(!confirm('Send "'+template+'" to '+(target==='all'?'EVERYONE in the Circle':'all First Mamas (1.0)')+'?')) return; }
+    if(!confirm('Send "'+template+'" to '+(target==='all'?'EVERYONE in the Circle':'all First Mamas (1.0)')+'?')) return;
+    body.confirm=true; }
   if(template==='newsletter') body.vars={subject:document.getElementById('em-subject').value||'News from the Circle', heading:document.getElementById('em-subject').value||'', body:document.getElementById('em-body').value||''};
   const res=document.getElementById('em-result'); res.textContent=' sending…';
   try{ const d=await api('/api/admin/email',{method:'POST',body:JSON.stringify(body)});

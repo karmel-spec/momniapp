@@ -33,12 +33,39 @@ if (IS_PROD && !process.env.SESSION_SECRET) throw new Error('SESSION_SECRET must
 // Admin = accounts whose email is in ADMIN_EMAILS. Registration of these addresses is BLOCKED (see /api/register),
 // so an account can only hold an admin email via verified Google sign-in or out-of-band seeding — never self-registration.
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'karmel@momni.com').toLowerCase().split(',').map(s => s.trim());
+const sessionStore = require('./session-store')(session, db);
 app.use(session({
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || 'momni-dev-secret-change-in-prod',
   resave: false,
   saveUninitialized: false,
   cookie: { httpOnly: true, sameSite: 'lax', secure: IS_PROD, maxAge: 1000 * 60 * 60 * 24 * 30 }
 }));
+
+// Dependency-free, in-memory rate limiter (single-instance beta). Keeps brute-force
+// password guessing and account-enumeration spam off the auth routes. Keyed by client IP.
+function rateLimit({ windowMs, max, message }) {
+  const hits = new Map(); // ip -> { count, resetAt }
+  const mw = (req, res, next) => {
+    const now = Date.now();
+    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    let rec = hits.get(ip);
+    if (!rec || now > rec.resetAt) { rec = { count: 0, resetAt: now + windowMs }; hits.set(ip, rec); }
+    rec.count++;
+    if (rec.count > max) {
+      const retry = Math.ceil((rec.resetAt - now) / 1000);
+      res.set('Retry-After', String(retry));
+      return res.status(429).json({ error: message || 'Too many tries — give it a minute, mama.' });
+    }
+    next();
+  };
+  mw.sweep = () => { const now = Date.now(); for (const [ip, rec] of hits) if (now > rec.resetAt) hits.delete(ip); };
+  return mw;
+}
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: 'Too many attempts. Please wait a few minutes and try again.' });
+// Periodically drop expired buckets so the Map can't grow unbounded.
+const _rlSweep = setInterval(() => authLimiter.sweep(), 1000 * 60 * 30);
+if (_rlSweep.unref) _rlSweep.unref();
 app.use(express.static(path.join(__dirname, 'public')));
 
 const ACKNOWLEDGMENT_TEXT = 'I understand Momni is a community platform, not a childcare provider. Momni does not vet, screen, or endorse any member. I am solely responsible for choosing and evaluating my children’s care, just as I would when choosing a trusted friend. Care payments are between me and my Momni.';
@@ -61,7 +88,7 @@ const userPublic = (u) => ({
 });
 
 // ---------- auth ----------
-app.post('/api/register', (req, res) => {
+app.post('/api/register', authLimiter, (req, res) => {
   const { email, password, name, city, acknowledged } = req.body;
   if (!email || !password || !name) return res.status(400).json({ error: 'Name, email, and password are required.' });
   if (password.length < 8) return res.status(400).json({ error: 'Password needs at least 8 characters.' });
@@ -80,7 +107,7 @@ app.post('/api/register', (req, res) => {
   }
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', authLimiter, (req, res) => {
   const { email, password } = req.body;
   const u = db.prepare('SELECT * FROM users WHERE email = ?').get((email || '').toLowerCase().trim());
   if (!u || !bcrypt.compareSync(password || '', u.password_hash)) {
@@ -723,8 +750,9 @@ app.get('/api/admin/emails', requireAdmin, (req, res) => {
     FROM emails ORDER BY id DESC LIMIT 200`).all());
 });
 // Send a template to one user (user_id or to=email) or a segment (all | legacy). Dev-safe: logs in dev mode.
+const MAX_BROADCAST = 2000; // safety ceiling per call — beyond this, send in batches
 app.post('/api/admin/email', requireAdmin, async (req, res) => {
-  const { template, user_id, to, segment, vars } = req.body;
+  const { template, user_id, to, segment, vars, confirm } = req.body;
   if (!mailer.TEMPLATES[template]) return res.status(400).json({ error: 'Unknown template.' });
   let recipients = [];
   if (user_id) {
@@ -740,6 +768,14 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'Provide user_id, to, or segment (all | legacy).' });
   }
   if (!recipients.length) return res.status(404).json({ error: 'No recipients matched.' });
+  // Guard against accidental mass-sends: a segment blast must be explicitly confirmed.
+  if (segment && !confirm) {
+    return res.status(409).json({ error: 'confirm_required', needsConfirm: true, recipients: recipients.length,
+      message: `This will email ${recipients.length} ${segment === 'all' ? 'members' : 'legacy mamas'}. Resend with confirm to proceed.` });
+  }
+  if (recipients.length > MAX_BROADCAST) {
+    return res.status(413).json({ error: `That's ${recipients.length} recipients — over the ${MAX_BROADCAST} per-send limit. Send in smaller batches.` });
+  }
   let sent = 0;
   for (const u of recipients) {
     const r = await mailer.send({ to: u.email, to_user_id: u.id, template, vars: Object.assign({ name: u.name }, vars || {}) });
