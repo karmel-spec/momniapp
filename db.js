@@ -24,6 +24,8 @@ try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_at TEXT'); } catch (e) { 
 try { db.exec('ALTER TABLE users ADD COLUMN circle_up INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
 // migration: paid profile add-ons — search-placement boost + a live business/social link
 try { db.exec('ALTER TABLE users ADD COLUMN profile_boost INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
+// migration: Circle Leader (creator) on circles
+try { db.exec('ALTER TABLE circles ADD COLUMN leader_id INTEGER'); } catch (e) { /* exists */ }
 try { db.exec('ALTER TABLE users ADD COLUMN live_link TEXT'); } catch (e) { /* exists */ }
 try { db.exec('ALTER TABLE users ADD COLUMN live_link_label TEXT'); } catch (e) { /* exists */ }
 // migration: OAuth client_type + nullable secret_hash (public clients hold no secret). The
@@ -126,13 +128,27 @@ CREATE TABLE IF NOT EXISTS circles (
   city TEXT,
   lat REAL, lng REAL,
   meets TEXT DEFAULT '',
-  member_count INTEGER DEFAULT 0
+  member_count INTEGER DEFAULT 0,
+  leader_id INTEGER REFERENCES users(id)   -- the Circle Leader (creator); gates the leader dashboard
 );
 
 CREATE TABLE IF NOT EXISTS circle_members (
   circle_id INTEGER NOT NULL REFERENCES circles(id),
   user_id INTEGER NOT NULL REFERENCES users(id),
   PRIMARY KEY (circle_id, user_id)
+);
+
+-- Circle planning guide: gatherings a leader schedules; cadence drives the weekly/monthly view
+CREATE TABLE IF NOT EXISTS circle_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  circle_id INTEGER NOT NULL REFERENCES circles(id),
+  title TEXT NOT NULL,
+  when_text TEXT DEFAULT '',                -- friendly time, e.g. "Tuesday 10am"
+  event_date TEXT,                          -- optional YYYY-MM-DD for ordering
+  cadence TEXT DEFAULT 'once',              -- once | weekly | monthly
+  location TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS reports (
@@ -315,9 +331,35 @@ function seed() {
   ];
   for (const h of hosts) insertUser.run(h[0],hash,h[1],h[2],h[3],h[4],h[5],h[6],h[7],h[8],h[9],h[10]);
 
+  // Demo Circle Leader setup: Sarah leads the Orem Moms Circle, with a few members and a plan.
+  seedDemoCircle(db);
+
   console.log('Seeded demo data (password for all demo hosts: momni-demo).');
+}
+
+// Make a demo Circle fully runnable: a leader, members, and a sample plan. Keyed strictly on
+// demo emails + the demo circle name, so it never touches real production circles or users.
+function seedDemoCircle(database) {
+  const sarah = database.prepare('SELECT id FROM users WHERE email = ?').get('sarah@example.com');
+  const circle = database.prepare("SELECT id, leader_id FROM circles WHERE name = 'Orem Moms Circle'").get();
+  if (!sarah || !circle) return;
+  if (!circle.leader_id) database.prepare('UPDATE circles SET leader_id = ? WHERE id = ?').run(sarah.id, circle.id);
+  const memberEmails = ['sarah@example.com', 'amy@example.com', 'kristy@example.com', 'maren@example.com'];
+  const addMember = database.prepare('INSERT OR IGNORE INTO circle_members (circle_id, user_id) VALUES (?, ?)');
+  for (const e of memberEmails) {
+    const u = database.prepare('SELECT id FROM users WHERE email = ?').get(e);
+    if (u) addMember.run(circle.id, u.id);
+  }
+  const count = database.prepare('SELECT COUNT(*) c FROM circle_members WHERE circle_id = ?').get(circle.id).c;
+  database.prepare('UPDATE circles SET member_count = ? WHERE id = ?').run(count, circle.id);
+  if (database.prepare('SELECT COUNT(*) c FROM circle_events WHERE circle_id = ?').get(circle.id).c === 0) {
+    const ev = database.prepare('INSERT INTO circle_events (circle_id,title,when_text,cadence,location,notes) VALUES (?,?,?,?,?,?)');
+    ev.run(circle.id, 'Tuesday Park Playgroup', 'Tuesdays 10am', 'weekly', 'Orem City Park', 'Bring a snack to share. Littles welcome.');
+    ev.run(circle.id, 'Mamas Night Out', 'Last Friday, 7pm', 'monthly', 'Rotating — see chat', 'No kiddos — just us. Trade off hosting.');
+    ev.run(circle.id, 'Welcome Coffee for new mamas', 'Saturday 9am', 'once', 'The Daily Grind', 'Say hi to mamas who just joined the Circle.');
+  }
 }
 
 if (process.argv.includes('--seed')) seed();
 
-module.exports = { db, seed };
+module.exports = { db, seed, seedDemoCircle };

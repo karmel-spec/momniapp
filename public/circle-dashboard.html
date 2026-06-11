@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle Leader — Momni</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--purple:#6D58A4;--purple-deep:#4A3880;--teal:#0D878F;--teal-deep:#0A6B72;--algae:#92E2C1;--lavender:#F5F0FE;--teal-soft:#E1F7F2;--clay:#D9C0A3;--ink:#2B2233;--muted:#6B6477;--white:#FFFFFF;--line:#EEE9F9}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.5;min-height:100vh;display:flex;justify-content:center}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{width:100%;max-width:480px;min-height:100vh;background:var(--white);box-shadow:0 0 40px rgba(109,88,164,0.12);display:flex;flex-direction:column;padding-bottom:76px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 8px}
+.topbar img{height:30px}.topbar a.back{font-size:13px;color:var(--muted);font-weight:600}
+main{padding:6px 18px 24px}
+.hdr{background:linear-gradient(135deg,var(--purple),var(--teal));color:#fff;border-radius:18px;padding:18px 20px;margin-bottom:14px}
+.hdr .lead{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--algae)}
+.hdr h1{font-size:21px;font-weight:800;margin:3px 0}
+.hdr p{font-size:13px;color:rgba(255,255,255,.9)}
+.hdr .edit{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;background:rgba(255,255,255,.18);border-radius:100px;padding:5px 13px;cursor:pointer}
+.secnav{display:flex;gap:7px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none}.secnav::-webkit-scrollbar{display:none}
+.snav{flex:0 0 auto;border:1.5px solid #E5DEF4;border-radius:100px;padding:8px 15px;font-size:13.5px;font-weight:600;color:var(--purple-deep);background:#fff;cursor:pointer;white-space:nowrap}
+.snav.on{background:var(--purple);border-color:var(--purple);color:#fff}
+section{display:none}section.on{display:block}
+.member{display:flex;align-items:center;gap:12px;border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;margin-bottom:9px}
+.member .av{width:38px;height:38px;border-radius:50%;background:var(--lavender);color:var(--purple-deep);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:700;flex-shrink:0}
+.member .nm{font-weight:700;font-size:14.5px}.member .mt{font-size:12px;color:var(--muted)}
+.tag{font-size:10.5px;font-weight:700;border-radius:100px;padding:2px 9px;margin-left:auto}
+.tag-leader{background:var(--purple);color:#fff}.tag-host{background:var(--teal-soft);color:var(--teal-deep)}
+.toggle-row{display:flex;gap:7px;margin-bottom:12px}
+.tg{flex:1;border:1.5px solid #E5DEF4;border-radius:100px;padding:8px;font-size:13px;font-weight:700;color:var(--purple-deep);background:#fff;cursor:pointer;font-family:inherit}
+.tg.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.ev{border:1.5px solid var(--line);border-radius:14px;padding:13px 15px;margin-bottom:10px}
+.ev .cad{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-radius:100px;padding:2px 9px;background:var(--lavender);color:var(--purple-deep)}
+.ev .cad.weekly{background:var(--teal-soft);color:var(--teal-deep)}.ev .cad.monthly{background:#FFF3E0;color:#A6691B}
+.ev h3{font-size:15.5px;font-weight:700;margin:6px 0 2px}
+.ev .when{font-size:13px;color:var(--ink);font-weight:600}.ev .loc,.ev .notes{font-size:12.5px;color:var(--muted)}
+.ev .acts{margin-top:9px;display:flex;gap:8px}
+.mini{font-size:12px;font-weight:700;border:none;border-radius:100px;padding:6px 13px;cursor:pointer;font-family:inherit}
+.mini.remind{background:var(--algae);color:#0B4A36}.mini.edit{background:#F3EEF7;color:var(--purple-deep)}.mini.del{background:#FBEAEE;color:#B0556A}
+.btn{border:none;border-radius:100px;padding:12px 20px;font-size:14.5px;font-weight:700;cursor:pointer;font-family:inherit;width:100%}
+.btn-primary{background:var(--purple);color:#fff}
+.add-btn{background:var(--algae);color:#0B4A36;border:none;border-radius:100px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;margin-bottom:14px}
+label{display:block;font-size:12.5px;font-weight:700;margin:10px 0 5px}
+input,textarea,select{width:100%;border:1.5px solid #E5DEF4;border-radius:12px;padding:11px 13px;font:inherit;font-size:14.5px}
+textarea{min-height:64px;resize:vertical}
+.post{border:1.5px solid var(--line);border-radius:14px;padding:15px;margin-bottom:12px}
+.post .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--purple);margin-bottom:7px}
+.post .body{font-size:14px;color:#42394f;white-space:pre-wrap;background:var(--lavender);border-radius:10px;padding:12px;margin-bottom:10px}
+.post .copy{background:var(--purple);color:#fff;border:none;border-radius:100px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.post .copy.done{background:var(--teal)}
+.note{font-size:12.5px;color:var(--muted);margin:6px 0 14px}
+.result{font-size:13px;font-weight:600;color:var(--teal-deep);margin-top:8px;min-height:18px}
+.empty{text-align:center;color:var(--muted);padding:24px 10px;font-size:14px}
+.scrim{position:fixed;inset:0;background:rgba(43,34,51,.45);display:none;align-items:flex-end;justify-content:center;z-index:80}.scrim.open{display:flex}
+.sheet{background:#fff;width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
+.sheet h2{font-size:18px;margin-bottom:6px}.sheet .row{display:flex;gap:10px;margin-top:16px}
+.btn-ghost{background:#F3EEF7;color:var(--purple-deep)}
+.err{color:#B4434E;font-size:13px;margin-top:8px;display:none}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;border-top:1px solid var(--line);display:flex;z-index:50}
+.tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11px;font-weight:600;color:var(--muted)}.tab .ico{display:block;font-size:19px;line-height:1.2}.tab.active{color:var(--purple)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+    <a class="back" href="circles.html">← Circles</a>
+  </div>
+  <main>
+    <div class="hdr">
+      <div class="lead">Circle Leader</div>
+      <h1 id="c-name">…</h1>
+      <p id="c-sub"></p>
+      <span class="edit" id="edit-circle">✎ Edit name &amp; meeting time</span>
+    </div>
+
+    <div class="secnav">
+      <button class="snav on" data-sec="roster">👥 Roster</button>
+      <button class="snav" data-sec="plan">🗓 Plan</button>
+      <button class="snav" data-sec="remind">🔔 Reminders</button>
+      <button class="snav" data-sec="grow">📣 Grow your Circle</button>
+    </div>
+
+    <section id="roster" class="on">
+      <p class="note">The mamas in your Circle. Their contact stays private — reminders are sent by Momni for you.</p>
+      <div id="roster-list"><p class="empty">Loading…</p></div>
+    </section>
+
+    <section id="plan">
+      <p class="note">Your gathering plan. Toggle the rhythm you want to see.</p>
+      <div class="toggle-row">
+        <button class="tg on" data-view="weekly">Weekly</button>
+        <button class="tg" data-view="monthly">Monthly</button>
+        <button class="tg" data-view="all">Everything</button>
+      </div>
+      <button class="add-btn" id="add-event">+ Add a gathering</button>
+      <div id="events-list"><p class="empty">Loading…</p></div>
+    </section>
+
+    <section id="remind">
+      <p class="note">Send your Circle a friendly reminder. In beta, reminders are logged (not emailed) until Momni's email goes live.</p>
+      <div id="remind-events"></div>
+      <div style="border-top:1px solid var(--line);padding-top:14px;margin-top:6px">
+        <h3 style="font-size:15px;margin-bottom:4px">Or send a custom note</h3>
+        <label for="rm-subject">Subject</label>
+        <input id="rm-subject" placeholder="Quick note about Tuesday">
+        <label for="rm-body">Message</label>
+        <textarea id="rm-body" placeholder="Hi mamas! Just a heads-up…"></textarea>
+        <button class="btn btn-primary" id="rm-send" style="margin-top:12px">Send to my Circle</button>
+        <div class="result" id="rm-result"></div>
+      </div>
+    </section>
+
+    <section id="grow">
+      <p class="note">Everything you need to invite more mamas and grow your Circle — no ad budget required. Copy, paste, share.</p>
+      <div id="grow-posts"></div>
+      <div class="post" style="background:var(--teal-soft);border-color:var(--teal-soft)">
+        <div class="lbl">Make it shareable</div>
+        <p style="font-size:14px;margin-bottom:10px">Grab ready-made graphics, story templates, and a “Circle Up” profile-photo frame on the Momni share page.</p>
+        <a class="post copy" style="display:inline-block;text-decoration:none" href="https://momni.com/share/" target="_blank" rel="noopener">Open the share kit ↗</a>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><span class="ico">🏠</span>Home</a>
+    <a class="tab" href="search.html"><span class="ico">🔍</span>Search</a>
+    <a class="tab" href="campfire.html"><span class="ico">🔥</span>Campfire</a>
+    <a class="tab active" href="circles.html"><span class="ico">💜</span>Circles</a>
+    <a class="tab" href="links.html"><span class="ico">🔗</span>Links</a>
+    <a class="tab" href="me.html"><span class="ico">👤</span>Me</a>
+  </nav>
+</div>
+
+<!-- event composer -->
+<div class="scrim" id="ev-scrim"><div class="sheet">
+  <h2 id="ev-title">Add a gathering</h2>
+  <label for="ev-name">What is it?</label>
+  <input id="ev-name" maxlength="100" placeholder="Tuesday Park Playgroup">
+  <label for="ev-when">When</label>
+  <input id="ev-when" maxlength="80" placeholder="Tuesdays 10am">
+  <label for="ev-cadence">How often</label>
+  <select id="ev-cadence"><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="once">Just once</option></select>
+  <label for="ev-loc">Where</label>
+  <input id="ev-loc" maxlength="100" placeholder="Orem City Park">
+  <label for="ev-notes">Notes (optional)</label>
+  <textarea id="ev-notes" maxlength="1000" placeholder="Bring a snack to share."></textarea>
+  <p class="err" id="ev-err"></p>
+  <div class="row"><button class="btn btn-ghost" id="ev-cancel">Cancel</button><button class="btn btn-primary" id="ev-save">Save</button></div>
+</div></div>
+
+<script>
+(function(){
+  var id = new URLSearchParams(location.search).get('id');
+  if(!id){ location='circles.html'; return; }
+  var circle=null, events=[], editingId=null, view='weekly';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function copy(t,cb){ navigator.clipboard.writeText(t).then(cb).catch(function(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();cb&&cb();}); }
+
+  // section nav
+  document.querySelector('.secnav').addEventListener('click',function(e){
+    var b=e.target.closest('.snav'); if(!b)return;
+    this.querySelectorAll('.snav').forEach(function(x){x.classList.remove('on');}); b.classList.add('on');
+    document.querySelectorAll('main section').forEach(function(s){s.classList.toggle('on',s.id===b.dataset.sec);});
+  });
+
+  function loadRoster(){
+    fetch('/api/circles/'+id+'/roster').then(function(r){
+      if(r.status===401){location='index.html';throw 0;}
+      if(r.status===403||r.status===404){ document.querySelector('main').innerHTML='<p class="empty">This dashboard is just for the Circle’s leader. <a href="circles.html" style="color:var(--teal);font-weight:700">Back to Circles</a></p>'; throw 0; }
+      return r.json();
+    }).then(function(d){
+      circle=d.circle;
+      document.getElementById('c-name').textContent=circle.name;
+      document.getElementById('c-sub').textContent=circle.member_count+' mamas · '+(circle.meets||'Schedule coming soon');
+      document.getElementById('roster-list').innerHTML = d.members.map(function(m){
+        var initials=(m.name||'?').split(/\s+/).map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
+        return '<div class="member"><span class="av">'+esc(initials)+'</span><div><div class="nm">'+esc(m.name)+'</div><div class="mt">'+esc(m.city||'')+'</div></div>'+
+          (m.is_leader?'<span class="tag tag-leader">Leader</span>':(m.is_host?'<span class="tag tag-host">Host</span>':''))+'</div>';
+      }).join('') || '<p class="empty">No members yet — invite some from the Grow tab!</p>';
+      renderGrow();
+    }).catch(function(){});
+  }
+
+  // ---- plan / events ----
+  document.querySelector('.toggle-row').addEventListener('click',function(e){
+    var b=e.target.closest('.tg'); if(!b)return;
+    this.querySelectorAll('.tg').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); view=b.dataset.view; renderEvents();
+  });
+  function loadEvents(){ fetch('/api/circles/'+id+'/events').then(function(r){return r.json();}).then(function(d){ events=d; renderEvents(); renderRemindEvents(); }); }
+  function renderEvents(){
+    var list = view==='all'?events:events.filter(function(e){return e.cadence===view;});
+    document.getElementById('events-list').innerHTML = list.length ? list.map(function(e){
+      return '<div class="ev"><span class="cad '+esc(e.cadence)+'">'+esc(e.cadence)+'</span><h3>'+esc(e.title)+'</h3>'+
+        (e.when_text?'<div class="when">'+esc(e.when_text)+'</div>':'')+
+        (e.location?'<div class="loc">📍 '+esc(e.location)+'</div>':'')+
+        (e.notes?'<div class="notes">'+esc(e.notes)+'</div>':'')+
+        '<div class="acts"><button class="mini remind" data-remind="'+e.id+'">🔔 Remind</button>'+
+        '<button class="mini edit" data-edit="'+e.id+'">Edit</button>'+
+        '<button class="mini del" data-del="'+e.id+'">Delete</button></div></div>';
+    }).join('') : '<p class="empty">Nothing '+(view==='all'?'planned':view)+' yet. Add your first gathering above. 💜</p>';
+  }
+  document.getElementById('events-list').addEventListener('click',function(e){
+    var r=e.target.closest('[data-remind]'), ed=e.target.closest('[data-edit]'), dl=e.target.closest('[data-del]');
+    if(r) return sendReminder({event_id:r.dataset.remind}, null);
+    if(ed) return openEvent(events.find(function(x){return String(x.id)===ed.dataset.edit;}));
+    if(dl){ if(!confirm('Delete this gathering?'))return; fetch('/api/circles/'+id+'/events/'+dl.dataset.del,{method:'DELETE'}).then(function(){loadEvents();}); }
+  });
+
+  var evScrim=document.getElementById('ev-scrim');
+  function openEvent(ev){
+    editingId = ev?ev.id:null;
+    document.getElementById('ev-title').textContent = ev?'Edit gathering':'Add a gathering';
+    document.getElementById('ev-name').value=ev?ev.title:'';
+    document.getElementById('ev-when').value=ev?ev.when_text:'';
+    document.getElementById('ev-cadence').value=ev?ev.cadence:'weekly';
+    document.getElementById('ev-loc').value=ev?ev.location:'';
+    document.getElementById('ev-notes').value=ev?ev.notes:'';
+    document.getElementById('ev-err').style.display='none';
+    evScrim.classList.add('open');
+  }
+  document.getElementById('add-event').onclick=function(){ openEvent(null); };
+  document.getElementById('ev-cancel').onclick=function(){ evScrim.classList.remove('open'); };
+  evScrim.addEventListener('click',function(e){ if(e.target===evScrim) evScrim.classList.remove('open'); });
+  document.getElementById('ev-save').onclick=function(){
+    var btn=this; if(btn.disabled)return;
+    var body={ title:document.getElementById('ev-name').value, when_text:document.getElementById('ev-when').value,
+      cadence:document.getElementById('ev-cadence').value, location:document.getElementById('ev-loc').value, notes:document.getElementById('ev-notes').value };
+    if(!body.title.trim()){ var er=document.getElementById('ev-err'); er.textContent='Give the gathering a name.'; er.style.display='block'; return; }
+    btn.disabled=true;
+    var url='/api/circles/'+id+'/events'+(editingId?'/'+editingId:''), method=editingId?'PUT':'POST';
+    fetch(url,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){return r.json();}).then(function(){ btn.disabled=false; evScrim.classList.remove('open'); loadEvents(); })
+      .catch(function(){ btn.disabled=false; });
+  };
+
+  // ---- reminders ----
+  function renderRemindEvents(){
+    document.getElementById('remind-events').innerHTML = events.length ? '<h3 style="font-size:15px;margin-bottom:8px">Remind about a gathering</h3>'+events.map(function(e){
+      return '<div class="ev" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div><strong style="font-size:14.5px">'+esc(e.title)+'</strong><div class="loc">'+esc(e.when_text||'')+(e.location?' · '+esc(e.location):'')+'</div></div>'+
+        '<button class="mini remind" data-remind="'+e.id+'">🔔 Send</button></div>';
+    }).join('') : '';
+  }
+  document.getElementById('remind-events').addEventListener('click',function(e){ var b=e.target.closest('[data-remind]'); if(b) sendReminder({event_id:b.dataset.remind}, document.getElementById('rm-result')); });
+  document.getElementById('rm-send').onclick=function(){
+    var subject=document.getElementById('rm-subject').value.trim(), body=document.getElementById('rm-body').value.trim();
+    if(!subject && !body){ setResult('rm-result','Write a subject or a message first.'); return; }
+    sendReminder({subject:subject, body:body}, document.getElementById('rm-result'));
+  };
+  function sendReminder(payload, resultEl){
+    fetch('/api/circles/'+id+'/remind',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});}).then(function(x){
+        var msg = x.ok ? ('Reminder ready for '+x.d.sent+'/'+x.d.recipients+' mamas — '+x.d.mode) : (x.d.error||'Could not send.');
+        if(resultEl){ resultEl.textContent=msg; } else { document.querySelector('.snav[data-sec="remind"]').click(); setResult('rm-result',msg); }
+        if(x.ok){ document.getElementById('rm-subject').value=''; document.getElementById('rm-body').value=''; }
+      });
+  }
+  function setResult(elid,msg){ document.getElementById(elid).textContent=msg; }
+
+  // ---- grow / marketing ----
+  function renderGrow(){
+    var app='https://app.momni.com', name=circle?circle.name:'my Circle', meets=circle&&circle.meets?circle.meets:'';
+    var posts=[
+      {lbl:'Invite a friend (text)', body:'Come join '+name+' on Momni 💜 It’s a circle of local mamas helping each other'+(meets?' — we meet '+meets:'')+'. Join here: '+app},
+      {lbl:'Facebook / group post', body:'📣 Calling '+(circle&&circle.city?circle.city+' ':'')+'mamas! I lead '+name+' on Momni — a community of moms who actually show up for each other.'+(meets?' We gather '+meets+'.':'')+' If you’ve ever wished for a village, come find one. Join free: '+app},
+      {lbl:'Instagram story', body:'I lead '+name+' 💜 Mom friends — come circle up with us. Link in bio / '+app},
+      {lbl:'The short one', body:name+' is growing 🐘 Join us on Momni: '+app}
+    ];
+    document.getElementById('grow-posts').innerHTML = posts.map(function(p,i){
+      return '<div class="post"><div class="lbl">'+esc(p.lbl)+'</div><div class="body">'+esc(p.body)+'</div><button class="copy" data-copy="'+i+'">Copy this post</button></div>';
+    }).join('');
+    document.getElementById('grow-posts')._posts=posts;
+  }
+  document.getElementById('grow-posts').addEventListener('click',function(e){
+    var b=e.target.closest('[data-copy]'); if(!b)return;
+    copy(this._posts[b.dataset.copy].body, function(){ b.textContent='Copied! ✓'; b.classList.add('done'); setTimeout(function(){b.textContent='Copy this post';b.classList.remove('done');},2000); });
+  });
+
+  // edit circle basics
+  document.getElementById('edit-circle').onclick=function(){
+    var name=prompt('Circle name:', circle.name); if(name===null)return;
+    var meets=prompt('When & where you meet:', circle.meets||''); if(meets===null)return;
+    fetch('/api/circles/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,meets:meets})})
+      .then(function(r){return r.json();}).then(function(){ loadRoster(); });
+  };
+
+  loadRoster(); loadEvents();
+})();
+</script>
+</body>
+</html>

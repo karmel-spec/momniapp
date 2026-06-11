@@ -109,6 +109,19 @@ const TEMPLATES = {
       script('— Karmel'),
       v.subject || 'News from the Circle'),
   }),
+
+  // Circle Leader reminder to her members about a gathering.
+  circle_reminder: (v) => ({
+    subject: v.subject || `Reminder: ${v.circle || 'your Circle'} is getting together`,
+    html: layout(
+      h1(esc(v.event || 'A Circle gathering')) +
+      (v.when ? p(`<strong>When:</strong> ${esc(v.when)}`) : '') +
+      (v.location ? p(`<strong>Where:</strong> ${esc(v.location)}`) : '') +
+      (v.notes ? p(esc(v.notes)) : '') +
+      p(`From ${esc(v.leader || 'your Circle Leader')} · ${esc(v.circle || 'your Circle')}`) +
+      script('See you there! 💜'),
+      v.subject || 'A reminder from your Circle'),
+  }),
 };
 
 // Send one email. Never throws — email problems must never break a core action.

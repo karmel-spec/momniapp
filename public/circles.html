@@ -87,11 +87,16 @@ h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px}
       return;
     }
     box.innerHTML = circles.map(function(c){
+      var action = c.is_leader
+        ? '<a class="join-btn" style="background:var(--purple)" href="circle-dashboard.html?id='+c.id+'">Manage</a>'
+        : (c.is_member
+            ? '<a class="join-btn" style="background:#E5DEF4;color:var(--purple-deep)" href="#" data-join="'+c.id+'">Joined</a>'
+            : '<a class="join-btn" href="#" data-join="'+c.id+'">Join</a>');
       return '<div class="circle">' +
         '<span class="mark"><img src="assets/momni-icon-color.png" alt=""></span>' +
-        '<div class="info"><h2>'+esc(c.name)+'</h2>' +
+        '<div class="info"><h2>'+esc(c.name)+(c.is_leader?' <span style="font-size:11px;color:var(--purple);font-weight:700">· You lead</span>':'')+'</h2>' +
         '<p><span data-count="'+c.id+'">'+c.member_count+'</span> mamas &middot; '+esc(c.meets)+' &middot; '+esc(c.city)+'</p></div>' +
-        '<a class="join-btn" href="#" data-join="'+c.id+'">Join</a></div>';
+        action+'</div>';
     }).join('');
     box.querySelectorAll('[data-join]').forEach(function(btn){
       btn.addEventListener('click', function(e){

@@ -642,13 +642,20 @@ app.post('/api/reviews', requireAuth, (req, res) => {
 });
 
 // ---------- circles ----------
-app.get('/api/circles', (req, res) => res.json(db.prepare('SELECT * FROM circles').all()));
+// Annotate each circle with the signed-in mama's relationship to it (for the "Manage" button).
+app.get('/api/circles', (req, res) => {
+  const me = req.session.userId || 0;
+  const rows = db.prepare('SELECT * FROM circles').all();
+  const myMemberships = me ? new Set(db.prepare('SELECT circle_id FROM circle_members WHERE user_id = ?').all(me).map(r => r.circle_id)) : new Set();
+  res.json(rows.map(c => ({ id: c.id, name: c.name, city: c.city, lat: c.lat, lng: c.lng, meets: c.meets,
+    member_count: c.member_count, is_leader: !!me && c.leader_id === me, is_member: myMemberships.has(c.id) })));
+});
 app.post('/api/circles', requireAuth, (req, res) => {
   const { name, city, meets } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Your Circle needs a name, mama.' });
   const me = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
-  const info = db.prepare('INSERT INTO circles (name,city,meets,member_count) VALUES (?,?,?,1)')
-    .run(name.trim().slice(0, 80), (city || me.city || '').slice(0, 60), (meets || 'Schedule coming soon').slice(0, 120));
+  const info = db.prepare('INSERT INTO circles (name,city,meets,member_count,leader_id) VALUES (?,?,?,1,?)')
+    .run(name.trim().slice(0, 80), (city || me.city || '').slice(0, 60), (meets || 'Schedule coming soon').slice(0, 120), me.id);
   db.prepare('INSERT INTO circle_members (circle_id,user_id) VALUES (?,?)').run(info.lastInsertRowid, me.id);
   res.json({ ok: true, circle_id: info.lastInsertRowid });
 });
@@ -658,6 +665,94 @@ app.post('/api/circles/:id/join', requireAuth, (req, res) => {
     db.prepare('UPDATE circles SET member_count = member_count + 1 WHERE id = ?').run(req.params.id);
   } catch (e) { /* already a member — fine */ }
   res.json({ ok: true });
+});
+
+// ---------- Circle Leader dashboard ----------
+// A leader is the circle's leader_id; HQ (is_admin) may also manage any circle.
+function loadCircleAsLeader(req, res) {
+  const circle = db.prepare('SELECT * FROM circles WHERE id = ?').get(req.params.id);
+  if (!circle) { res.status(404).json({ error: 'That Circle is gone.' }); return null; }
+  const u = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.session.userId);
+  if (circle.leader_id !== req.session.userId && !(u && u.is_admin)) { res.status(403).json({ error: 'Only this Circle’s leader can do that.' }); return null; }
+  return circle;
+}
+
+// Roster — leader-only. Names + city + first letter; emails are NOT exposed (reminders send server-side).
+app.get('/api/circles/:id/roster', requireAuth, (req, res) => {
+  const circle = loadCircleAsLeader(req, res); if (!circle) return;
+  const members = db.prepare(`SELECT u.id, u.name, u.city, u.is_host FROM circle_members m JOIN users u ON u.id = m.user_id
+    WHERE m.circle_id = ? ORDER BY u.name`).all(circle.id);
+  res.json({ circle: { id: circle.id, name: circle.name, city: circle.city, meets: circle.meets, member_count: members.length },
+    members: members.map(m => ({ id: m.id, name: m.name, city: m.city || '', is_host: !!m.is_host, is_leader: m.id === circle.leader_id })) });
+});
+
+// Update circle basics (name / meets / city) — leader-only.
+app.put('/api/circles/:id', requireAuth, (req, res) => {
+  const circle = loadCircleAsLeader(req, res); if (!circle) return;
+  const fields = {};
+  if ('name' in req.body && String(req.body.name).trim()) fields.name = String(req.body.name).trim().slice(0, 80);
+  if ('meets' in req.body) fields.meets = String(req.body.meets || '').slice(0, 120);
+  if ('city' in req.body) fields.city = String(req.body.city || '').slice(0, 60);
+  const keys = Object.keys(fields);
+  if (keys.length) db.prepare(`UPDATE circles SET ${keys.map(k => `${k} = ?`).join(', ')} WHERE id = ?`).run(...keys.map(k => fields[k]), circle.id);
+  res.json({ ok: true });
+});
+
+// Planning guide — events. Members may read; only the leader may change them.
+const CADENCES = ['once', 'weekly', 'monthly'];
+app.get('/api/circles/:id/events', requireAuth, (req, res) => {
+  const circle = db.prepare('SELECT id FROM circles WHERE id = ?').get(req.params.id);
+  if (!circle) return res.status(404).json({ error: 'That Circle is gone.' });
+  res.json(db.prepare('SELECT id,title,when_text,event_date,cadence,location,notes FROM circle_events WHERE circle_id = ? ORDER BY id DESC').all(circle.id));
+});
+app.post('/api/circles/:id/events', requireAuth, (req, res) => {
+  const circle = loadCircleAsLeader(req, res); if (!circle) return;
+  const { title, when_text, event_date, cadence, location, notes } = req.body;
+  if (!title || !String(title).trim()) return res.status(400).json({ error: 'Give the gathering a name.' });
+  const cad = CADENCES.includes(cadence) ? cadence : 'once';
+  const info = db.prepare(`INSERT INTO circle_events (circle_id,title,when_text,event_date,cadence,location,notes) VALUES (?,?,?,?,?,?,?)`)
+    .run(circle.id, String(title).trim().slice(0, 100), String(when_text || '').slice(0, 80),
+         (event_date || null), cad, String(location || '').slice(0, 100), String(notes || '').slice(0, 1000));
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+app.put('/api/circles/:id/events/:eid', requireAuth, (req, res) => {
+  const circle = loadCircleAsLeader(req, res); if (!circle) return;
+  const ev = db.prepare('SELECT * FROM circle_events WHERE id = ? AND circle_id = ?').get(req.params.eid, circle.id);
+  if (!ev) return res.status(404).json({ error: 'That event is gone.' });
+  const allowed = ['title', 'when_text', 'event_date', 'cadence', 'location', 'notes'];
+  const fields = {};
+  for (const k of allowed) if (k in req.body) fields[k] = k === 'cadence' ? (CADENCES.includes(req.body[k]) ? req.body[k] : ev.cadence) : String(req.body[k] || '').slice(0, 1000);
+  const keys = Object.keys(fields);
+  if (keys.length) db.prepare(`UPDATE circle_events SET ${keys.map(k => `${k} = ?`).join(', ')} WHERE id = ?`).run(...keys.map(k => fields[k]), ev.id);
+  res.json({ ok: true });
+});
+app.delete('/api/circles/:id/events/:eid', requireAuth, (req, res) => {
+  const circle = loadCircleAsLeader(req, res); if (!circle) return;
+  db.prepare('DELETE FROM circle_events WHERE id = ? AND circle_id = ?').run(req.params.eid, circle.id);
+  res.json({ ok: true });
+});
+
+// Reminders — leader emails all members about a gathering (or a custom note). Dev-safe via mailer.
+const remindLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 12, message: 'You’ve sent a lot of reminders — give it a little while.' });
+app.post('/api/circles/:id/remind', requireAuth, remindLimiter, async (req, res) => {
+  const circle = loadCircleAsLeader(req, res); if (!circle) return;
+  const leader = db.prepare('SELECT name FROM users WHERE id = ?').get(circle.leader_id || req.session.userId);
+  let vars = { circle: circle.name, leader: leader ? leader.name : 'Your Circle Leader' };
+  if (req.body.event_id) {
+    const ev = db.prepare('SELECT * FROM circle_events WHERE id = ? AND circle_id = ?').get(req.body.event_id, circle.id);
+    if (!ev) return res.status(404).json({ error: 'That event is gone.' });
+    vars = { ...vars, event: ev.title, when: ev.when_text, location: ev.location, notes: ev.notes };
+  } else {
+    if (!req.body.body && !req.body.subject) return res.status(400).json({ error: 'Pick an event or write a message.' });
+    vars = { ...vars, subject: req.body.subject, event: req.body.subject || `A note from ${circle.name}`, notes: req.body.body || '' };
+  }
+  const members = db.prepare(`SELECT u.id, u.email FROM circle_members m JOIN users u ON u.id = m.user_id WHERE m.circle_id = ?`).all(circle.id);
+  let sent = 0;
+  for (const m of members) {
+    const r = await mailer.send({ to: m.email, to_user_id: m.id, template: 'circle_reminder', vars, related_type: 'circle', related_id: circle.id });
+    if (r.status !== 'failed') sent++;
+  }
+  res.json({ ok: true, recipients: members.length, sent, mode: mailer.LIVE ? 'live' : 'dev (logged, not sent)' });
 });
 
 // ---------- purchases (Momni's only revenue — NEVER care payments) ----------
