@@ -6,3 +6,6 @@ nohup.out
 mobile/node_modules/
 mobile/.env
 .DS_Store
+
+# uploaded digital products (live on the persistent disk in prod)
+downloads/

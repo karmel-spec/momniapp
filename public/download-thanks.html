@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thank you — Momni Shop</title>
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--purple:#6D58A4;--teal:#0D878F;--teal-deep:#0A6B72;--algae:#92E2C1;--lavender:#F5F0FE;--ink:#2B2233;--muted:#6B6477}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:linear-gradient(180deg,var(--lavender),#fff);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#fff;border:1.5px solid #E5E0F0;border-radius:24px;padding:40px 34px;max-width:440px;width:100%;box-shadow:0 18px 48px rgba(43,34,51,.10);text-align:center}
+.card img{height:42px;margin-bottom:14px}
+.script{font-family:'Caveat',cursive;color:var(--teal);font-size:24px;display:block;margin-bottom:6px}
+h1{font-family:'Montserrat',sans-serif;font-size:23px;font-weight:800;margin-bottom:10px}
+p{font-size:15px;color:var(--muted);margin-bottom:18px;line-height:1.55}
+.dl{display:inline-block;background:var(--algae);color:#0B4A36;font-weight:700;border-radius:100px;padding:14px 30px;font-size:15.5px;text-decoration:none}
+.dl:hover{filter:brightness(.96)}
+.note{font-size:12.5px;color:var(--muted);margin-top:16px}
+.note a{color:var(--teal);font-weight:600}
+.err{color:#B4434E;font-size:14px}
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+  <span class="script">Thank you, mama 💜</span>
+  <h1 id="title">Confirming your purchase…</h1>
+  <p id="msg">One moment while we get your download ready.</p>
+  <div id="action"></div>
+  <p class="note">A copy is also on its way to your email. Trouble downloading? <a href="mailto:support@momni.com">support@momni.com</a></p>
+</div>
+<script>
+(function () {
+  var sid = new URLSearchParams(location.search).get('session_id');
+  var titleEl = document.getElementById('title'), msgEl = document.getElementById('msg'), actEl = document.getElementById('action');
+  if (!sid) { titleEl.textContent = 'Hmm, no order found'; msgEl.innerHTML = '<span class="err">We couldn’t find an order in this link.</span>'; return; }
+  var tries = 0;
+  function poll() {
+    fetch('/api/shop/order?session_id=' + encodeURIComponent(sid))
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (x.ok && x.d.download_url) {
+          titleEl.textContent = 'Your download is ready!';
+          msgEl.textContent = x.d.title || 'Tap below to grab your file.';
+          actEl.innerHTML = '<a class="dl" href="' + x.d.download_url + '">⬇ Download now</a>';
+          return;
+        }
+        if (++tries < 8) { setTimeout(poll, 1500); }   // payment may take a few seconds to confirm
+        else { titleEl.textContent = 'Almost there'; msgEl.innerHTML = 'Your payment is still confirming. We’ve emailed your link too — or refresh this page in a minute.'; }
+      })
+      .catch(function(){ if (++tries < 8) setTimeout(poll, 1500); });
+  }
+  poll();
+})();
+</script>
+</body>
+</html>

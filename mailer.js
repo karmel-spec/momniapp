@@ -122,6 +122,18 @@ const TEMPLATES = {
       'Reset your Momni password'),
   }),
 
+  // Digital download delivery after a shop purchase.
+  download_ready: (v) => ({
+    subject: `Your download: ${v.title || 'Momni Shop'}`,
+    html: layout(
+      h1('Thank you, mama! 💜') +
+      p(`Here’s your download — <strong>${esc(v.title || 'your purchase')}</strong>. The link works for a little while and a few downloads, so save the file somewhere safe.`) +
+      `<p style="margin:20px 0">${btn(v.downloadHref, 'Download now')}</p>` +
+      p('Every purchase in the Momni Shop helps fund care for mamas in need through the Momni Foundation. Thank you for circling up.') +
+      script('— Momni'),
+      `Your download: ${v.title || 'Momni Shop'}`),
+  }),
+
   // Circle Leader reminder to her members about a gathering.
   circle_reminder: (v) => ({
     subject: v.subject || `Reminder: ${v.circle || 'your Circle'} is getting together`,

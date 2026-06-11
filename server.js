@@ -836,6 +836,134 @@ app.post('/api/purchase/momni-plus', requireAuth, (req, res, next) => checkoutOr
 app.post('/api/purchase/circle-up', requireAuth, (req, res, next) => checkoutOrGrant(req, res, 'circle-up').catch(next));
 app.post('/api/purchase/profile-boost', requireAuth, (req, res, next) => checkoutOrGrant(req, res, 'profile-boost').catch(next));
 
+// ---------- Shop: digital downloads (founder uploads + prices; anyone can buy, no account needed) ----------
+const fsp = require('fs');
+const DATA_DIR = path.dirname(process.env.DB_PATH || path.join(__dirname, 'momni.db'));
+const DOWNLOADS_DIR = path.join(DATA_DIR, 'downloads');
+try { fsp.mkdirSync(DOWNLOADS_DIR, { recursive: true }); } catch (e) { /* exists */ }
+const newToken = () => require('crypto').randomBytes(24).toString('hex');
+const ORDER_TTL_MS = 7 * 24 * 60 * 60 * 1000; // download link valid 7 days
+
+function makeOrder(productId, { email = null, amount = 0, sessionId = null } = {}) {
+  const token = newToken();
+  db.prepare(`INSERT INTO shop_orders (product_id,email,amount_cents,stripe_session_id,token,expires_at)
+    VALUES (?,?,?,?,?,?)`).run(productId, email, amount, sessionId, token, Date.now() + ORDER_TTL_MS);
+  db.prepare('UPDATE shop_products SET sales = sales + 1 WHERE id = ?').run(productId);
+  return token;
+}
+
+// Public: list buyable products (active + has a file)
+app.get('/api/shop/products', (req, res) => {
+  res.json(db.prepare(`SELECT id,title,description,price_cents,orig_name,file_size FROM shop_products
+    WHERE active = 1 AND filename IS NOT NULL ORDER BY id DESC`).all());
+});
+
+// Buy: free → instant download token; paid → Stripe Checkout (dev mode grants instantly)
+const shopBuyLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 40, message: 'Too many attempts — give it a minute.' });
+app.post('/api/shop/buy/:id', shopBuyLimiter, async (req, res, next) => {
+  try {
+    const p = db.prepare('SELECT * FROM shop_products WHERE id = ? AND active = 1 AND filename IS NOT NULL').get(req.params.id);
+    if (!p) return res.status(404).json({ error: 'That item isn’t available.' });
+    if (p.price_cents <= 0) { // free download
+      const token = makeOrder(p.id, { amount: 0 });
+      return res.json({ ok: true, free: true, download_url: `/api/shop/download/${token}` });
+    }
+    if (!stripe) { // dev mode — grant without charge so the flow is testable
+      const token = makeOrder(p.id, { amount: p.price_cents });
+      return res.json({ ok: true, dev: true, download_url: `/api/shop/download/${token}`, note: 'DEV MODE: granted without charge.' });
+    }
+    const sess = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: p.price_cents, product_data: { name: p.title, description: (p.description || '').slice(0, 300) || undefined } } }],
+      metadata: { kind: 'shop', product_id: String(p.id) },
+      success_url: `${APP_URL}/download-thanks.html?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${APP_URL}/downloads.html?purchase=cancelled`,
+    });
+    res.json({ ok: true, checkout_url: sess.url });
+  } catch (e) { next(e); }
+});
+
+// Thank-you page looks up its completed order by Stripe session id → returns the download link
+app.get('/api/shop/order', (req, res) => {
+  const sid = String(req.query.session_id || '');
+  if (!sid) return res.status(400).json({ error: 'Missing session.' });
+  const o = db.prepare('SELECT o.token, o.expires_at, p.title, p.orig_name FROM shop_orders o JOIN shop_products p ON p.id = o.product_id WHERE o.stripe_session_id = ?').get(sid);
+  if (!o) return res.status(404).json({ error: 'We’re still confirming your payment — refresh in a moment.' });
+  res.json({ ok: true, title: o.title, download_url: `/api/shop/download/${o.token}` });
+});
+
+// Secure download: token-gated, time-limited, download-capped
+app.get('/api/shop/download/:token', (req, res) => {
+  const o = db.prepare('SELECT * FROM shop_orders WHERE token = ?').get(String(req.params.token));
+  if (!o) return res.status(404).send('This download link isn’t valid.');
+  if (o.expires_at < Date.now()) return res.status(410).send('This download link has expired. Contact support@momni.com and we’ll re-send it.');
+  if (o.downloads >= o.max_downloads) return res.status(429).send('This link has reached its download limit. Contact support@momni.com for help.');
+  const p = db.prepare('SELECT * FROM shop_products WHERE id = ?').get(o.product_id);
+  if (!p || !p.filename) return res.status(404).send('That file is no longer available.');
+  const filePath = path.join(DOWNLOADS_DIR, p.filename);
+  if (!fsp.existsSync(filePath)) return res.status(404).send('That file is no longer available.');
+  db.prepare('UPDATE shop_orders SET downloads = downloads + 1 WHERE id = ?').run(o.id);
+  res.setHeader('Content-Type', p.content_type || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `attachment; filename="${(p.orig_name || 'momni-download').replace(/[^\w.\- ]/g, '_')}"`);
+  res.setHeader('Cache-Control', 'private, no-store');
+  fsp.createReadStream(filePath).pipe(res);
+});
+
+// ---- HQ admin: upload, price, and manage digital products ----
+const uploadJson = express.json({ limit: '30mb' }); // base64 file payloads
+app.get('/api/admin/shop/products', requireAdmin, (req, res) => {
+  res.json(db.prepare(`SELECT id,title,description,price_cents,orig_name,file_size,content_type,active,sales,created_at,
+    (filename IS NOT NULL) AS has_file FROM shop_products ORDER BY id DESC`).all());
+});
+app.post('/api/admin/shop/products', requireAdmin, uploadJson, (req, res) => {
+  const { title, description, price_cents, orig_name, content_type, data_base64, active } = req.body;
+  if (!title || !String(title).trim()) return res.status(400).json({ error: 'A title is required.' });
+  const price = Math.max(0, parseInt(price_cents, 10) || 0);
+  if (price !== 0 && price < 50) return res.status(400).json({ error: 'Paid items must be at least $0.50 (Stripe minimum). Use $0 for a free download.' });
+  let filename = null, size = 0;
+  if (data_base64) {
+    const buf = Buffer.from(String(data_base64).split(',').pop(), 'base64');
+    if (buf.length > 25 * 1024 * 1024) return res.status(413).json({ error: 'File is over 25 MB — please trim it.' });
+    filename = newToken() + '_' + String(orig_name || 'file').replace(/[^\w.\-]/g, '_').slice(-60);
+    fsp.writeFileSync(path.join(DOWNLOADS_DIR, filename), buf);
+    size = buf.length;
+  }
+  const info = db.prepare(`INSERT INTO shop_products (title,description,price_cents,filename,orig_name,content_type,file_size,active)
+    VALUES (?,?,?,?,?,?,?,?)`).run(String(title).trim().slice(0, 120), String(description || '').slice(0, 1000), price,
+    filename, orig_name ? String(orig_name).slice(0, 120) : null, content_type || 'application/octet-stream', size,
+    (active && filename) ? 1 : 0);
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+app.put('/api/admin/shop/products/:id', requireAdmin, uploadJson, (req, res) => {
+  const p = db.prepare('SELECT * FROM shop_products WHERE id = ?').get(req.params.id);
+  if (!p) return res.status(404).json({ error: 'Not found.' });
+  const fields = {};
+  if ('title' in req.body && String(req.body.title).trim()) fields.title = String(req.body.title).trim().slice(0, 120);
+  if ('description' in req.body) fields.description = String(req.body.description || '').slice(0, 1000);
+  if ('price_cents' in req.body) { const v = Math.max(0, parseInt(req.body.price_cents, 10) || 0); if (v !== 0 && v < 50) return res.status(400).json({ error: 'Paid items must be at least $0.50.' }); fields.price_cents = v; }
+  if ('active' in req.body) fields.active = req.body.active ? 1 : 0;
+  if (req.body.data_base64) { // replace the file
+    const buf = Buffer.from(String(req.body.data_base64).split(',').pop(), 'base64');
+    if (buf.length > 25 * 1024 * 1024) return res.status(413).json({ error: 'File is over 25 MB.' });
+    const filename = newToken() + '_' + String(req.body.orig_name || 'file').replace(/[^\w.\-]/g, '_').slice(-60);
+    fsp.writeFileSync(path.join(DOWNLOADS_DIR, filename), buf);
+    if (p.filename) { try { fsp.unlinkSync(path.join(DOWNLOADS_DIR, p.filename)); } catch (e) {} }
+    fields.filename = filename; fields.file_size = buf.length;
+    if (req.body.orig_name) fields.orig_name = String(req.body.orig_name).slice(0, 120);
+    if (req.body.content_type) fields.content_type = req.body.content_type;
+  }
+  if (fields.active && !(fields.filename || p.filename)) return res.status(400).json({ error: 'Add a file before activating.' });
+  const keys = Object.keys(fields);
+  if (keys.length) db.prepare(`UPDATE shop_products SET ${keys.map(k => `${k} = ?`).join(', ')} WHERE id = ?`).run(...keys.map(k => fields[k]), p.id);
+  res.json({ ok: true });
+});
+app.delete('/api/admin/shop/products/:id', requireAdmin, (req, res) => {
+  const p = db.prepare('SELECT * FROM shop_products WHERE id = ?').get(req.params.id);
+  if (p && p.filename) { try { fsp.unlinkSync(path.join(DOWNLOADS_DIR, p.filename)); } catch (e) {} }
+  db.prepare('DELETE FROM shop_products WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 // Stripe webhook — fulfillment happens here, after real payment.
 // Configure the endpoint in the Stripe dashboard with STRIPE_WEBHOOK_SECRET.
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
@@ -852,8 +980,20 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req,
   try { db.prepare('INSERT INTO stripe_events (id) VALUES (?)').run(event.id); }
   catch (e) { return res.json({ received: true, duplicate: true }); }
   if (event.type === 'checkout.session.completed') {
-    const { user_id, product } = event.data.object.metadata || {};
-    if (user_id && PRODUCTS[product]) PRODUCTS[product].fulfill(Number(user_id));
+    const obj = event.data.object;
+    const meta = obj.metadata || {};
+    if (meta.kind === 'shop' && meta.product_id) {
+      // Digital download purchase — mint a download token and email it.
+      const p = db.prepare('SELECT * FROM shop_products WHERE id = ?').get(Number(meta.product_id));
+      if (p) {
+        const email = (obj.customer_details && obj.customer_details.email) || obj.customer_email || null;
+        const token = makeOrder(p.id, { email, amount: obj.amount_total || p.price_cents, sessionId: obj.id });
+        if (email) mailer.send({ to: email, template: 'download_ready',
+          vars: { title: p.title, downloadHref: `${APP_URL}/api/shop/download/${token}` }, related_type: 'shop_order', related_id: p.id });
+      }
+    } else if (meta.user_id && PRODUCTS[meta.product]) {
+      PRODUCTS[meta.product].fulfill(Number(meta.user_id));
+    }
   }
   res.json({ received: true });
 });

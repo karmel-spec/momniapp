@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Momni Shop — Digital Downloads</title>
+<meta name="description" content="Printable planners, guides, and the Circle Up ebook — instant downloads from the Momni Shop. Every purchase helps fund care through the Momni Foundation.">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--purple:#6D58A4;--purple-deep:#4A3880;--teal:#0D878F;--teal-deep:#0A6B72;--algae:#92E2C1;--lavender:#F5F0FE;--teal-soft:#E1F7F2;--ink:#2B2233;--muted:#6B6477}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:#fff;line-height:1.6}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.wrap{max-width:920px;margin:0 auto;padding:0 22px}
+.hero{background:linear-gradient(180deg,var(--lavender),#fff);padding:54px 0 30px;text-align:center}
+.hero img{height:40px;margin-bottom:14px}
+.hero .script{font-size:25px;color:var(--teal);display:block;margin-bottom:6px}
+.hero h1{font-size:34px;font-weight:800;margin-bottom:8px}
+.hero p{font-size:16px;color:var(--muted);max-width:560px;margin:0 auto}
+.section{padding:34px 0 60px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
+.card{border:1.5px solid #EEE9F9;border-radius:18px;padding:20px;display:flex;flex-direction:column}
+.card .ico{width:46px;height:46px;border-radius:12px;background:var(--lavender);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px}
+.card h3{font-size:17px;font-weight:700;margin-bottom:4px}
+.card p{font-size:14px;color:var(--muted);flex:1;margin-bottom:14px}
+.card .price{font-family:'Montserrat',sans-serif;font-weight:800;font-size:20px;color:var(--teal-deep);margin-bottom:12px}
+.card .price small{font-size:12px;color:var(--muted);font-weight:600}
+.buy{background:var(--algae);color:#0B4A36;border:none;border-radius:100px;padding:12px;font:inherit;font-size:14.5px;font-weight:700;cursor:pointer}
+.buy:hover{filter:brightness(.96)}.buy:disabled{opacity:.6;cursor:default}
+.give{background:var(--teal-soft);border-radius:16px;padding:18px 22px;margin-top:28px;font-size:14.5px;color:var(--teal-deep);text-align:center}
+.empty{text-align:center;color:var(--muted);padding:40px 10px;font-size:15px}
+footer{background:var(--ink);color:rgba(255,255,255,.55);padding:30px 0;font-size:12.5px;line-height:1.7}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 22px;border-radius:100px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
+.toast.show{opacity:1}
+@media(max-width:560px){.hero h1{font-size:27px}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+    <span class="script">Made for the mama mind.</span>
+    <h1>Momni Shop — Digital Downloads</h1>
+    <p>Printables, planners, and reads you can use tonight. Instant download — no shipping, no waiting. Every purchase helps fund care through the Momni Foundation.</p>
+  </div>
+</header>
+
+<section class="section">
+  <div class="wrap">
+    <div class="grid" id="grid"><p class="empty">Loading the shelf…</p></div>
+    <div class="give">💜 100% of profit on every download supports the <strong>Momni Foundation</strong>, our independent 501(c)(3). One brand, two entities, separate wallets.</div>
+  </div>
+</section>
+
+<footer><div class="wrap">
+  Momni Shop is operated by Momni, Inc. Digital products are delivered instantly by download link. Questions about an order? <a href="mailto:support@momni.com" style="color:#92E2C1">support@momni.com</a>.
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  var ICONS = ['📄','🗒️','🍲','💜','📚','🎀','🧩','🗓️','📥'];
+  function toast(t){ var el=document.getElementById('toast'); el.textContent=t; el.classList.add('show'); setTimeout(function(){el.classList.remove('show');},2600); }
+  function price(c){ return c <= 0 ? 'Free' : '$' + (c/100).toFixed(c % 100 ? 2 : 0); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+
+  fetch('/api/shop/products').then(function(r){return r.json();}).then(function(items){
+    var g = document.getElementById('grid');
+    if (!items.length) { g.innerHTML = '<p class="empty">New downloads are on the way — check back soon. 💜</p>'; return; }
+    g.innerHTML = items.map(function(p,i){
+      return '<div class="card"><div class="ico">'+ICONS[i % ICONS.length]+'</div>'+
+        '<h3>'+esc(p.title)+'</h3><p>'+esc(p.description||'')+'</p>'+
+        '<div class="price">'+price(p.price_cents)+(p.price_cents>0?' <small>instant download</small>':' <small>free</small>')+'</div>'+
+        '<button class="buy" data-id="'+p.id+'">'+(p.price_cents>0?'Buy & download':'Get it free')+'</button></div>';
+    }).join('');
+  }).catch(function(){ document.getElementById('grid').innerHTML='<p class="empty">Couldn’t load the shop — try again in a moment.</p>'; });
+
+  document.getElementById('grid').addEventListener('click', function(e){
+    var b = e.target.closest('.buy'); if (!b) return;
+    if (b.disabled) return; b.disabled = true; b.textContent = 'One sec…';
+    fetch('/api/shop/buy/' + b.dataset.id, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok) { b.disabled = false; b.textContent = 'Try again'; toast(x.d.error || 'Something went wrong.'); return; }
+        if (x.d.checkout_url) { window.location.href = x.d.checkout_url; return; }       // paid → Stripe
+        if (x.d.download_url) { window.location.href = x.d.download_url; b.textContent = 'Downloading ✓'; toast('Enjoy, mama! 💜'); } // free/dev → instant
+      })
+      .catch(function(){ b.disabled = false; b.textContent = 'Try again'; toast('Couldn’t reach the shop.'); });
+  });
+})();
+</script>
+</body>
+</html>

@@ -92,6 +92,20 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
         <div id="oc-secret" class="meta" style="margin-top:8px;word-break:break-all"></div>
         <div id="oc-list" style="margin-top:10px"><p class="empty">Loading…</p></div>
       </div>
+      <div class="card"><h2>🛍️ Shop — digital downloads</h2>
+        <p class="meta" style="margin-bottom:8px">Upload a file, set a price, and it’s for sale at <a href="downloads.html" target="_blank">/downloads.html</a>. Price $0 for a free download. Buyers get an instant, time-limited link; 100% of profit supports the Foundation.</p>
+        <input id="sp-title" placeholder="Title — e.g. The Sitter Sheet">
+        <textarea id="sp-desc" placeholder="Short description" style="width:100%;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit;font-size:14px;margin-bottom:8px;min-height:54px"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <span class="meta">Price $</span>
+          <input id="sp-price" type="number" min="0" step="0.50" placeholder="4.00" style="width:110px;margin:0">
+          <label class="meta" style="margin-left:auto"><input type="checkbox" id="sp-active" checked> List it now</label>
+        </div>
+        <input id="sp-file" type="file" style="font-size:13px;margin-bottom:8px">
+        <button class="b-ok" id="sp-create">Add product</button>
+        <span class="meta" id="sp-result"></span>
+        <div id="sp-list" style="margin-top:10px"><p class="empty">Loading…</p></div>
+      </div>
     </div>
   </div>
   <p style="font-size:12px;color:var(--muted)">No burn rate. No investor metrics. The dashboard measures a healthy Circle. 🐘</p>
@@ -105,7 +119,7 @@ async function init(){
     document.getElementById('hq').style.display='block';
     const labels = {mamas:'Mamas in the Circle',hosts:'Hosting mamas',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',gives:'Momni Gives mamas',open_reports:'Open reports'};
     document.getElementById('stats').innerHTML = Object.entries(labels).map(([k,l])=>`<div class="stat"><div class="n">${o[k]}</div><div class="l">${l}</div></div>`).join('');
-    loadReports(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadOauthClients();
+    loadReports(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadOauthClients(); loadShop();
   }catch(e){}
 }
 async function loadReports(){
@@ -173,6 +187,44 @@ async function loadEmails(){
     ${esc(e.template)} → ${esc(e.to_email)}<div class="meta">${esc(e.subject||'')}${e.created_at?' · '+esc(e.created_at):''}</div></div>`).join('')
     : '<p class="empty">No emails yet.</p>';
 }
+// ---- Shop: digital downloads ----
+function money(c){ return c<=0 ? 'Free' : '$'+(c/100).toFixed(2); }
+async function loadShop(){
+  const rows = await api('/api/admin/shop/products');
+  const revenue = rows.reduce((s,p)=>s + (p.price_cents*p.sales), 0);
+  document.getElementById('sp-list').innerHTML =
+    '<div class="meta" style="margin-bottom:6px">'+rows.length+' product'+(rows.length===1?'':'s')+' · '+rows.reduce((s,p)=>s+p.sales,0)+' sales · $'+(revenue/100).toFixed(2)+' gross</div>' +
+    (rows.length ? rows.map(p=>`
+      <div class="item"><b>${esc(p.title)}</b> <span class="pill ${p.active?'p-teal':'p-grey'}">${p.active?'live':'draft'}</span> <span class="meta">${money(p.price_cents)} · ${p.sales} sold${p.has_file?'':' · ⚠️ no file'}</span>
+      <div class="meta">${esc(p.description||'')}</div>
+      <button class="b-ok" data-sptoggle="${p.id}" data-active="${p.active}">${p.active?'Unlist':'List'}</button>
+      <button class="b-no" data-spdel="${p.id}" data-name="${esc(p.title)}">Delete</button></div>`).join('')
+    : '<p class="empty">No products yet — add your first above.</p>');
+}
+function fileToBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+document.getElementById('sp-create').addEventListener('click', async function(){
+  const btn=this; if(btn.disabled) return;
+  const title=document.getElementById('sp-title').value.trim();
+  const out=document.getElementById('sp-result');
+  if(!title){ out.textContent=' Title required.'; return; }
+  const file=document.getElementById('sp-file').files[0];
+  const dollars=parseFloat(document.getElementById('sp-price').value||'0')||0;
+  const body={ title, description:document.getElementById('sp-desc').value, price_cents:Math.round(dollars*100), active:document.getElementById('sp-active').checked };
+  if(file){ body.orig_name=file.name; body.content_type=file.type||'application/octet-stream'; body.data_base64=await fileToBase64(file); }
+  btn.disabled=true; out.textContent=' uploading…';
+  try{
+    const d=await api('/api/admin/shop/products',{method:'POST',body:JSON.stringify(body)});
+    if(!d.ok){ out.textContent=' '+(d.error||'failed'); return; }
+    out.textContent=' added ✓';
+    document.getElementById('sp-title').value=''; document.getElementById('sp-desc').value=''; document.getElementById('sp-price').value=''; document.getElementById('sp-file').value='';
+    loadShop();
+  } finally { btn.disabled=false; }
+});
+document.getElementById('sp-list').addEventListener('click', async function(e){
+  const t=e.target.closest('[data-sptoggle]'), d=e.target.closest('[data-spdel]');
+  if(t){ await api('/api/admin/shop/products/'+t.dataset.sptoggle,{method:'PUT',body:JSON.stringify({active: t.dataset.active==='1'?0:1})}); loadShop(); }
+  if(d){ if(!confirm('Delete "'+d.dataset.name+'"? This removes the file too.'))return; await api('/api/admin/shop/products/'+d.dataset.spdel,{method:'DELETE'}); loadShop(); }
+});
 async function loadOauthClients(){
   const rows = await api('/api/admin/oauth/clients');
   document.getElementById('oc-list').innerHTML = rows.length ? rows.map(c=>`

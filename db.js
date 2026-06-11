@@ -271,6 +271,33 @@ CREATE TABLE IF NOT EXISTS campfire_comments (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Shop: digital downloads the founder uploads + prices. Files live on the persistent disk.
+CREATE TABLE IF NOT EXISTS shop_products (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  price_cents INTEGER NOT NULL DEFAULT 0,   -- 0 = free download (no payment), else USD cents
+  filename TEXT,                            -- stored file on disk (random)
+  orig_name TEXT,                           -- name the buyer's download gets
+  content_type TEXT DEFAULT 'application/octet-stream',
+  file_size INTEGER DEFAULT 0,
+  active INTEGER DEFAULT 0,                  -- only active products with a file are buyable
+  sales INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS shop_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL REFERENCES shop_products(id),
+  email TEXT,
+  amount_cents INTEGER DEFAULT 0,
+  stripe_session_id TEXT,
+  token TEXT UNIQUE NOT NULL,                -- capability token in the download URL
+  downloads INTEGER DEFAULT 0,
+  max_downloads INTEGER DEFAULT 12,
+  expires_at INTEGER NOT NULL,               -- epoch ms (download link lifetime)
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 -- Password reset tokens: stored hashed, single-use, 1-hour lifetime
 CREATE TABLE IF NOT EXISTS password_resets (
   token_hash TEXT PRIMARY KEY,
