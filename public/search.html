@@ -92,8 +92,8 @@ a{text-decoration:none;color:inherit}
     <div class="map-wrap">
       <div id="map"></div>
       <div class="legend">
-        <div><span class="dot" style="background:var(--teal)"></span>Circled up now</div>
-        <div><span class="dot" style="background:var(--clay-deep)"></span>The first mamas (1.0)</div>
+        <div><span class="dot" style="background:var(--teal)"></span><strong>Circling Up Now</strong><br><span style="margin-left:17px;color:var(--muted)">Reactivated &amp; New Momnis for 2.0</span></div>
+        <div><span class="dot" style="background:var(--clay-deep)"></span><strong>The First Mamas &mdash; Momni 1.0</strong><br><span style="margin-left:17px;color:var(--muted)">Each 1.0 pin is anonymous until re-claimed</span></div>
         <div><span class="dot" style="background:var(--purple)"></span>Circles</div>
       </div>
     </div>
@@ -175,10 +175,10 @@ fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
     L.circleMarker([h.lat, h.lng],{radius:9,color:'#0D878F',fillColor:'#0D878F',fillOpacity:0.9,weight:2})
      .addTo(map).bindPopup(hostPopup(h));
   });
+  var canvas = L.canvas();
   data.legacy.forEach(function(p){
-    L.circleMarker([p.lat, p.lng],{radius:5,color:'#C99F72',fillColor:'#C99F72',fillOpacity:0.8,weight:1})
-     .addTo(map).bindPopup('<div class="pop legacy"><strong>'+esc(p.city)+'</strong> &middot; '+p.count+
-       ' first mamas. These mamas were the first Circle. Know her? Invite her back.</div>');
+    L.circleMarker([p.lat, p.lng],{renderer:canvas,radius:3,color:'#C99F72',fillColor:'#C99F72',fillOpacity:0.55,weight:1})
+     .addTo(map).bindPopup('<div class="pop legacy">A first mama of Momni 1.0 &mdash; anonymous until she reclaims her pin</div>');
   });
   data.circles.forEach(function(c){
     L.circleMarker([c.lat, c.lng],{radius:9,color:'#6D58A4',fillColor:'#6D58A4',fillOpacity:0.9,weight:2})

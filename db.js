@@ -99,10 +99,23 @@ function seed() {
   }
   if (db.prepare('SELECT COUNT(*) c FROM legacy_pins').get().c === 0) {
     const ip = db.prepare('INSERT INTO legacy_pins (city,lat,lng,count) VALUES (?,?,?,?)');
-    ip.run('Salt Lake City',40.7608,-111.8910,420); ip.run('Houston',29.7604,-95.3698,267);
-    ip.run('Dallas',32.7767,-96.7970,198); ip.run('Atlanta',33.7490,-84.3880,154);
-    ip.run('Phoenix',33.4484,-112.0740,96); ip.run('Boise',43.6150,-116.2023,52);
-    ip.run('St. George',37.0965,-113.5684,61);
+    // Individual anonymous 1.0 pins (city-level, jittered; no names ever) from legacy_pins.json if present
+    const pinsPath = path.join(__dirname, 'legacy_pins.json');
+    let loaded = false;
+    try {
+      const pins = JSON.parse(require('fs').readFileSync(pinsPath, 'utf8'));
+      const tx = db.transaction(() => {
+        for (const p of pins) ip.run(`${p.city}, ${p.state}`, p.lat, p.lng, 1);
+      });
+      tx();
+      loaded = pins.length > 0;
+    } catch (e) { /* fall back to clusters */ }
+    if (!loaded) {
+      ip.run('Salt Lake City',40.7608,-111.8910,420); ip.run('Houston',29.7604,-95.3698,267);
+      ip.run('Dallas',32.7767,-96.7970,198); ip.run('Atlanta',33.7490,-84.3880,154);
+      ip.run('Phoenix',33.4484,-112.0740,96); ip.run('Boise',43.6150,-116.2023,52);
+      ip.run('St. George',37.0965,-113.5684,61);
+    }
   }
   if (process.env.SEED_DEMO !== '1') return;
   if (db.prepare('SELECT COUNT(*) c FROM users').get().c > 0) {

@@ -1,0 +1,284 @@
+[
+ {
+  "city": "Orem",
+  "state": "UT",
+  "lat": 40.31493,
+  "lng": -111.65283
+ },
+ {
+  "city": "Salt Lake City",
+  "state": "UT",
+  "lat": 40.73274,
+  "lng": -111.98342
+ },
+ {
+  "city": "Nampa",
+  "state": "ID",
+  "lat": 43.60151,
+  "lng": -116.57818
+ },
+ {
+  "city": "San Francisco",
+  "state": "CA",
+  "lat": 37.75078,
+  "lng": -122.39703
+ },
+ {
+  "city": "Salt Lake City",
+  "state": "UT",
+  "lat": 40.80352,
+  "lng": -111.88621
+ },
+ {
+  "city": "Carlisle",
+  "state": "PA",
+  "lat": 40.19117,
+  "lng": -77.2381
+ },
+ {
+  "city": "Lehi",
+  "state": "UT",
+  "lat": 40.31681,
+  "lng": -111.91729
+ },
+ {
+  "city": "Salt Lake City",
+  "state": "UT",
+  "lat": 40.74613,
+  "lng": -111.87367
+ },
+ {
+  "city": "El Paso",
+  "state": "TX",
+  "lat": 31.81475,
+  "lng": -106.303
+ },
+ {
+  "city": "St. George",
+  "state": "UT",
+  "lat": 37.34235,
+  "lng": -113.53635
+ },
+ {
+  "city": "Provo",
+  "state": "UT",
+  "lat": 40.16955,
+  "lng": -111.59967
+ },
+ {
+  "city": "Sugar City",
+  "state": "ID",
+  "lat": 43.83018,
+  "lng": -111.69718
+ },
+ {
+  "city": "Payson",
+  "state": "UT",
+  "lat": 40.00555,
+  "lng": -111.74083
+ },
+ {
+  "city": "Salt Lake City",
+  "state": "UT",
+  "lat": 40.7969,
+  "lng": -111.93158
+ },
+ {
+  "city": "Saint Anthony",
+  "state": "ID",
+  "lat": 43.96339,
+  "lng": -111.70572
+ },
+ {
+  "city": "Provo",
+  "state": "UT",
+  "lat": 40.23706,
+  "lng": -111.66974
+ },
+ {
+  "city": "Draper",
+  "state": "UT",
+  "lat": 40.47159,
+  "lng": -111.87678
+ },
+ {
+  "city": "Maple Valley",
+  "state": "WA",
+  "lat": 47.41386,
+  "lng": -122.01576
+ },
+ {
+  "city": "Vineyard",
+  "state": "UT",
+  "lat": 40.26805,
+  "lng": -111.72516
+ },
+ {
+  "city": "Tilden",
+  "state": "TX",
+  "lat": 28.30429,
+  "lng": -98.60902
+ },
+ {
+  "city": "Salt Lake City",
+  "state": "UT",
+  "lat": 40.77075,
+  "lng": -111.72076
+ },
+ {
+  "city": "Vacaville",
+  "state": "CA",
+  "lat": 38.36348,
+  "lng": -121.91846
+ },
+ {
+  "city": "Salem",
+  "state": "OR",
+  "lat": 44.99912,
+  "lng": -122.94541
+ },
+ {
+  "city": "Provo",
+  "state": "UT",
+  "lat": 40.23121,
+  "lng": -111.63484
+ },
+ {
+  "city": "Salt Lake City",
+  "state": "UT",
+  "lat": 40.66329,
+  "lng": -111.788
+ },
+ {
+  "city": "Tucson",
+  "state": "AZ",
+  "lat": 32.27903,
+  "lng": -110.9382
+ },
+ {
+  "city": "Tucson",
+  "state": "AZ",
+  "lat": 32.25807,
+  "lng": -110.9711
+ },
+ {
+  "city": "Ocala",
+  "state": "FL",
+  "lat": 29.15716,
+  "lng": -82.23276
+ },
+ {
+  "city": "Hilo",
+  "state": "HI",
+  "lat": 19.57289,
+  "lng": -155.24834
+ },
+ {
+  "city": "Lehi",
+  "state": "UT",
+  "lat": 40.28074,
+  "lng": -111.95926
+ },
+ {
+  "city": "Olivet",
+  "state": "OH",
+  "lat": 39.09256,
+  "lng": -84.15812
+ },
+ {
+  "city": "Simpsonville",
+  "state": "SC",
+  "lat": 34.81829,
+  "lng": -82.30496
+ },
+ {
+  "city": "South Ogden",
+  "state": "UT",
+  "lat": 41.18425,
+  "lng": -111.96637
+ },
+ {
+  "city": "Provo",
+  "state": "UT",
+  "lat": 40.20549,
+  "lng": -111.60806
+ },
+ {
+  "city": "Scorcetoli",
+  "state": "WI",
+  "lat": 45.24895,
+  "lng": -92.5366
+ },
+ {
+  "city": "Ogden",
+  "state": "UT",
+  "lat": 41.1504,
+  "lng": -111.94423
+ },
+ {
+  "city": "Logan",
+  "state": "UT",
+  "lat": 41.88772,
+  "lng": -111.96645
+ },
+ {
+  "city": "Pleasant",
+  "state": "UT",
+  "lat": 40.34495,
+  "lng": -111.71343
+ },
+ {
+  "city": "Provo",
+  "state": "UT",
+  "lat": 40.20822,
+  "lng": -111.72989
+ },
+ {
+  "city": "Heber City",
+  "state": "UT",
+  "lat": 40.50307,
+  "lng": -111.36264
+ },
+ {
+  "city": "Orem",
+  "state": "UT",
+  "lat": 40.27546,
+  "lng": -111.69048
+ },
+ {
+  "city": "West Jordan",
+  "state": "UT",
+  "lat": 40.6036,
+  "lng": -111.96718
+ },
+ {
+  "city": "Lehi",
+  "state": "UT",
+  "lat": 40.32216,
+  "lng": -111.889
+ },
+ {
+  "city": "Payson",
+  "state": "UT",
+  "lat": 39.98738,
+  "lng": -111.72802
+ },
+ {
+  "city": "Eagle Mountain",
+  "state": "UT",
+  "lat": 40.40542,
+  "lng": -112.01027
+ },
+ {
+  "city": "Highland",
+  "state": "UT",
+  "lat": 40.36331,
+  "lng": -111.79235
+ },
+ {
+  "city": "Provo",
+  "state": "UT",
+  "lat": 40.27717,
+  "lng": -111.67759
+ }
+]
