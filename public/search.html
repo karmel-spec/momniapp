@@ -117,8 +117,10 @@ a{text-decoration:none;color:inherit}
     <div class="disclosure">
       Momni is a community platform, not a childcare provider. Members make their
       own care decisions and pay each other directly. Anything a mama shares on
-      her profile is hers — shared by her, for you to weigh the way you'd weigh a
-      friend's word.
+      her profile — including a background check she purchased herself — is hers:
+      shared by her, for you to weigh the way you'd weigh a friend's word. Momni
+      doesn't review or confirm what's shared, or whether it's current. You decide
+      who you trust.
     </div>
   </div>
 
@@ -304,7 +306,13 @@ function loadHosts(){
         var ctChips = (h.care_types || []).map(function(ct){
           return '<span>'+esc(CT_LABELS[ct] || ct)+'</span>';
         }).join('');
-        var shared = (h.shared_items || []).map(function(it){ return '<span>'+esc(it.label)+'</span>'; }).join('');
+        var shared = (h.shared_items || []).map(function(it){
+          var txt = esc(it.label) + (it.as_of ? ' &middot; as of ' + esc(it.as_of) : '');
+          if (it.url && /^https:\/\//.test(it.url)) {
+            return '<span><a href="'+esc(it.url)+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">'+txt+' &#8599;</a></span>';
+          }
+          return '<span>'+txt+'</span>';
+        }).join('');
         return '<div class="card">'+
           '<div class="row"><div class="avatar">'+initials+'</div><div>'+
           '<h3>'+esc(h.name)+'</h3><div class="meta">'+meta.join(' &middot; ')+'</div></div></div>'+

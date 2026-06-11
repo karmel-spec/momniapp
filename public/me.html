@@ -149,8 +149,18 @@ main{padding:6px 20px 24px}
       <h2 id="shares-title">What you share</h2>
       <div class="stars" id="me-stars" style="display:none"></div>
       <div id="shared-items"></div>
-      <a class="pill" href="#" id="add-bgc" style="cursor:pointer">+ Add a background check I purchased</a>
-      <p class="fine">These are your own shared items — reviews from other mamas and content you chose to purchase and display. The reviews are written by members and reflect their opinions, not Momni's — Momni simply invites both mamas to review each other after every visit.</p>
+      <a class="pill" href="#" id="add-bgc" style="cursor:pointer">+ Share a background check I purchased</a>
+      <div id="bgc-form" style="display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px" for="bgc-url">Link to your result page <span style="font-weight:400;color:var(--muted)">(optional — Checkr or GoodHire)</span></label>
+        <input id="bgc-url" type="url" placeholder="https://personal.checkr.com/…" style="width:100%;border:1.5px solid var(--line);border-radius:12px;padding:11px 13px;font-family:inherit;font-size:15px;margin-bottom:10px">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px" for="bgc-date">As of <span style="font-weight:400;color:var(--muted)">(the date on your check)</span></label>
+        <input id="bgc-date" type="date" style="width:100%;border:1.5px solid var(--line);border-radius:12px;padding:11px 13px;font-family:inherit;font-size:15px;margin-bottom:10px">
+        <button class="buy" id="bgc-save" type="button" style="border:none;cursor:pointer;font-family:inherit">Share it on my profile</button>
+        <p class="fine" style="margin-top:10px">Where do mamas get one? You purchase it yourself, on yourself — it's yours to share or not:
+          <a href="https://personal.checkr.com" target="_blank" rel="noopener" style="color:var(--teal-deep);font-weight:600">Checkr Personal ↗</a> ·
+          <a href="https://www.goodhire.com/personal-background-check/" target="_blank" rel="noopener" style="color:var(--teal-deep);font-weight:600">GoodHire ↗</a></p>
+      </div>
+      <p class="fine">These are your own shared items — reviews from other mamas and content you chose to purchase and display. The reviews are written by members and reflect their opinions, not Momni's — Momni simply invites both mamas to review each other after every visit. A shared check shows with the "as of" date you enter; Momni doesn't review or confirm what's shared, or whether it's current.</p>
       <p class="fine" id="shares-msg" style="display:none;color:var(--teal-deep)"></p>
     </div>
 
@@ -235,7 +245,22 @@ main{padding:6px 20px 24px}
 
   function renderSharedItems(){
     document.getElementById('shared-items').innerHTML =
-      (me.shared_items || []).map(function(it){ return '<span class="pill" style="margin-right:6px">'+esc(it.label)+'</span>'; }).join('') || '';
+      (me.shared_items || []).map(function(it){
+        var txt = esc(it.label) + (it.as_of ? ' · as of ' + esc(it.as_of) : '');
+        var inner = (it.url && /^https:\/\//.test(it.url))
+          ? '<a href="'+esc(it.url)+'" target="_blank" rel="noopener" style="color:inherit">'+txt+' ↗</a>'
+          : txt;
+        return '<span class="pill" style="margin-right:6px">'+inner+
+          ' <a href="#" data-remove-type="'+esc(it.type)+'" title="Remove" style="color:#B0556A;font-weight:700;margin-left:4px">×</a></span>';
+      }).join('') || '';
+    document.querySelectorAll('[data-remove-type]').forEach(function(a){
+      a.addEventListener('click', function(e){
+        e.preventDefault();
+        fetch('/api/me/shared-items/'+encodeURIComponent(this.dataset.removeType), { method:'DELETE' })
+          .then(function(r){ return r.json(); })
+          .then(function(d){ if (d && d.ok){ me.shared_items = d.shared_items; renderSharedItems(); } });
+      });
+    });
   }
 
   var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -449,12 +474,20 @@ main{padding:6px 20px 24px}
 
   document.getElementById('add-bgc').addEventListener('click', function(e){
     e.preventDefault();
+    var f = document.getElementById('bgc-form');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('bgc-save').addEventListener('click', function(){
     var first = (me.name || '').split(' ')[0];
+    var body = { type: 'background_check', label: 'Background check — purchased and shared by ' + first };
+    var url = document.getElementById('bgc-url').value.trim();
+    var asOf = document.getElementById('bgc-date').value;
+    if (url) body.url = url;
+    if (asOf) body.as_of = asOf;
     fetch('/api/me/shared-items', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'background_check',
-        label: 'Background check — purchased and shared by ' + first })
+      body: JSON.stringify(body)
     }).then(function(r){
       if (r.status === 401) { location = 'index.html'; return null; }
       return r.json();
@@ -462,8 +495,11 @@ main{padding:6px 20px 24px}
       if (!d) return;
       var msg = document.getElementById('shares-msg');
       msg.style.display = 'block';
-      if (d.ok) { me.shared_items = d.shared_items; renderSharedItems(); msg.textContent = 'Added — it now shows on your profile as your own shared content.'; }
-      else msg.textContent = d.error || 'That didn’t go through — try again.';
+      if (d.ok) {
+        me.shared_items = d.shared_items; renderSharedItems();
+        document.getElementById('bgc-form').style.display = 'none';
+        msg.textContent = 'Shared — it shows on your profile as your own content, with your date.';
+      } else msg.textContent = d.error || 'That didn’t go through — try again.';
     });
   });
 

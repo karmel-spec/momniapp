@@ -202,12 +202,45 @@ app.put('/api/me/password', requireAuth, (req, res) => {
 
 // Member-shared items (e.g., a background check SHE purchased and chooses to display).
 // Stored as her content with her label — never as Momni verification.
+// Link-out model: she may attach a link to HER provider's own result page (allowlisted
+// real consumer-check providers only) plus an "as of" date she enters. Momni never
+// receives, hosts, or displays the report's contents — only her link and her date.
+const BGC_LINK_HOSTS = ['personal.checkr.com', 'checkr.com', 'goodhire.com'];
 app.post('/api/me/shared-items', requireAuth, (req, res) => {
-  const { type, label } = req.body;
+  const { type, label, url, as_of } = req.body;
   if (!type || !label) return res.status(400).json({ error: 'type and label required' });
+  const item = { type, label: String(label).slice(0, 120), added_at: new Date().toISOString() };
+  if (type === 'background_check') {
+    if (url) {
+      let host;
+      try {
+        const parsed = new URL(String(url));
+        if (parsed.protocol !== 'https:') throw new Error('not https');
+        host = parsed.hostname.toLowerCase();
+      } catch (e) {
+        return res.status(400).json({ error: 'That link doesn’t look right — paste the full https link from your provider.' });
+      }
+      if (!BGC_LINK_HOSTS.some(d => host === d || host.endsWith('.' + d))) {
+        return res.status(400).json({ error: 'For now, links can point to Checkr or GoodHire result pages. Using another provider? Tell us with the feedback button.' });
+      }
+      item.url = String(url).slice(0, 300);
+    }
+    if (as_of) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(as_of))) return res.status(400).json({ error: 'The “as of” date didn’t look like a date.' });
+      item.as_of = String(as_of);
+    }
+  }
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
-  const items = JSON.parse(u.shared_items || '[]');
-  items.push({ type, label, added_at: new Date().toISOString() });
+  // one item per type: sharing again replaces, so her profile shows her latest
+  const items = JSON.parse(u.shared_items || '[]').filter(it => it.type !== type);
+  items.push(item);
+  db.prepare('UPDATE users SET shared_items = ? WHERE id = ?').run(JSON.stringify(items), u.id);
+  res.json({ ok: true, shared_items: items });
+});
+// She can take a shared item down anytime — it's hers.
+app.delete('/api/me/shared-items/:type', requireAuth, (req, res) => {
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
+  const items = JSON.parse(u.shared_items || '[]').filter(it => it.type !== req.params.type);
   db.prepare('UPDATE users SET shared_items = ? WHERE id = ?').run(JSON.stringify(items), u.id);
   res.json({ ok: true, shared_items: items });
 });
