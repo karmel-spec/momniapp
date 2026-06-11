@@ -57,7 +57,11 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
       <label for="email">Email</label>
       <input id="email" type="email" placeholder="you@example.com" autocomplete="email">
       <label for="password">Password</label>
-      <input id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+      <div style="position:relative">
+        <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" style="width:100%;padding-right:46px">
+        <button type="button" id="pw-toggle" aria-label="Show password" title="Show password"
+          style="position:absolute;top:50%;right:10px;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:4px">👁</button>
+      </div>
       <div class="signup-only">
         <label for="city">City</label>
         <input id="city" type="text" placeholder="Orem, UT" autocomplete="address-level2">
@@ -93,6 +97,18 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
 (function(){
   var signup = false;
   var form = document.getElementById('auth-form');
+  // Show/hide password toggle
+  (function(){
+    var pw = document.getElementById('password'), tog = document.getElementById('pw-toggle');
+    if (tog) tog.addEventListener('click', function(){
+      var show = pw.type === 'password';
+      pw.type = show ? 'text' : 'password';
+      tog.textContent = show ? '🙈' : '👁';
+      tog.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      tog.setAttribute('title', show ? 'Hide password' : 'Show password');
+      pw.focus();
+    });
+  })();
   var errBox = document.getElementById('auth-err');
   var ackBox = document.getElementById('signup-ack');
   var ackLoaded = false;
