@@ -33,6 +33,17 @@ if (IS_PROD && !process.env.SESSION_SECRET) throw new Error('SESSION_SECRET must
 // Admin = accounts whose email is in ADMIN_EMAILS. Registration of these addresses is BLOCKED (see /api/register),
 // so an account can only hold an admin email via verified Google sign-in or out-of-band seeding — never self-registration.
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'karmel@momni.com').toLowerCase().split(',').map(s => s.trim());
+// First-boot admin bootstrap: the reserved admin email can't self-register (see /api/register),
+// so on a fresh database it's created here from ADMIN_BOOTSTRAP_PASSWORD. One-time: once the
+// account exists this is a no-op — delete the env var after your first sign-in.
+if (process.env.ADMIN_BOOTSTRAP_PASSWORD) {
+  const adminEmail = ADMIN_EMAILS[0];
+  if (!db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail)) {
+    db.prepare('INSERT INTO users (email,password_hash,name,is_admin) VALUES (?,?,?,1)')
+      .run(adminEmail, bcrypt.hashSync(process.env.ADMIN_BOOTSTRAP_PASSWORD, 10), 'Karmel');
+    console.log(`Admin account created for ${adminEmail}. Remove ADMIN_BOOTSTRAP_PASSWORD from the environment now.`);
+  }
+}
 const sessionStore = require('./session-store')(session, db);
 app.use(session({
   store: sessionStore,

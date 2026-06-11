@@ -22,7 +22,23 @@ services:
         generateValue: true
       - key: APP_URL
         value: https://app.momni.com
+      # --- paste these in the Render dashboard (never in git) ---
+      - key: ADMIN_BOOTSTRAP_PASSWORD
+        sync: false          # set ONCE for the first deploy to create Karmel's admin
+                             # account on the fresh database; DELETE it after first sign-in
       - key: STRIPE_SECRET_KEY
-        sync: false          # paste in the Render dashboard (never in git)
+        sync: false          # both Stripe keys or neither — the app refuses to boot
       - key: STRIPE_WEBHOOK_SECRET
+        sync: false          # with the secret key set but no webhook secret
+      - key: RESEND_API_KEY
+        sync: false          # email stays in dev-log mode until this is set
+      - key: EMAIL_FROM
+        sync: false          # e.g. "Momni <hello@momni.com>" — domain must be verified in Resend
+      - key: NYLAS_API_KEY
+        sync: false          # calendar sync stays inert until these are set
+      - key: NYLAS_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false          # optional: "Sign in with Google" button
+      - key: GOOGLE_CLIENT_SECRET
         sync: false
