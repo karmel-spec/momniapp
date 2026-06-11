@@ -138,6 +138,11 @@ CREATE TABLE IF NOT EXISTS calendar_connections (  -- a host's connected calenda
   connected_at TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS stripe_events (  -- processed Stripe webhook event ids (idempotency: never fulfill twice)
+  id TEXT PRIMARY KEY,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS emails (        -- transactional email log (one row per send attempt; dev-mode rows too)
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   to_email TEXT NOT NULL,

@@ -28,6 +28,11 @@ app.use((req, res, next) => req.path === '/api/stripe/webhook' ? next() : expres
 app.use(express.urlencoded({ extended: true }));
 const IS_PROD = process.env.NODE_ENV === 'production';
 if (IS_PROD) app.set('trust proxy', 1); // Render/Netlify-style proxy → secure cookies work
+// Refuse to boot in production with the public default session secret (forgeable sessions otherwise).
+if (IS_PROD && !process.env.SESSION_SECRET) throw new Error('SESSION_SECRET must be set in production.');
+// Admin = accounts whose email is in ADMIN_EMAILS. Registration of these addresses is BLOCKED (see /api/register),
+// so an account can only hold an admin email via verified Google sign-in or out-of-band seeding — never self-registration.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'karmel@momni.com').toLowerCase().split(',').map(s => s.trim());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'momni-dev-secret-change-in-prod',
   resave: false,
@@ -61,6 +66,7 @@ app.post('/api/register', (req, res) => {
   if (!email || !password || !name) return res.status(400).json({ error: 'Name, email, and password are required.' });
   if (password.length < 8) return res.status(400).json({ error: 'Password needs at least 8 characters.' });
   if (!acknowledged) return res.status(400).json({ error: 'One quick checkbox first, mama — it’s how we all stay on the same page about how Momni works.' });
+  if (ADMIN_EMAILS.includes(email.toLowerCase().trim())) return res.status(403).json({ error: 'That address is reserved for Momni HQ.' });
   try {
     const info = db.prepare(`INSERT INTO users (email,password_hash,name,city,signup_ack_text,signup_ack_at)
       VALUES (?,?,?,?,?,datetime('now'))`)
@@ -360,6 +366,9 @@ app.put('/api/links/:id', requireAuth, (req, res) => {
   if (!isHost && !isGuest) return res.status(403).json({ error: 'Not your Link.' });
   const allowed = isHost ? ['confirmed','declined','completed'] : ['cancelled','completed'];
   if (!allowed.includes(status)) return res.status(400).json({ error: 'Not a change you can make on this Link.' });
+  // A wrapped-up Link can't change again; re-sending the same status is a harmless no-op (don't re-fire emails/calendar).
+  if (['completed','declined','cancelled'].includes(link.status)) return res.status(400).json({ error: 'This Link is already wrapped up.' });
+  if (link.status === status) return res.json({ ok: true });
   db.prepare('UPDATE links SET status = ? WHERE id = ?').run(status, link.id);
   if (status === 'confirmed') {
     generateVisitsForLink(link);
@@ -545,6 +554,8 @@ app.post('/api/circles/:id/join', requireAuth, (req, res) => {
 // fulfilled by the webhook below. Without it (local dev), purchases are granted
 // directly so the app stays testable.
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
+// If live charging is on, the webhook MUST be able to verify signatures — refuse to boot otherwise.
+if (stripe && !process.env.STRIPE_WEBHOOK_SECRET) throw new Error('STRIPE_WEBHOOK_SECRET is required when STRIPE_SECRET_KEY is set.');
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
 const PRODUCTS = {
@@ -581,14 +592,17 @@ app.post('/api/purchase/circle-up', requireAuth, (req, res, next) => checkoutOrG
 // Configure the endpoint in the Stripe dashboard with STRIPE_WEBHOOK_SECRET.
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
   if (!stripe) return res.status(503).end();
+  // Fail closed: never fulfill an unsigned/unverifiable event.
+  if (!process.env.STRIPE_WEBHOOK_SECRET) return res.status(503).send('Webhook not configured.');
   let event;
   try {
-    event = process.env.STRIPE_WEBHOOK_SECRET
-      ? stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET)
-      : JSON.parse(req.body);
+    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
   } catch (e) {
     return res.status(400).send(`Webhook error: ${e.message}`);
   }
+  // Idempotency: Stripe retries — never fulfill the same event twice.
+  try { db.prepare('INSERT INTO stripe_events (id) VALUES (?)').run(event.id); }
+  catch (e) { return res.json({ received: true, duplicate: true }); }
   if (event.type === 'checkout.session.completed') {
     const { user_id, product } = event.data.object.metadata || {};
     if (user_id && PRODUCTS[product]) PRODUCTS[product].fulfill(Number(user_id));
@@ -618,8 +632,8 @@ app.post('/api/feedback', requireAuth, (req, res) => {
 });
 
 // ---------- founder admin (Momni HQ) ----------
-// Admin = accounts whose email is in ADMIN_EMAILS (comma-separated env, default karmel@momni.com).
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'karmel@momni.com').toLowerCase().split(',').map(s => s.trim());
+// ADMIN_EMAILS is defined near the top. Because /api/register blocks those addresses,
+// an account can only carry an admin email via verified Google sign-in or seeding.
 function syncAdminFlag(userId) {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (u && ADMIN_EMAILS.includes(u.email) && !u.is_admin) {

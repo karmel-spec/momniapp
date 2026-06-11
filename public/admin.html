@@ -139,7 +139,7 @@ async function loadUsers(){
   document.getElementById('users').innerHTML = data.map(u=>`
     <div class="item"><strong>${esc(u.name)}</strong> ${u.is_host?'<span class="pill p-teal">host</span>':''} ${u.momni_plus?'<span class="pill p-grey">Momni+</span>':''}
     <div class="meta">${esc(u.email)} · ${esc(u.city)||'—'} · ${u.links_balance} Links · joined ${esc(u.created_at)}</div>
-    <button class="b-no" onclick="resetPw(${u.id},'${esc(u.name)}')">Reset password</button><span class="meta" id="pw-${u.id}"></span></div>`).join('') || '<p class="empty">No mamas match.</p>';
+    <button class="b-no" data-reset="${u.id}" data-name="${esc(u.name)}">Reset password</button><span class="meta" id="pw-${u.id}"></span></div>`).join('') || '<p class="empty">No mamas match.</p>';
 }
 init();
 async function resetPw(id,name){
@@ -147,6 +147,11 @@ async function resetPw(id,name){
   const d=await api('/api/admin/users/'+id+'/reset-password',{method:'POST'});
   document.getElementById('pw-'+id).textContent=' temp password: '+d.temp_password+' (share privately)';
 }
+// Delegated: member names never touch inline handlers (avoids stored XSS in the admin session).
+document.getElementById('users').addEventListener('click', function(e){
+  var b=e.target.closest('[data-reset]'); if(!b) return;
+  resetPw(b.dataset.reset, b.dataset.name);
+});
 function emTargetChange(){ document.getElementById('em-email').style.display = document.getElementById('em-target').value==='one'?'block':'none'; }
 function emTemplateChange(){ document.getElementById('em-news').style.display = document.getElementById('em-template').value==='newsletter'?'block':'none'; }
 async function loadEmails(){
