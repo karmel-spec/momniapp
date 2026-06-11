@@ -9,6 +9,9 @@ db.pragma('foreign_keys = ON');
 
 // migration: is_admin flag (no-op if present)
 try { db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
+// migration: calendar provider fields (Nylas grant_id + primary calendar_id) — no-op if present/table-absent
+try { db.exec('ALTER TABLE calendar_connections ADD COLUMN grant_id TEXT'); } catch (e) { /* exists or table not yet created */ }
+try { db.exec('ALTER TABLE calendar_connections ADD COLUMN calendar_id TEXT'); } catch (e) { /* exists or table not yet created */ }
 
 // migrations: lifecycle refinement profile columns (no-op if present)
 try { db.exec("ALTER TABLE users ADD COLUMN kids_note TEXT DEFAULT ''"); } catch (e) { /* exists */ }
@@ -128,7 +131,9 @@ CREATE TABLE IF NOT EXISTS calendar_connections (  -- a host's connected calenda
   provider TEXT DEFAULT 'google',          -- google (Nylas/others slot in later)
   access_token TEXT,
   refresh_token TEXT,
-  token_expiry INTEGER,                    -- unix seconds
+  token_expiry INTEGER,                    -- unix seconds (Google direct)
+  grant_id TEXT,                           -- Nylas grant id (the persistent handle)
+  calendar_id TEXT,                        -- primary calendar id (for event creation)
   calendar_email TEXT,
   connected_at TEXT DEFAULT (datetime('now'))
 );

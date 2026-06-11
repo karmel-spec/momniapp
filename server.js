@@ -141,11 +141,11 @@ app.get('/auth/google/callback', async (req, res) => {
 });
 
 // ---------- calendar sync (host connects the calendar she already uses; inert until Google creds + OAuth verification are set up) ----------
-app.get('/auth/google/calendar', requireAuth, (req, res) => {
+app.get('/auth/calendar', requireAuth, (req, res) => {
   if (!calendar.isEnabled()) return res.redirect('/me.html?calendar=unconfigured');
   res.redirect(calendar.connectUrl(req.session.userId));
 });
-app.get('/auth/google/calendar/callback', async (req, res) => {
+app.get('/auth/calendar/callback', async (req, res) => {
   if (!req.session.userId) return res.redirect('/index.html');
   if (!req.query.code) return res.redirect('/me.html?calendar=denied');
   try {

@@ -1,7 +1,7 @@
 node_modules/
 momni.db
 momni.db-*
-.env
+.env*
 nohup.out
 mobile/node_modules/
 mobile/.env

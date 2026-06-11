@@ -178,7 +178,7 @@ main{padding:6px 20px 24px}
     </div>
 
     <div class="card settings">
-      <a href="#">Settings</a>
+      <a href="#" id="change-pw">Change password</a>
       <a href="#" id="send-feedback">💬 Send feedback in-app</a>
       <a href="#" id="signout">Sign out</a>
     </div>
@@ -418,7 +418,7 @@ main{padding:6px 20px 24px}
       else { st.textContent=''; btn.textContent='Connect my calendar'; btn.disabled=false; btn.style.opacity=1; btn.style.display='inline-block'; dis.style.display='none'; }
     }).catch(function(){});
   }
-  document.getElementById('cal-btn').addEventListener('click', function(){ if(!this.disabled) location.href='/auth/google/calendar'; });
+  document.getElementById('cal-btn').addEventListener('click', function(){ if(!this.disabled) location.href='/auth/calendar'; });
   document.getElementById('cal-disconnect').addEventListener('click', function(e){
     e.preventDefault();
     fetch('/api/me/calendar', { method:'DELETE' }).then(function(){ loadCalendar(); });
