@@ -47,6 +47,13 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
   <div class="grid">
     <div>
       <div class="card"><h2>🚩 Open reports</h2><div id="reports"><p class="empty">Loading…</p></div></div>
+      <div class="card"><h2>💡 Suggestions — awaiting Karmel</h2>
+        <textarea id="sug-body" placeholder="Paste feedback from a developer@momni.com email…" style="width:100%;min-height:70px;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit;font-size:14px;margin-bottom:8px"></textarea>
+        <input id="sug-by" placeholder="From (name or email, optional)">
+        <input id="sug-page" placeholder="Page (optional)">
+        <button class="b-ok" onclick="logSuggestion()">Log feedback from email</button>
+        <div id="suggestions" style="margin-top:10px"><p class="empty">Loading…</p></div>
+      </div>
       <div class="card"><h2>🔗 Recent Links</h2><div id="links"></div></div>
     </div>
     <div>
@@ -64,7 +71,7 @@ async function init(){
     document.getElementById('hq').style.display='block';
     const labels = {mamas:'Mamas in the Circle',hosts:'Hosting mamas',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',gives:'Momni Gives mamas',open_reports:'Open reports'};
     document.getElementById('stats').innerHTML = Object.entries(labels).map(([k,l])=>`<div class="stat"><div class="n">${o[k]}</div><div class="l">${l}</div></div>`).join('');
-    loadReports(); loadLinks(); loadUsers();
+    loadReports(); loadSuggestions(); loadLinks(); loadUsers();
   }catch(e){}
 }
 async function loadReports(){
@@ -77,6 +84,26 @@ async function loadReports(){
     : '<p class="empty">No open reports. The Circle is calm. 💜</p>';
 }
 async function setReport(id,status){ await api('/api/admin/reports/'+id,{method:'PUT',body:JSON.stringify({status})}); loadReports(); init(); }
+async function loadSuggestions(){
+  const data = await api('/api/admin/suggestions');
+  const pillFor = s => s==='approved'?'p-teal':s==='shipped'?'p-teal':s==='pending'?'p-grey':'p-red';
+  document.getElementById('suggestions').innerHTML = data.length ? data.map(s=>`
+    <div class="item"><span class="pill ${pillFor(s.status)}">${esc(s.status)}</span> <span class="pill p-grey">${esc(s.source)}</span>
+    <div>${esc(s.body)}</div>
+    <div class="meta">${s.submitted_by?'from '+esc(s.submitted_by)+' · ':''}${s.page?esc(s.page)+' · ':''}${esc(s.created_at)}</div>
+    ${s.status==='pending'?`<button class="b-ok" onclick="setSuggestion(${s.id},'approved')">Approve ✓</button>
+    <button class="b-no" onclick="setSuggestion(${s.id},'declined')">Decline</button>`:''}
+    ${s.status==='approved'?`<button class="b-ok" onclick="setSuggestion(${s.id},'shipped')">Mark shipped</button>`:''}</div>`).join('')
+    : '<p class="empty">Nothing waiting. The queue is clear. 💜</p>';
+}
+async function setSuggestion(id,status){ await api('/api/admin/suggestions/'+id,{method:'PUT',body:JSON.stringify({status})}); loadSuggestions(); }
+async function logSuggestion(){
+  const body = document.getElementById('sug-body').value.trim();
+  if(!body) return alert('Paste the feedback first.');
+  await api('/api/admin/suggestions',{method:'POST',body:JSON.stringify({body,submitted_by:document.getElementById('sug-by').value.trim(),page:document.getElementById('sug-page').value.trim()})});
+  document.getElementById('sug-body').value='';document.getElementById('sug-by').value='';document.getElementById('sug-page').value='';
+  loadSuggestions();
+}
 async function loadLinks(){
   const data = await api('/api/admin/links');
   document.getElementById('links').innerHTML = data.length ? data.map(l=>`

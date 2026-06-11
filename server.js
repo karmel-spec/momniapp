@@ -343,6 +343,16 @@ app.post('/api/reports', requireAuth, (req, res) => {
   res.json({ ok: true, note: 'Thank you — Karmel reviews every report.' });
 });
 
+// ---------- in-app feedback (lands in Karmel's Suggestions queue) ----------
+app.post('/api/feedback', requireAuth, (req, res) => {
+  const { body, page } = req.body;
+  if (!body || !String(body).trim()) return res.status(400).json({ error: 'Tell us a little something first, mama.' });
+  const me = db.prepare('SELECT name FROM users WHERE id = ?').get(req.session.userId);
+  db.prepare("INSERT INTO suggestions (source,submitted_by,body,page) VALUES ('in-app',?,?,?)")
+    .run(me.name, String(body).trim().slice(0, 4000), String(page || '').slice(0, 200));
+  res.json({ ok: true, note: 'Thank you, mama — your idea is in Karmel’s queue. The Circle is built by YOU. 💜' });
+});
+
 // ---------- founder admin (Momni HQ) ----------
 // Admin = accounts whose email is in ADMIN_EMAILS (comma-separated env, default karmel@momni.com).
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'karmel@momni.com').toLowerCase().split(',').map(s => s.trim());
@@ -402,6 +412,26 @@ app.post('/api/admin/users/:id/reset-password', requireAdmin, (req, res) => {
     .run(bcrypt.hashSync(temp, 10), req.params.id);
   if (!r.changes) return res.status(404).json({ error: 'Mama not found.' });
   res.json({ ok: true, temp_password: temp, note: 'Share this with her privately; she should change it after signing in.' });
+});
+
+// Suggestions queue — everything awaiting Karmel's yes/no
+app.get('/api/admin/suggestions', requireAdmin, (req, res) => {
+  res.json(db.prepare("SELECT * FROM suggestions WHERE status != 'declined' ORDER BY created_at DESC, id DESC").all());
+});
+// Karmel pastes in feedback emails from developer@momni.com
+app.post('/api/admin/suggestions', requireAdmin, (req, res) => {
+  const { body, submitted_by, page } = req.body;
+  if (!body || !String(body).trim()) return res.status(400).json({ error: 'body required' });
+  const info = db.prepare("INSERT INTO suggestions (source,submitted_by,body,page) VALUES ('email',?,?,?)")
+    .run(String(submitted_by || '').slice(0, 100), String(body).trim().slice(0, 4000), String(page || '').slice(0, 200));
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+app.put('/api/admin/suggestions/:id', requireAdmin, (req, res) => {
+  const { status } = req.body;
+  if (!['approved','declined','shipped'].includes(status)) return res.status(400).json({ error: 'bad status' });
+  const r = db.prepare('UPDATE suggestions SET status = ? WHERE id = ?').run(status, req.params.id);
+  if (!r.changes) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
 });
 
 app.delete('/api/admin/reviews/:id', requireAdmin, (req, res) => {

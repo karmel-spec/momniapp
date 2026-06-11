@@ -122,6 +122,7 @@ main{padding:6px 20px 24px}
 
     <div class="card settings">
       <a href="#">Settings</a>
+      <a href="#" id="send-feedback">💬 Send feedback in-app</a>
       <a href="#" id="signout">Sign out</a>
     </div>
   </main>
@@ -251,6 +252,16 @@ main{padding:6px 20px 24px}
       if (d.ok) { me.shared_items = d.shared_items; renderSharedItems(); msg.textContent = 'Added — it now shows on your profile as your own shared content.'; }
       else msg.textContent = d.error || 'That didn’t go through — try again.';
     });
+  });
+
+  document.getElementById('send-feedback').addEventListener('click', function(e){
+    e.preventDefault();
+    var body = prompt('What would you love to see in the Circle? Tell us anything — what you love, what bugs you, what you’d change:');
+    if (!body || !body.trim()) return;
+    fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: body.trim(), page: location.pathname }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ alert(d.note || d.error || 'Something went wrong — try again.'); });
   });
 
   document.getElementById('signout').addEventListener('click', function(e){

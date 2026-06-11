@@ -80,6 +80,16 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS suggestions (   -- founder approval queue: feedback awaiting Karmel
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT DEFAULT 'email',              -- email (pasted by Karmel) | in-app
+  submitted_by TEXT DEFAULT '',
+  body TEXT NOT NULL,
+  page TEXT DEFAULT '',
+  status TEXT DEFAULT 'pending' CHECK(status IN ('pending','approved','declined','shipped')),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS legacy_pins (    -- anonymized city-level Momni 1.0 clusters; never names, never exact locations
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   city TEXT NOT NULL,
