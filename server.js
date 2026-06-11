@@ -864,11 +864,14 @@ app.post('/api/shop/buy/:id', shopBuyLimiter, async (req, res, next) => {
   try {
     const p = db.prepare('SELECT * FROM shop_products WHERE id = ? AND active = 1 AND filename IS NOT NULL').get(req.params.id);
     if (!p) return res.status(404).json({ error: 'That item isn’t available.' });
-    if (p.price_cents <= 0) { // free download
+    if (p.price_cents <= 0) { // free download — always available
       const token = makeOrder(p.id, { amount: 0 });
       return res.json({ ok: true, free: true, download_url: `/api/shop/download/${token}` });
     }
-    if (!stripe) { // dev mode — grant without charge so the flow is testable
+    if (!stripe) {
+      // Production must never give a paid item away when card payments aren't connected yet.
+      if (IS_PROD) return res.status(503).json({ error: 'Card payments aren’t switched on yet — this download will be purchasable very soon. (Free items work now.)' });
+      // Local dev only: grant without charge so the flow is testable.
       const token = makeOrder(p.id, { amount: p.price_cents });
       return res.json({ ok: true, dev: true, download_url: `/api/shop/download/${token}`, note: 'DEV MODE: granted without charge.' });
     }
