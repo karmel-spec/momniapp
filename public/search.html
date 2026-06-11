@@ -175,11 +175,15 @@ fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
     L.circleMarker([h.lat, h.lng],{radius:9,color:'#0D878F',fillColor:'#0D878F',fillOpacity:0.9,weight:2})
      .addTo(map).bindPopup(hostPopup(h));
   });
-  var canvas = L.canvas();
+  var cv = L.canvas({padding:0.5});
+  var legacyPopup = L.popup();
+  var legacyLayer = L.layerGroup();
   data.legacy.forEach(function(p){
-    L.circleMarker([p.lat, p.lng],{renderer:canvas,radius:3,color:'#C99F72',fillColor:'#C99F72',fillOpacity:0.55,weight:1})
-     .addTo(map).bindPopup('<div class="pop legacy">A first mama of Momni 1.0 &mdash; anonymous until she reclaims her pin</div>');
+    L.circleMarker([p.lat, p.lng],{renderer:cv,radius:p.precision==='state'?2.5:3,color:'#C99F72',fillColor:'#C99F72',fillOpacity:0.55,weight:1})
+     .on('click',function(e){ legacyPopup.setLatLng(e.latlng).setContent('<div class="pop legacy">A first mama of Momni 1.0 &mdash; anonymous until she reclaims her pin</div>').openOn(map); })
+     .addTo(legacyLayer);
   });
+  legacyLayer.addTo(map);
   data.circles.forEach(function(c){
     L.circleMarker([c.lat, c.lng],{radius:9,color:'#6D58A4',fillColor:'#6D58A4',fillOpacity:0.9,weight:2})
      .addTo(map).bindPopup('<div class="pop circle"><strong>'+esc(c.name)+'</strong><span class="dist">'+esc(c.meets)+'</span></div>');
