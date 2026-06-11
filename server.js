@@ -95,8 +95,53 @@ const userPublic = (u) => ({
   home_highlights: u.home_highlights || '',
   availability: JSON.parse(u.availability || '{}'),
   available_now: !!u.available_now, hourly_note: u.hourly_note,
-  shared_items: JSON.parse(u.shared_items || '[]'), legacy_1_0: !!u.legacy_1_0
+  shared_items: JSON.parse(u.shared_items || '[]'), legacy_1_0: !!u.legacy_1_0,
+  live_link: u.live_link || null, live_link_label: u.live_link_label || null,
+  boosted: !!u.profile_boost, badges: badgesFor(u)
 });
+
+// ---------- badges ----------
+// Auto-badges are computed live from real activity; purchased/granted ones live in user_badges.
+const BADGE_CATALOG = {
+  'founding-member': { label: 'Momni 1.0 Founding Member', emoji: '🌟', note: 'One of the original mamas of Momni 1.0.' },
+  'founding-host':   { label: 'Founding Host', emoji: '🏡', note: 'Opened her home in Momni 1.0.' },
+  'super-host':      { label: 'Super Host', emoji: '⭐', note: '5+ completed cares with a 4.5★ rating or higher.' },
+  'campfire-spark':  { label: 'Campfire Spark', emoji: '✨', note: 'Started the conversation at the Campfire.' },
+  'campfire-flame':  { label: 'Campfire Flame', emoji: '🔥', note: 'A regular voice shaping what Momni builds.' },
+  'campfire-keeper': { label: 'Campfire Keeper', emoji: '🪵', note: 'A pillar of the Circle’s ideas.' },
+  'circle-up':       { label: 'Circle Up Member', emoji: '💜', note: 'Supports the movement at Circle Up.' },
+  'momni-plus':      { label: 'Momni+ Member', emoji: '💎', note: 'All-in with Momni+.' },
+  'foundation-giver':{ label: 'Foundation Giver', emoji: '🤲', note: 'Gives a dollar back through Momni Gives.' },
+};
+function badgesFor(u) {
+  const out = [];
+  const add = (key, source) => BADGE_CATALOG[key] && out.push({ key, source, ...BADGE_CATALOG[key] });
+  if (u.legacy_1_0) { add('founding-member', 'earned'); if (u.is_host) add('founding-host', 'earned'); }
+  // Super Host — 5+ completed hosted cares and a 4.5★+ average
+  try {
+    const done = db.prepare("SELECT COUNT(*) c FROM links WHERE host_id = ? AND status = 'completed'").get(u.id).c;
+    const rv = db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE subject_id = ?').get(u.id);
+    if (done >= 5 && rv.n > 0 && rv.avg >= 4.5) add('super-host', 'earned');
+  } catch (e) { /* tables may be empty */ }
+  // Campfire contributor tiers — posts + comments + votes given
+  try {
+    const posts = db.prepare('SELECT COUNT(*) c FROM campfire_posts WHERE user_id = ?').get(u.id).c;
+    const comments = db.prepare('SELECT COUNT(*) c FROM campfire_comments WHERE user_id = ?').get(u.id).c;
+    const votes = db.prepare('SELECT COUNT(*) c FROM campfire_votes WHERE user_id = ?').get(u.id).c;
+    const score = posts * 3 + comments + votes;
+    if (score >= 30) add('campfire-keeper', 'earned');
+    else if (score >= 10) add('campfire-flame', 'earned');
+    else if (score >= 1) add('campfire-spark', 'earned');
+  } catch (e) { /* table may be absent */ }
+  if (u.momni_plus) add('momni-plus', 'earned'); else if (u.circle_up) add('circle-up', 'earned');
+  if (u.gives_toggle) add('foundation-giver', 'earned');
+  // purchased / granted badges layered on top
+  try {
+    db.prepare('SELECT badge_key, source FROM user_badges WHERE user_id = ?').all(u.id)
+      .forEach(r => { if (BADGE_CATALOG[r.badge_key] && !out.find(b => b.key === r.badge_key)) add(r.badge_key, r.source); });
+  } catch (e) { /* table may be absent */ }
+  return out;
+}
 
 // ---------- auth ----------
 app.post('/api/register', authLimiter, (req, res) => {
@@ -237,6 +282,19 @@ app.put('/api/me', requireAuth, (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
   const updates = {};
   for (const k of allowed) if (k in req.body) updates[k] = req.body[k];
+  // Live business/social link is a paid add-on — only honored for boosted or Momni+ members.
+  if ('live_link' in req.body || 'live_link_label' in req.body) {
+    if (u.profile_boost || u.momni_plus) {
+      if ('live_link' in req.body) {
+        const raw = String(req.body.live_link || '').trim();
+        if (!raw) { updates.live_link = null; }
+        else { try { const p = new URL(raw); updates.live_link = (p.protocol === 'https:' || p.protocol === 'http:') ? raw : null; } catch (e) { return res.status(400).json({ error: 'That link doesn’t look like a valid web address.' }); } }
+      }
+      if ('live_link_label' in req.body) updates.live_link_label = String(req.body.live_link_label || '').slice(0, 60);
+    } else {
+      return res.status(402).json({ error: 'A live profile link is a Profile Boost / Momni+ perk.' });
+    }
+  }
   if ('care_types' in updates) updates.care_types = JSON.stringify(updates.care_types);
   if ('availability' in updates) updates.availability = JSON.stringify(updates.availability);
   for (const boolKey of ['is_host','available_now','gives_toggle']) if (boolKey in updates) updates[boolKey] = updates[boolKey] ? 1 : 0;
@@ -328,12 +386,15 @@ app.get('/api/hosts', (req, res) => {
       rows = rows.filter(r => dist.get(r.id) != null && dist.get(r.id) <= radius);
     }
     rows.sort((a, b) => {
+      if (!!b.profile_boost !== !!a.profile_boost) return (b.profile_boost ? 1 : 0) - (a.profile_boost ? 1 : 0); // boosted first
       const da = dist.get(a.id), dbv = dist.get(b.id);
       if (da == null && dbv == null) return 0;
       if (da == null) return 1;
       if (dbv == null) return -1;
       return da - dbv;
     });
+  } else {
+    rows.sort((a, b) => (b.profile_boost ? 1 : 0) - (a.profile_boost ? 1 : 0)); // boosted first when no location
   }
   const ratings = db.prepare('SELECT subject_id, AVG(rating) avg, COUNT(*) n FROM reviews GROUP BY subject_id').all()
     .reduce((m, r) => (m[r.subject_id] = r, m), {});
@@ -615,6 +676,8 @@ const PRODUCTS = {
                   fulfill: (uid) => db.prepare('UPDATE users SET momni_plus = 1 WHERE id = ?').run(uid) },
   'circle-up':  { name: 'Circle Up membership ($1/mo, billed $12/yr)', amount: 1200, mode: 'payment',
                   fulfill: (uid) => db.prepare('UPDATE users SET circle_up = 1, links_balance = links_balance + 2 WHERE id = ?').run(uid) },
+  'profile-boost': { name: 'Profile Boost (annual) — higher search placement + a live business/social link', amount: 1900, mode: 'payment',
+                  fulfill: (uid) => db.prepare('UPDATE users SET profile_boost = 1 WHERE id = ?').run(uid) },
 };
 
 async function checkoutOrGrant(req, res, productKey) {
@@ -637,6 +700,7 @@ async function checkoutOrGrant(req, res, productKey) {
 app.post('/api/purchase/links', requireAuth, (req, res, next) => checkoutOrGrant(req, res, 'links-10').catch(next));
 app.post('/api/purchase/momni-plus', requireAuth, (req, res, next) => checkoutOrGrant(req, res, 'momni-plus').catch(next));
 app.post('/api/purchase/circle-up', requireAuth, (req, res, next) => checkoutOrGrant(req, res, 'circle-up').catch(next));
+app.post('/api/purchase/profile-boost', requireAuth, (req, res, next) => checkoutOrGrant(req, res, 'profile-boost').catch(next));
 
 // Stripe webhook — fulfillment happens here, after real payment.
 // Configure the endpoint in the Stripe dashboard with STRIPE_WEBHOOK_SECRET.
@@ -764,6 +828,76 @@ app.put('/api/admin/suggestions/:id', requireAdmin, (req, res) => {
 
 app.delete('/api/admin/reviews/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM reviews WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ---------- Campfire — the community board (suggestions + feature voting) ----------
+const CAMPFIRE_CATEGORIES = ['idea', 'feature', 'question', 'win'];
+const postLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30, message: 'You’re on fire 🔥 — give it a little bit before posting again.' });
+
+// List posts with vote/comment counts and whether the signed-in mama has voted.
+app.get('/api/campfire', (req, res) => {
+  const { category, sort } = req.query;
+  const me = req.session.userId || 0;
+  let rows = db.prepare(`
+    SELECT p.*, u.name AS author,
+      (SELECT COUNT(*) FROM campfire_votes v WHERE v.post_id = p.id) AS votes,
+      (SELECT COUNT(*) FROM campfire_comments c WHERE c.post_id = p.id) AS comments,
+      (SELECT COUNT(*) FROM campfire_votes v WHERE v.post_id = p.id AND v.user_id = ?) AS mine
+    FROM campfire_posts p JOIN users u ON u.id = p.user_id`).all(me);
+  if (category && CAMPFIRE_CATEGORIES.includes(category)) rows = rows.filter(r => r.category === category);
+  rows.sort(sort === 'new' ? (a, b) => b.id - a.id : (a, b) => b.votes - a.votes || b.id - a.id); // default: top-voted
+  res.json(rows.map(r => ({ id: r.id, category: r.category, title: r.title, body: r.body, status: r.status,
+    author: r.author, votes: r.votes, comments: r.comments, mine: !!r.mine, created_at: r.created_at })));
+});
+
+app.post('/api/campfire', requireAuth, postLimiter, (req, res) => {
+  const { category, title, body } = req.body;
+  const cat = CAMPFIRE_CATEGORIES.includes(category) ? category : 'idea';
+  if (!title || !String(title).trim()) return res.status(400).json({ error: 'Give your idea a title, mama.' });
+  const info = db.prepare('INSERT INTO campfire_posts (user_id, category, title, body) VALUES (?,?,?,?)')
+    .run(req.session.userId, cat, String(title).trim().slice(0, 140), String(body || '').trim().slice(0, 4000));
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+
+// Toggle an upvote.
+app.post('/api/campfire/:id/vote', requireAuth, (req, res) => {
+  const post = db.prepare('SELECT id FROM campfire_posts WHERE id = ?').get(req.params.id);
+  if (!post) return res.status(404).json({ error: 'That post is gone.' });
+  const existing = db.prepare('SELECT 1 FROM campfire_votes WHERE post_id = ? AND user_id = ?').get(post.id, req.session.userId);
+  if (existing) db.prepare('DELETE FROM campfire_votes WHERE post_id = ? AND user_id = ?').run(post.id, req.session.userId);
+  else db.prepare('INSERT INTO campfire_votes (post_id, user_id) VALUES (?,?)').run(post.id, req.session.userId);
+  const votes = db.prepare('SELECT COUNT(*) c FROM campfire_votes WHERE post_id = ?').get(post.id).c;
+  res.json({ ok: true, voted: !existing, votes });
+});
+
+app.get('/api/campfire/:id', (req, res) => {
+  const me = req.session.userId || 0;
+  const p = db.prepare(`SELECT p.*, u.name AS author,
+    (SELECT COUNT(*) FROM campfire_votes v WHERE v.post_id = p.id) AS votes,
+    (SELECT COUNT(*) FROM campfire_votes v WHERE v.post_id = p.id AND v.user_id = ?) AS mine
+    FROM campfire_posts p JOIN users u ON u.id = p.user_id WHERE p.id = ?`).get(me, req.params.id);
+  if (!p) return res.status(404).json({ error: 'That post is gone.' });
+  const comments = db.prepare(`SELECT c.id, c.body, c.created_at, u.name AS author
+    FROM campfire_comments c JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id ASC`).all(p.id);
+  res.json({ id: p.id, category: p.category, title: p.title, body: p.body, status: p.status, author: p.author,
+    votes: p.votes, mine: !!p.mine, created_at: p.created_at, comments });
+});
+
+app.post('/api/campfire/:id/comments', requireAuth, postLimiter, (req, res) => {
+  const post = db.prepare('SELECT id FROM campfire_posts WHERE id = ?').get(req.params.id);
+  if (!post) return res.status(404).json({ error: 'That post is gone.' });
+  const body = String(req.body.body || '').trim();
+  if (!body) return res.status(400).json({ error: 'Say a little something first.' });
+  db.prepare('INSERT INTO campfire_comments (post_id, user_id, body) VALUES (?,?,?)').run(post.id, req.session.userId, body.slice(0, 2000));
+  res.json({ ok: true });
+});
+
+// HQ sets a post's status (planned / building / shipped / declined) — this is the research signal.
+app.put('/api/admin/campfire/:id', requireAdmin, (req, res) => {
+  const status = ['open', 'planned', 'building', 'shipped', 'declined'].includes(req.body.status) ? req.body.status : null;
+  if (!status) return res.status(400).json({ error: 'Unknown status.' });
+  db.prepare('UPDATE campfire_posts SET status = ? WHERE id = ?').run(status, req.params.id);
   res.json({ ok: true });
 });
 

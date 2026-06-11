@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campfire — Momni</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--purple:#6D58A4;--purple-deep:#4A3880;--teal:#0D878F;--teal-deep:#0A6B72;--algae:#92E2C1;--lavender:#F5F0FE;--teal-soft:#E1F7F2;--clay:#D9C0A3;--ink:#2B2233;--muted:#6B6477;--white:#FFFFFF;--line:#EEE9F9}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.5;min-height:100vh;display:flex;justify-content:center}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{width:100%;max-width:480px;min-height:100vh;background:var(--white);box-shadow:0 0 40px rgba(109,88,164,0.12);display:flex;flex-direction:column;padding-bottom:76px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px}
+.topbar img{height:34px;display:block}
+.topbar .script{font-size:22px;color:var(--teal)}
+main{padding:6px 18px 24px}
+.intro{background:linear-gradient(135deg,var(--purple),var(--teal));color:#fff;border-radius:18px;padding:18px 20px;margin-bottom:16px}
+.intro h1{font-size:20px;font-weight:800;margin-bottom:4px}
+.intro p{font-size:13.5px;color:rgba(255,255,255,.9)}
+.filters{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.fchip{flex:0 0 auto;border:1.5px solid #E5DEF4;border-radius:100px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--purple-deep);background:#fff;cursor:pointer;white-space:nowrap}
+.fchip.on{background:var(--purple);border-color:var(--purple);color:#fff}
+.sortbar{display:flex;justify-content:space-between;align-items:center;margin:4px 0 12px}
+.sortbar .toggle{font-size:13px;font-weight:600;color:var(--teal);cursor:pointer}
+.new-btn{background:var(--algae);color:#0B4A36;border:none;border-radius:100px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.post{display:flex;gap:12px;border:1.5px solid var(--line);border-radius:16px;padding:14px;margin-bottom:11px}
+.vote{flex:0 0 46px;display:flex;flex-direction:column;align-items:center;gap:2px;border:1.5px solid #E5DEF4;border-radius:12px;padding:7px 0;cursor:pointer;background:#fff;font-family:inherit}
+.vote.on{background:var(--purple);border-color:var(--purple);color:#fff}
+.vote .arr{font-size:15px;line-height:1}.vote .n{font-size:15px;font-weight:800;font-family:'Montserrat',sans-serif}
+.post .b{flex:1;min-width:0}
+.post .cat{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 9px;border-radius:100px;margin-bottom:5px}
+.cat-idea{background:var(--lavender);color:var(--purple-deep)}.cat-feature{background:var(--teal-soft);color:var(--teal-deep)}
+.cat-question{background:#FFF3E0;color:#A6691B}.cat-win{background:#E9F9EF;color:#1B7A45}
+.post h3{font-size:15.5px;font-weight:700;margin-bottom:3px}
+.post .body{font-size:13.5px;color:#42394f}
+.post .meta{font-size:12px;color:var(--muted);margin-top:7px}
+.status{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:100px;margin-left:6px}
+.s-planned{background:#FFF3E0;color:#A6691B}.s-building{background:var(--teal-soft);color:var(--teal-deep)}.s-shipped{background:#E9F9EF;color:#1B7A45}.s-declined{background:#F3EEF7;color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:14px}
+/* composer + detail modal */
+.scrim{position:fixed;inset:0;background:rgba(43,34,51,.45);display:none;align-items:flex-end;justify-content:center;z-index:80}
+.scrim.open{display:flex}
+.sheet{background:#fff;width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
+.sheet h2{font-size:18px;margin-bottom:12px}
+.sheet label{display:block;font-size:12.5px;font-weight:700;margin:10px 0 5px}
+.sheet input,.sheet textarea,.sheet select{width:100%;border:1.5px solid #E5DEF4;border-radius:12px;padding:11px 13px;font:inherit;font-size:14.5px}
+.sheet textarea{min-height:90px;resize:vertical}
+.sheet .row{display:flex;gap:10px;margin-top:16px}
+.btn{border:none;border-radius:100px;padding:12px 20px;font-size:14.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-primary{background:var(--purple);color:#fff;flex:1}.btn-ghost{background:#F3EEF7;color:var(--purple-deep)}
+.cmt{border-top:1px solid var(--line);padding:11px 0;font-size:14px}
+.cmt .who{font-weight:700;font-size:12.5px;color:var(--purple-deep)}
+.err{color:#B4434E;font-size:13px;margin-top:8px;display:none}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;border-top:1px solid var(--line);display:flex;z-index:50}
+.tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11px;font-weight:600;color:var(--muted)}
+.tab .ico{display:block;font-size:19px;line-height:1.2}
+.tab.active{color:var(--purple)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+    <span class="script">Pull up a log 🔥</span>
+  </div>
+  <main>
+    <div class="intro">
+      <h1>The Campfire</h1>
+      <p>Where the Circle talks, dreams out loud, and votes on what Momni builds next. Upvote the ideas you want — the most-loved ones get built first.</p>
+    </div>
+
+    <div class="filters" id="filters">
+      <button class="fchip on" data-cat="">All</button>
+      <button class="fchip" data-cat="idea">💡 Ideas</button>
+      <button class="fchip" data-cat="feature">🧩 Feature requests</button>
+      <button class="fchip" data-cat="question">❓ Questions</button>
+      <button class="fchip" data-cat="win">🎉 Wins</button>
+    </div>
+    <div class="sortbar">
+      <span class="toggle" id="sort-toggle">Sorting by: Top 🔼</span>
+      <button class="new-btn" id="open-composer">+ New post</button>
+    </div>
+
+    <div id="list"><p class="empty">Lighting the fire…</p></div>
+  </main>
+
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><span class="ico">🏠</span>Home</a>
+    <a class="tab" href="search.html"><span class="ico">🔍</span>Search</a>
+    <a class="tab" href="campfire.html" style="color:var(--purple)"><span class="ico">🔥</span>Campfire</a>
+    <a class="tab" href="circles.html"><span class="ico">💜</span>Circles</a>
+    <a class="tab" href="links.html"><span class="ico">🔗</span>Links</a>
+    <a class="tab" href="me.html"><span class="ico">👤</span>Me</a>
+  </nav>
+</div>
+
+<!-- composer -->
+<div class="scrim" id="composer-scrim">
+  <div class="sheet">
+    <h2>Share with the Circle</h2>
+    <label for="c-cat">What is it?</label>
+    <select id="c-cat">
+      <option value="idea">💡 An idea</option>
+      <option value="feature">🧩 A feature request</option>
+      <option value="question">❓ A question</option>
+      <option value="win">🎉 A win to celebrate</option>
+    </select>
+    <label for="c-title">Title</label>
+    <input id="c-title" maxlength="140" placeholder="e.g. A way to share a sitter with my whole Circle">
+    <label for="c-body">Tell us more (optional)</label>
+    <textarea id="c-body" maxlength="4000" placeholder="What would it do? Why would it help?"></textarea>
+    <p class="err" id="c-err"></p>
+    <div class="row">
+      <button class="btn btn-ghost" id="c-cancel">Cancel</button>
+      <button class="btn btn-primary" id="c-submit">Post to the Campfire</button>
+    </div>
+  </div>
+</div>
+
+<!-- detail -->
+<div class="scrim" id="detail-scrim">
+  <div class="sheet" id="detail-body"></div>
+</div>
+
+<script>
+(function(){
+  var cat='', sort='top', detailId=null;
+  fetch('/api/me').then(function(r){ if(r.status===401){location='index.html';throw 0;} });
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function catClass(c){ return 'cat-'+c; }
+  function statusPill(s){ if(!s||s==='open')return ''; return '<span class="status s-'+s+'">'+s+'</span>'; }
+
+  function load(){
+    fetch('/api/campfire?'+new URLSearchParams({category:cat,sort:sort}))
+      .then(function(r){return r.json();}).then(function(posts){
+        var el=document.getElementById('list');
+        if(!posts.length){ el.innerHTML='<p class="empty">No posts here yet — be the first to speak up. 💜</p>'; return; }
+        el.innerHTML=posts.map(function(p){
+          return '<div class="post"><button class="vote '+(p.mine?'on':'')+'" data-vote="'+p.id+'"><span class="arr">▲</span><span class="n">'+p.votes+'</span></button>'+
+            '<div class="b" data-open="'+p.id+'"><span class="cat '+catClass(p.category)+'">'+esc(p.category)+'</span>'+statusPill(p.status)+
+            '<h3>'+esc(p.title)+'</h3>'+(p.body?'<div class="body">'+esc(p.body.slice(0,140))+(p.body.length>140?'…':'')+'</div>':'')+
+            '<div class="meta">by '+esc(p.author)+' · '+p.comments+' comment'+(p.comments===1?'':'s')+'</div></div></div>';
+        }).join('');
+      });
+  }
+
+  document.getElementById('list').addEventListener('click', function(e){
+    var v=e.target.closest('[data-vote]'); if(v){ vote(v.dataset.vote); return; }
+    var o=e.target.closest('[data-open]'); if(o){ openDetail(o.dataset.open); }
+  });
+  function vote(id){
+    fetch('/api/campfire/'+id+'/vote',{method:'POST',headers:{'Content-Type':'application/json'}})
+      .then(function(r){return r.json();}).then(function(){ load(); if(detailId==id) openDetail(id); });
+  }
+
+  document.getElementById('filters').addEventListener('click',function(e){
+    var b=e.target.closest('.fchip'); if(!b)return;
+    this.querySelectorAll('.fchip').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); cat=b.dataset.cat; load();
+  });
+  document.getElementById('sort-toggle').addEventListener('click',function(){
+    sort = sort==='top'?'new':'top';
+    this.textContent='Sorting by: '+(sort==='top'?'Top 🔼':'Newest 🆕');
+    load();
+  });
+
+  // composer
+  var cs=document.getElementById('composer-scrim');
+  document.getElementById('open-composer').onclick=function(){ cs.classList.add('open'); };
+  document.getElementById('c-cancel').onclick=function(){ cs.classList.remove('open'); };
+  cs.addEventListener('click',function(e){ if(e.target===cs) cs.classList.remove('open'); });
+  document.getElementById('c-submit').onclick=function(){
+    var btn=this; if(btn.disabled)return; btn.disabled=true;
+    var err=document.getElementById('c-err'); err.style.display='none';
+    fetch('/api/campfire',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      category:document.getElementById('c-cat').value, title:document.getElementById('c-title').value, body:document.getElementById('c-body').value
+    })}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});}).then(function(x){
+      btn.disabled=false;
+      if(!x.ok){ err.textContent=x.d.error||'Could not post.'; err.style.display='block'; return; }
+      cs.classList.remove('open'); document.getElementById('c-title').value=''; document.getElementById('c-body').value=''; load();
+    }).catch(function(){ btn.disabled=false; err.textContent='Couldn’t reach the Circle. Try again.'; err.style.display='block'; });
+  };
+
+  // detail + comments
+  var ds=document.getElementById('detail-scrim');
+  ds.addEventListener('click',function(e){ if(e.target===ds) ds.classList.remove('open'); });
+  function openDetail(id){
+    detailId=id;
+    fetch('/api/campfire/'+id).then(function(r){return r.json();}).then(function(p){
+      document.getElementById('detail-body').innerHTML=
+        '<span class="cat '+catClass(p.category)+'">'+esc(p.category)+'</span>'+statusPill(p.status)+
+        '<h2>'+esc(p.title)+'</h2>'+(p.body?'<p style="font-size:14.5px;color:#42394f;margin-bottom:8px">'+esc(p.body)+'</p>':'')+
+        '<div class="meta" style="font-size:12.5px;color:var(--muted);margin-bottom:6px">by '+esc(p.author)+'</div>'+
+        '<button class="btn btn-ghost" data-vote="'+p.id+'" style="margin-bottom:14px">▲ '+p.votes+(p.mine?' · you upvoted':' · upvote')+'</button>'+
+        '<h3 style="font-size:14px;margin-bottom:4px">'+p.comments.length+' comment'+(p.comments.length===1?'':'s')+'</h3>'+
+        p.comments.map(function(c){return '<div class="cmt"><span class="who">'+esc(c.author)+'</span><div>'+esc(c.body)+'</div></div>';}).join('')+
+        '<label style="display:block;font-size:12.5px;font-weight:700;margin:14px 0 5px">Add a comment</label>'+
+        '<textarea id="cm-body" style="width:100%;border:1.5px solid #E5DEF4;border-radius:12px;padding:11px;font:inherit;font-size:14px;min-height:64px"></textarea>'+
+        '<div class="row"><button class="btn btn-ghost" id="d-close">Close</button><button class="btn btn-primary" id="cm-send">Comment</button></div>';
+      ds.classList.add('open');
+      document.getElementById('d-close').onclick=function(){ ds.classList.remove('open'); };
+      document.querySelector('#detail-body [data-vote]').onclick=function(){ vote(p.id); };
+      document.getElementById('cm-send').onclick=function(){
+        var b=this; if(b.disabled)return; var body=document.getElementById('cm-body').value.trim(); if(!body)return; b.disabled=true;
+        fetch('/api/campfire/'+id+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:body})})
+          .then(function(r){return r.json();}).then(function(){ openDetail(id); load(); }).catch(function(){ b.disabled=false; });
+      };
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

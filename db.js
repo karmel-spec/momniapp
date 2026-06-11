@@ -22,12 +22,30 @@ try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_text TEXT'); } catch (e) 
 try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_at TEXT'); } catch (e) { /* exists */ }
 // migration: Circle Up membership flag (set by the circle-up purchase; read by Sign in with Momni tier)
 try { db.exec('ALTER TABLE users ADD COLUMN circle_up INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
+// migration: paid profile add-ons — search-placement boost + a live business/social link
+try { db.exec('ALTER TABLE users ADD COLUMN profile_boost INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
+try { db.exec('ALTER TABLE users ADD COLUMN live_link TEXT'); } catch (e) { /* exists */ }
+try { db.exec('ALTER TABLE users ADD COLUMN live_link_label TEXT'); } catch (e) { /* exists */ }
 // migration: OAuth client_type + nullable secret_hash (public clients hold no secret). The
 // oauth_clients table is pre-launch with no registered clients, so rebuilding it is safe.
 try {
   const cols = db.prepare('PRAGMA table_info(oauth_clients)').all();
   if (cols.length && !cols.find(c => c.name === 'client_type')) db.exec('DROP TABLE oauth_clients');
 } catch (e) { /* table absent — CREATE TABLE below handles it */ }
+// migration: remap host care_types to the 2.0 booking vocabulary (Available Now / Night Out /
+// Recurring / Overnight). Idempotent — only rewrites rows that still carry an old token.
+try {
+  const CT_MAP = { 'right-now': 'available-now', 'date-night': 'night-out', 'my-regulars': 'recurring',
+    'night-shift': 'overnight', 'weekend-getaway': 'overnight', 'extended-trip': 'overnight' };
+  const rows = db.prepare("SELECT id, care_types FROM users WHERE care_types LIKE '%-%'").all();
+  const upd = db.prepare('UPDATE users SET care_types = ? WHERE id = ?');
+  for (const r of rows) {
+    let arr; try { arr = JSON.parse(r.care_types || '[]'); } catch (e) { continue; }
+    if (!arr.some(t => CT_MAP[t])) continue;
+    const mapped = [...new Set(arr.map(t => CT_MAP[t] || t))];
+    upd.run(JSON.stringify(mapped), r.id);
+  }
+} catch (e) { /* users table not created yet on first boot — seed uses new vocab directly */ }
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
@@ -39,7 +57,7 @@ CREATE TABLE IF NOT EXISTS users (
   lat REAL, lng REAL,
   is_host INTEGER DEFAULT 0,
   bio TEXT DEFAULT '',
-  care_types TEXT DEFAULT '[]',          -- JSON array: right-now, date-night, my-regulars, night-shift, weekend-getaway, extended-trip
+  care_types TEXT DEFAULT '[]',          -- JSON array: available-now, night-out, recurring, overnight
   available_now INTEGER DEFAULT 0,
   hourly_note TEXT DEFAULT '',           -- e.g. "$8/hr — paid directly to me"; Momni never touches it
   shared_items TEXT DEFAULT '[]',        -- JSON array of member-shared items, e.g. {"type":"background_check","label":"Background check — purchased and shared by <name>"}
@@ -53,6 +71,9 @@ CREATE TABLE IF NOT EXISTS users (
   links_balance INTEGER DEFAULT 2,       -- free tier: a couple of Links to start
   momni_plus INTEGER DEFAULT 0,
   circle_up INTEGER DEFAULT 0,           -- Circle Up membership ($1/mo billed $12/yr)
+  profile_boost INTEGER DEFAULT 0,       -- paid: bumps her up in search results
+  live_link TEXT,                        -- paid: a live link to her business/social
+  live_link_label TEXT,
   is_admin INTEGER DEFAULT 0,
   gives_toggle INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now'))
@@ -209,6 +230,39 @@ CREATE TABLE IF NOT EXISTS oauth_user_grants ( -- which apps a member has approv
   created_at TEXT DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, client_id)
 );
+
+-- Campfire: the community board where the Circle talks, suggests features, and votes on what to build next
+CREATE TABLE IF NOT EXISTS campfire_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  category TEXT NOT NULL DEFAULT 'idea',  -- idea | feature | question | win
+  title TEXT NOT NULL,
+  body TEXT DEFAULT '',
+  status TEXT DEFAULT 'open',             -- open | planned | building | shipped | declined (set by HQ)
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS campfire_votes (  -- one upvote per member per post
+  post_id INTEGER NOT NULL REFERENCES campfire_posts(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (post_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS campfire_comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL REFERENCES campfire_posts(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  body TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Badges a member has earned or purchased; auto-badges are computed live, these are the awarded/bought ones
+CREATE TABLE IF NOT EXISTS user_badges (
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  badge_key TEXT NOT NULL,
+  source TEXT DEFAULT 'earned',           -- earned | purchased | granted
+  awarded_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, badge_key)
+);
 `);
 
 function seed() {
@@ -252,12 +306,12 @@ function seed() {
 
   // Demo hosts around Provo/Orem — sample data, clearly fictional
   const hosts = [
-    ['sarah@example.com','Sarah M.','Orem',40.2969,-111.6946,1,'Mama of 3, homeschool mornings, big backyard.','["right-now","date-night","my-regulars"]',1,'$8/hr — paid directly to me','[{"type":"background_check","label":"Background check — purchased and shared by Sarah"}]'],
-    ['jess@example.com','Jess R.','Provo',40.2338,-111.6585,1,'Night-owl mama, two littles, loves crafts.','["night-shift","my-regulars"]',0,'$10/hr overnight — paid directly to me','[]'],
-    ['kristy@example.com','Kristy T.','Provo',40.2483,-111.6448,1,'Former preschool teacher, mama of 4.','["date-night","weekend-getaway","extended-trip"]',1,'$9/hr — paid directly to me','[{"type":"background_check","label":"Background check — purchased and shared by Kristy"}]'],
-    ['amy@example.com','Amy L.','Orem',40.3128,-111.7186,1,'Infant-ready, quiet home near UVU.','["right-now","my-regulars"]',1,'$8/hr — paid directly to me','[]'],
-    ['paula@example.com','Paula D.','Springville',40.1652,-111.6107,1,'Weekend specialist — kids love our chickens.','["weekend-getaway","extended-trip","date-night"]',0,'$85/night — paid directly to me','[]'],
-    ['maren@example.com','Maren H.','Lehi',40.3916,-111.8508,1,'Nurse mama who hosts other nurses’ littles.','["night-shift","right-now"]',1,'$10/hr — paid directly to me','[]'],
+    ['sarah@example.com','Sarah M.','Orem',40.2969,-111.6946,1,'Mama of 3, homeschool mornings, big backyard.','["available-now","night-out","recurring"]',1,'$8/hr — paid directly to me','[{"type":"background_check","label":"Background check — purchased and shared by Sarah"}]'],
+    ['jess@example.com','Jess R.','Provo',40.2338,-111.6585,1,'Night-owl mama, two littles, loves crafts.','["overnight","recurring"]',0,'$10/hr overnight — paid directly to me','[]'],
+    ['kristy@example.com','Kristy T.','Provo',40.2483,-111.6448,1,'Former preschool teacher, mama of 4.','["night-out","overnight"]',1,'$9/hr — paid directly to me','[{"type":"background_check","label":"Background check — purchased and shared by Kristy"}]'],
+    ['amy@example.com','Amy L.','Orem',40.3128,-111.7186,1,'Infant-ready, quiet home near UVU.','["available-now","recurring"]',1,'$8/hr — paid directly to me','[]'],
+    ['paula@example.com','Paula D.','Springville',40.1652,-111.6107,1,'Weekend specialist — kids love our chickens.','["overnight","night-out"]',0,'$85/night — paid directly to me','[]'],
+    ['maren@example.com','Maren H.','Lehi',40.3916,-111.8508,1,'Nurse mama who hosts other nurses’ littles.','["overnight","available-now"]',1,'$10/hr — paid directly to me','[]'],
   ];
   for (const h of hosts) insertUser.run(h[0],hash,h[1],h[2],h[3],h[4],h[5],h[6],h[7],h[8],h[9],h[10]);
 

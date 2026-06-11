@@ -24,10 +24,14 @@ a{text-decoration:none;color:inherit}
 .content{flex:1;padding-bottom:84px}
 
 /* Filter chips */
-.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 18px;scrollbar-width:none}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 18px 6px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:0 0 auto;border:1.5px solid #E5DEF4;border-radius:100px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--purple-deep);background:var(--white);cursor:pointer;white-space:nowrap}
 .chip.on{background:var(--purple);border-color:var(--purple);color:var(--white)}
+/* Distance filter — its own row so the top bar is booking types only */
+.dist-row{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:0 18px 12px;scrollbar-width:none}
+.dist-row::-webkit-scrollbar{display:none}
+.dist-label{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 
 /* Map */
 .map-wrap{position:relative;margin:0 18px;border-radius:18px;overflow:hidden;border:1.5px solid #EEE9F9}
@@ -82,13 +86,13 @@ a{text-decoration:none;color:inherit}
   <div class="content">
     <div class="chips" id="chips">
       <button class="chip" data-ct="">All</button>
-      <button class="chip" data-ct="right-now">Right Now</button>
-      <button class="chip" data-ct="date-night">Date Night</button>
-      <button class="chip" data-ct="my-regulars">My Regulars</button>
-      <button class="chip" data-ct="night-shift">Night Shift</button>
-      <button class="chip" data-ct="weekend-getaway">Weekend Getaway</button>
-      <button class="chip" data-ct="extended-trip">Extended Trip</button>
-      <button class="chip" data-now="1">Available now</button>
+      <button class="chip" data-now="1">Available Now</button>
+      <button class="chip" data-ct="night-out">Night Out</button>
+      <button class="chip" data-ct="recurring">Recurring</button>
+      <button class="chip" data-ct="overnight">Overnight</button>
+    </div>
+    <div class="dist-row" id="dist-row">
+      <span class="dist-label">Within</span>
       <button class="chip" data-r="5">5 mi</button>
       <button class="chip" data-r="10">10 mi</button>
       <button class="chip" data-r="25">25 mi</button>
@@ -127,6 +131,7 @@ a{text-decoration:none;color:inherit}
   <nav class="tabbar">
     <a class="tab" href="home.html"><span class="ico">&#8962;</span>Home</a>
     <a class="tab active" href="search.html"><span class="ico">&#9906;</span>Search</a>
+    <a class="tab" href="campfire.html"><span class="ico">&#128293;</span>Campfire</a>
     <a class="tab" href="circles.html"><span class="ico">&#9711;</span>Circles</a>
     <a class="tab" href="links.html"><span class="ico">&#128279;</span>Links</a>
     <a class="tab" href="me.html"><span class="ico">&#9786;</span>Me</a>
@@ -153,8 +158,8 @@ var radiusMi = params.get('radius_mi') || '10';
 if (['5','10','25','all'].indexOf(radiusMi) === -1) radiusMi = '10';
 var userLoc = null; // set by locate(); null when geolocation is unavailable/declined
 
-// Filter chips reflect + set the query params
-document.querySelectorAll('#chips .chip').forEach(function(chip){
+// Filter chips reflect + set the query params (booking-type row + distance row)
+document.querySelectorAll('#chips .chip, #dist-row .chip').forEach(function(chip){
   if (chip.dataset.ct !== undefined) {
     if (chip.dataset.ct === careType) chip.classList.add('on');
   } else if (chip.dataset.now && availNow) {
@@ -173,8 +178,10 @@ document.querySelectorAll('#chips .chip').forEach(function(chip){
   });
 });
 
-var CT_LABELS = {'right-now':'Right Now','date-night':'Date Night','my-regulars':'My Regulars',
-  'night-shift':'Night Shift','weekend-getaway':'Weekend Getaway','extended-trip':'Extended Trip'};
+var CT_LABELS = {'available-now':'Available Now','night-out':'Night Out','recurring':'Recurring','overnight':'Overnight',
+  // legacy values still rendered gracefully if any old data lingers
+  'right-now':'Available Now','date-night':'Night Out','my-regulars':'Recurring',
+  'night-shift':'Overnight','weekend-getaway':'Overnight','extended-trip':'Overnight'};
 
 // Same formula the server uses (R = 3958.8 mi) — only for map popups,
 // where /api/map carries no distance_mi. Coords are neighborhood-level.
@@ -266,7 +273,7 @@ fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
   var legacyLayer = L.layerGroup();
   data.legacy.forEach(function(p){
     L.circleMarker([p.lat, p.lng],{renderer:cv,radius:p.precision==='state'?2.5:3,color:'#C99F72',fillColor:'#C99F72',fillOpacity:0.55,weight:1})
-     .on('click',function(e){ legacyPopup.setLatLng(e.latlng).setContent('<div class="pop legacy">A first mama of Momni 1.0 &mdash; anonymous until she reclaims her pin</div>').openOn(map); })
+     .on('click',function(e){ legacyPopup.setLatLng(e.latlng).setContent('<div class="pop legacy"><strong>Momni 1.0 mama</strong> &mdash; anonymous until she reclaims her pin.<br>Share the reactivation link and new Momni link with moms you know.<br><a href="https://momni.com/share/" target="_blank" rel="noopener" class="req" style="margin-top:8px">Share &amp; invite moms ↗</a></div>').openOn(map); })
      .addTo(legacyLayer);
   });
   legacyLayer.addTo(map);
@@ -306,6 +313,11 @@ function loadHosts(){
         var ctChips = (h.care_types || []).map(function(ct){
           return '<span>'+esc(CT_LABELS[ct] || ct)+'</span>';
         }).join('');
+        var badges = (h.badges || []).map(function(b){
+          return '<span title="'+esc(b.note||'')+'" style="background:#FCFBFE;border:1.5px solid #EEE9F9;color:var(--ink)">'+b.emoji+' '+esc(b.label)+'</span>';
+        }).join('');
+        var liveLink = (h.live_link && /^https?:\/\//.test(h.live_link))
+          ? '<a href="'+esc(h.live_link)+'" target="_blank" rel="noopener nofollow" class="link-btn" style="margin-top:8px;background:var(--purple)">'+esc(h.live_link_label || 'Visit my page')+' &#8599;</a>' : '';
         var shared = (h.shared_items || []).map(function(it){
           var txt = esc(it.label) + (it.as_of ? ' &middot; as of ' + esc(it.as_of) : '');
           if (it.url && /^https:\/\//.test(it.url)) {
@@ -316,10 +328,12 @@ function loadHosts(){
         return '<div class="card">'+
           '<div class="row"><div class="avatar">'+initials+'</div><div>'+
           '<h3>'+esc(h.name)+'</h3><div class="meta">'+meta.join(' &middot; ')+'</div></div></div>'+
+          (badges ? '<div class="pills" style="margin-top:8px">'+badges+'</div>' : '')+
           (avail ? '<div class="meta" style="margin-top:8px">'+esc(avail)+'</div>' : '')+
           (ctChips ? '<div class="pills">'+ctChips+'</div>' : '')+
           (shared ? '<div class="pills-label">What she\'s chosen to share</div><div class="pills">'+shared+'</div>' : '')+
           (h.hourly_note ? '<div class="pills-label">'+esc(h.hourly_note)+'</div>' : '')+
+          liveLink +
           '<a class="link-btn" style="margin-top:10px" href="booking.html?host_id='+h.id+'">Request a Link</a>'+
           '</div>';
       }).join('');

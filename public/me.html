@@ -82,6 +82,7 @@ main{padding:6px 20px 24px}
       <div class="avatar" id="avatar"></div>
       <h1 id="me-name"></h1>
       <span class="badge" id="me-city"></span>
+      <div id="me-badges" style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:10px"></div>
       <p class="fine" id="completeness"></p>
     </div>
 
@@ -133,7 +134,7 @@ main{padding:6px 20px 24px}
         <p class="fine" id="pin-msg" style="display:none;color:var(--teal-deep)"></p>
       </div>
       <div class="gives" style="border-top:1px solid var(--line);padding-top:12px">
-        <div class="txt"><h3>Available now</h3><p>Show up with a live teal pin for Right Now care.</p></div>
+        <div class="txt"><h3>Available now</h3><p>Show up with a live teal pin for Instant Booking.</p></div>
         <label class="toggle"><input type="checkbox" id="now-toggle"><span class="slider"></span></label>
       </div>
       <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
@@ -142,6 +143,17 @@ main{padding:6px 20px 24px}
         <button class="save-btn" id="cal-btn" type="button" style="margin-top:10px">Connect my calendar</button>
         <a id="cal-disconnect" href="#" style="display:none;font-size:13px;font-weight:600;color:#B0556A;margin-left:12px">Disconnect</a>
         <p class="fine" id="cal-msg" style="display:none;color:var(--teal-deep)"></p>
+      </div>
+      <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:3px">Profile Boost <span id="boost-state" style="color:var(--teal-deep);font-size:13px;font-weight:600"></span></h3>
+        <p class="fine" style="margin-top:2px">Rise higher in search and add one live link to your business or social page. $19/year — supports the mission.</p>
+        <button class="save-btn" id="boost-btn" type="button" style="margin-top:10px">Boost my profile</button>
+        <div id="livelink-field" style="display:none;margin-top:12px">
+          <div class="field"><label for="ll-label">Link label</label><input id="ll-label" type="text" maxlength="60" placeholder="My photography studio"></div>
+          <div class="field"><label for="ll-url">Link URL</label><input id="ll-url" type="url" placeholder="https://…"></div>
+          <button class="save-btn" id="ll-save" type="button">Save my link</button>
+          <p class="fine" id="ll-msg" style="display:none;color:var(--teal-deep)"></p>
+        </div>
       </div>
     </div>
 
@@ -203,6 +215,7 @@ main{padding:6px 20px 24px}
   <nav class="tabbar">
     <a class="tab" href="home.html"><span class="ico">🏠</span>Home</a>
     <a class="tab" href="search.html"><span class="ico">🔍</span>Search</a>
+    <a class="tab" href="campfire.html"><span class="ico">🔥</span>Campfire</a>
     <a class="tab" href="circles.html"><span class="ico">💜</span>Circles</a>
     <a class="tab" href="links.html"><span class="ico">🔗</span>Links</a>
     <a class="tab active" href="me.html"><span class="ico">👤</span>Me</a>
@@ -215,8 +228,7 @@ main{padding:6px 20px 24px}
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
-  var CT = [['right-now','Right Now'],['date-night','Date Night'],['my-regulars','My Regulars'],
-            ['night-shift','Night Shift'],['weekend-getaway','Weekend Getaway'],['extended-trip','Extended Trip']];
+  var CT = [['available-now','Available Now'],['night-out','Night Out'],['recurring','Recurring'],['overnight','Overnight']];
   var me = null;
 
   function put(body){
@@ -328,6 +340,9 @@ main{padding:6px 20px 24px}
     document.getElementById('avatar').textContent = (first[0] || '').toUpperCase();
     document.getElementById('me-name').textContent = me.name;
     document.getElementById('me-city').textContent = me.city ? 'Circle member · ' + me.city : 'Circle member';
+    document.getElementById('me-badges').innerHTML = (me.badges || []).map(function(b){
+      return '<span title="'+(b.note||'').replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:#FCFBFE;border:1.5px solid var(--line);border-radius:100px;padding:5px 12px">'+b.emoji+' '+b.label+'</span>';
+    }).join('');
     document.getElementById('shares-title').textContent = 'What ' + first + ' shares';
     if (me.rating) {
       var st = document.getElementById('me-stars');
@@ -354,8 +369,39 @@ main{padding:6px 20px 24px}
     renderSharedItems();
     renderAvail();
     renderPin();
+    renderBoost();
     updateCompleteness();
   }
+
+  function renderBoost(){
+    var boosted = me.boosted || me.momni_plus;
+    document.getElementById('boost-state').textContent = boosted ? '· active' : '';
+    document.getElementById('boost-btn').style.display = me.boosted ? 'none' : 'inline-block';
+    document.getElementById('boost-btn').textContent = me.momni_plus ? 'Included with Momni+' : 'Boost my profile';
+    document.getElementById('livelink-field').style.display = boosted ? 'block' : 'none';
+    if (boosted) {
+      document.getElementById('ll-label').value = me.live_link_label || '';
+      document.getElementById('ll-url').value = me.live_link || '';
+    }
+  }
+  document.getElementById('boost-btn').addEventListener('click', function(){
+    if (me.momni_plus) return;
+    fetch('/api/purchase/profile-boost', {method:'POST',headers:{'Content-Type':'application/json'}})
+      .then(function(r){return r.json();}).then(function(d){
+        if (d.checkout_url) { location = d.checkout_url; return; }       // live Stripe
+        me.boosted = true; renderBoost();                                 // dev grant
+      });
+  });
+  document.getElementById('ll-save').addEventListener('click', function(){
+    var msg=document.getElementById('ll-msg');
+    fetch('/api/me',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      live_link: document.getElementById('ll-url').value, live_link_label: document.getElementById('ll-label').value
+    })}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});}).then(function(x){
+      msg.style.display='block'; msg.style.color = x.ok ? 'var(--teal-deep)' : '#B0556A';
+      msg.textContent = x.ok ? 'Saved! Your link is live on your profile.' : (x.d.error || 'Could not save.');
+      if (x.ok){ me.live_link=document.getElementById('ll-url').value; me.live_link_label=document.getElementById('ll-label').value; }
+    });
+  });
 
   buildAvailGrid();
 

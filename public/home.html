@@ -71,31 +71,26 @@ main{padding:6px 20px 24px}
     <span class="hello" id="hello"></span>
   </div>
   <main>
-    <a class="tile tile-now" href="search.html?care_type=right-now&available_now=1">
-      <h2>Right Now</h2>
-      <p>Care today — sometimes within the hour.</p>
+    <a class="tile tile-now" href="search.html?available_now=1">
+      <h2>Available Now</h2>
+      <p>Instant Booking — care today, sometimes within the hour.</p>
       <span class="live"><span class="pulse"></span><span id="live-count">Momnis near you right now…</span></span>
     </a>
 
     <div class="row2">
-      <a class="tile tile-date" href="search.html?care_type=date-night">
-        <h2>Date Night</h2>
+      <a class="tile tile-date" href="search.html?care_type=night-out">
+        <h2>Night Out</h2>
         <p>An evening out, kiddos in good hands.</p>
       </a>
-      <a class="tile tile-reg" href="search.html?care_type=my-regulars">
-        <h2>My Regulars</h2>
+      <a class="tile tile-reg" href="search.html?care_type=recurring">
+        <h2>Recurring</h2>
         <p>The same mama, every week.</p>
       </a>
     </div>
 
-    <a class="tile tile-over" href="search.html?care_type=weekend-getaway">
-      <h2>Overnights</h2>
-      <p>From one night to a whole stretch — mamas who host.</p>
-      <span class="chips">
-        <span class="chip" data-ct="night-shift">Night Shift</span>
-        <span class="chip" data-ct="weekend-getaway">Weekend Getaway</span>
-        <span class="chip" data-ct="extended-trip">Extended Trip</span>
-      </span>
+    <a class="tile tile-over" href="search.html?care_type=overnight">
+      <h2>Overnight</h2>
+      <p>From one night to a whole stretch — mamas who host overnight.</p>
     </a>
 
     <a class="tile tile-daycare" href="search.html">
@@ -126,6 +121,7 @@ main{padding:6px 20px 24px}
   <nav class="tabbar">
     <a class="tab active" href="home.html"><span class="ico">🏠</span>Home</a>
     <a class="tab" href="search.html"><span class="ico">🔍</span>Search</a>
+    <a class="tab" href="campfire.html"><span class="ico">🔥</span>Campfire</a>
     <a class="tab" href="circles.html"><span class="ico">💜</span>Circles</a>
     <a class="tab" href="links.html"><span class="ico">🔗</span>Links</a>
     <a class="tab" href="me.html"><span class="ico">👤</span>Me</a>
@@ -140,14 +136,6 @@ main{padding:6px 20px 24px}
     var first = (me.name || '').split(' ')[0];
     document.getElementById('hello').textContent = 'Hi, ' + first + '!';
   }).catch(function(){});
-
-  // chips inside the overnight tile route to their own care type
-  document.querySelectorAll('.chip[data-ct]').forEach(function(chip){
-    chip.addEventListener('click', function(e){
-      e.preventDefault(); e.stopPropagation();
-      location = 'search.html?care_type=' + this.dataset.ct;
-    });
-  });
 
   fetch('/api/hosts?available_now=1').then(function(r){ return r.json(); }).then(function(hosts){
     var n = hosts.length;
