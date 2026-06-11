@@ -20,6 +20,14 @@ try { db.exec("ALTER TABLE users ADD COLUMN home_highlights TEXT DEFAULT ''"); }
 try { db.exec("ALTER TABLE users ADD COLUMN availability TEXT DEFAULT '{}'"); } catch (e) { /* exists */ }
 try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_text TEXT'); } catch (e) { /* exists */ }
 try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_at TEXT'); } catch (e) { /* exists */ }
+// migration: Circle Up membership flag (set by the circle-up purchase; read by Sign in with Momni tier)
+try { db.exec('ALTER TABLE users ADD COLUMN circle_up INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
+// migration: OAuth client_type + nullable secret_hash (public clients hold no secret). The
+// oauth_clients table is pre-launch with no registered clients, so rebuilding it is safe.
+try {
+  const cols = db.prepare('PRAGMA table_info(oauth_clients)').all();
+  if (cols.length && !cols.find(c => c.name === 'client_type')) db.exec('DROP TABLE oauth_clients');
+} catch (e) { /* table absent — CREATE TABLE below handles it */ }
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
@@ -44,6 +52,7 @@ CREATE TABLE IF NOT EXISTS users (
   legacy_1_0 INTEGER DEFAULT 0,
   links_balance INTEGER DEFAULT 2,       -- free tier: a couple of Links to start
   momni_plus INTEGER DEFAULT 0,
+  circle_up INTEGER DEFAULT 0,           -- Circle Up membership ($1/mo billed $12/yr)
   is_admin INTEGER DEFAULT 0,
   gives_toggle INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now'))
@@ -161,6 +170,44 @@ CREATE TABLE IF NOT EXISTS legacy_pins (    -- anonymized city-level Momni 1.0 c
   city TEXT NOT NULL,
   lat REAL NOT NULL, lng REAL NOT NULL,
   count INTEGER NOT NULL
+);
+
+-- "Sign in with Momni" — OAuth 2.0 provider tables for the Momni Boards companion apps
+CREATE TABLE IF NOT EXISTS oauth_clients (
+  id TEXT PRIMARY KEY,                   -- momni_<hex>; the public identifier
+  client_type TEXT NOT NULL DEFAULT 'confidential', -- 'public' (mobile Boards, PKCE only) | 'confidential' (server-side, secret)
+  secret_hash TEXT,                      -- bcrypt of the client secret; NULL for public clients (they hold no secret)
+  name TEXT NOT NULL,                    -- shown on the consent screen ("ChoreBoard")
+  redirect_uris TEXT NOT NULL DEFAULT '[]', -- JSON array; exact-match only
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS oauth_codes (  -- single-use authorization codes, 10-minute lifetime
+  code TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
+  redirect_uri TEXT NOT NULL,
+  scope TEXT DEFAULT 'profile',
+  code_challenge TEXT,                   -- PKCE S256, for mobile/public clients
+  code_challenge_method TEXT,
+  expires_at INTEGER NOT NULL,           -- epoch ms
+  used INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS oauth_tokens ( -- access tokens, stored hashed (sha256) — never plaintext
+  token_hash TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
+  scope TEXT DEFAULT 'profile',
+  expires_at INTEGER NOT NULL,           -- epoch ms
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS oauth_user_grants ( -- which apps a member has approved (skip re-consent)
+  user_id INTEGER NOT NULL,
+  client_id TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, client_id)
 );
 `);
 

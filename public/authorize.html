@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in with Momni</title>
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--purple:#6D58A4;--purple-deep:#4A3880;--teal:#0D878F;--algae:#92E2C1;--lavender:#F5F0FE;--ink:#2B2233;--muted:#6B6477}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:linear-gradient(180deg,var(--lavender),#fff);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#fff;border:1.5px solid #E5E0F0;border-radius:24px;padding:36px 32px;max-width:420px;width:100%;box-shadow:0 18px 48px rgba(43,34,51,.10);text-align:center}
+.card img{height:48px;margin-bottom:18px}
+h1{font-family:'Montserrat',sans-serif;font-size:21px;font-weight:800;margin-bottom:8px}
+h1 .app{color:var(--purple)}
+.sub{font-size:14.5px;color:var(--muted);margin-bottom:20px;line-height:1.55}
+.shares{background:var(--lavender);border-radius:14px;padding:14px 18px;text-align:left;font-size:13.5px;margin-bottom:22px}
+.shares b{font-family:'Montserrat',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--purple)}
+.shares ul{list-style:none;margin-top:6px}
+.shares li{padding:3px 0 3px 22px;position:relative}
+.shares li:before{content:'✓';position:absolute;left:0;color:var(--teal);font-weight:700}
+label{display:block;text-align:left;font-size:12.5px;font-weight:600;color:var(--ink);margin:0 0 4px 2px}
+button{font-family:'Albert Sans',sans-serif;font-size:15px;font-weight:600;border:none;border-radius:100px;padding:13px 24px;cursor:pointer;width:100%}
+button:disabled{opacity:.6;cursor:default}
+.approve{background:var(--algae);color:#0B4A36;margin-bottom:10px}
+.approve:hover{filter:brightness(.95)}
+.deny{background:none;color:var(--muted);font-weight:500}
+.deny:hover{color:var(--ink)}
+input{width:100%;border:1.5px solid #E5E0F0;border-radius:12px;padding:12px 14px;font:inherit;font-size:15px;margin-bottom:10px}
+input:focus{outline:none;border-color:var(--purple)}
+.err{color:#B4434E;font-size:13.5px;margin:-2px 0 10px;display:none}
+.note{font-size:12.5px;color:var(--muted);margin-top:16px}
+.note a{color:var(--teal);font-weight:600;text-decoration:none}
+.script{font-family:'Caveat',cursive;color:var(--teal);font-size:19px;display:block;margin-bottom:4px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <img src="/assets/momni-logo-color-horizontal.png" alt="Momni">
+
+  <div id="loading"><p class="sub">One moment, mama…</p></div>
+
+  <div id="bad" class="hidden">
+    <h1>Hmm, that link isn’t right</h1>
+    <p class="sub" id="bad-msg"></p>
+    <p class="note"><a href="/index.html">Go to Momni</a></p>
+  </div>
+
+  <div id="login" class="hidden">
+    <span class="script">Sign in with Momni</span>
+    <h1><span class="app" id="login-app"></span> uses your Momni account</h1>
+    <p class="sub">Sign in to the Circle to continue.</p>
+    <p class="err" id="login-err" role="alert" aria-live="assertive"></p>
+    <form id="login-form" novalidate>
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" autocapitalize="none" spellcheck="false">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" placeholder="Your password" autocomplete="current-password">
+      <button type="submit" class="approve" id="do-login">Sign in</button>
+    </form>
+    <p class="note">New here? <a href="/index.html" target="_blank" rel="noopener">Join the Circle first</a>, then come back.</p>
+  </div>
+
+  <div id="consent" class="hidden">
+    <span class="script">Sign in with Momni</span>
+    <h1><span class="app" id="consent-app"></span> wants to connect to your Momni account</h1>
+    <p class="sub" id="hello"></p>
+    <div class="shares">
+      <b>This app will know</b>
+      <ul>
+        <li>Your name and email</li>
+        <li>Your Circle membership level (for member pricing)</li>
+      </ul>
+    </div>
+    <p class="err" id="consent-err" role="alert" aria-live="assertive"></p>
+    <button class="approve" id="do-approve">Let them in</button>
+    <button class="deny" id="do-deny">No thanks</button>
+    <p class="note">Momni never shares your location, your littles, or your Links with other apps.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  var q = new URLSearchParams(window.location.search);
+  var params = {
+    client_id: q.get('client_id') || '',
+    redirect_uri: q.get('redirect_uri') || '',
+    state: q.get('state') || '',
+    scope: q.get('scope') || 'profile',
+    response_type: q.get('response_type') || 'code',
+    code_challenge: q.get('code_challenge') || '',
+    code_challenge_method: q.get('code_challenge_method') || ''
+  };
+  var approving = false; // in-flight guard
+
+  // Never navigate to a scheme that could execute in this origin, even as a backstop.
+  function safeNavigate(url) {
+    var scheme = String(url).slice(0, 12).toLowerCase();
+    if (/^(javascript|data|vbscript|blob|file):/.test(scheme)) { fail('That app’s return address isn’t allowed.'); return; }
+    window.location.href = url;
+  }
+
+  function show(id) {
+    ['loading', 'bad', 'login', 'consent'].forEach(function (s) {
+      document.getElementById(s).classList.toggle('hidden', s !== id);
+    });
+    // Move focus to the newly shown view so screen-reader users hear the change.
+    var first = document.querySelector('#' + id + ' input, #' + id + ' button, #' + id + ' a');
+    if (first) try { first.focus(); } catch (e) {}
+  }
+  function fail(msg) { document.getElementById('bad-msg').textContent = msg; show('bad'); }
+  function setErr(id, msg) { var e = document.getElementById(id); e.textContent = msg; e.style.display = 'block'; }
+
+  function approve() {
+    if (approving) return;
+    approving = true;
+    var btn = document.getElementById('do-approve');
+    btn.disabled = true;
+    document.getElementById('consent-err').style.display = 'none';
+    fetch('/api/oauth/approve', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (x) {
+        if (x.ok && x.d.redirect) { safeNavigate(x.d.redirect); return; }
+        approving = false; btn.disabled = false;
+        setErr('consent-err', (x.d && x.d.error) || 'Something went sideways — please try again.');
+      })
+      .catch(function () {
+        approving = false; btn.disabled = false;
+        setErr('consent-err', 'Couldn’t reach the Circle. Check your connection and try again.');
+      });
+  }
+
+  function init() {
+    fetch('/api/oauth/authorize-info?' + new URLSearchParams({
+      client_id: params.client_id, redirect_uri: params.redirect_uri, scope: params.scope,
+      response_type: params.response_type, code_challenge: params.code_challenge,
+      code_challenge_method: params.code_challenge_method, state: params.state
+    }))
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (x) {
+        if (!x.ok) return fail((x.d && x.d.error) || 'This sign-in link isn’t valid.');
+        // The server may ask us to return a protocol error to the app (bad scope / response_type / PKCE).
+        if (x.d.error_redirect) { safeNavigate(x.d.error_redirect); return; }
+        var name = x.d.client_name;
+        document.getElementById('login-app').textContent = name;
+        document.getElementById('consent-app').textContent = name;
+        if (!x.d.signed_in) return show('login');
+        document.getElementById('hello').textContent = x.d.already_granted
+          ? 'Welcome back, ' + (x.d.user_name || 'mama') + ' — reconnect ' + name + '?'
+          : 'Hi ' + (x.d.user_name || 'mama') + ' 👋';
+        show('consent'); // always require a fresh tap — never auto-submit
+      })
+      .catch(function () { fail('Couldn’t reach the Circle. Check your connection and try again.'); });
+  }
+
+  document.getElementById('login-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('do-login');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    document.getElementById('login-err').style.display = 'none';
+    fetch('/api/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: document.getElementById('email').value, password: document.getElementById('password').value })
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (x) {
+        btn.disabled = false;
+        if (!x.ok) { setErr('login-err', (x.d && x.d.error) || 'Sign-in didn’t work — try again.'); return; }
+        init();
+      })
+      .catch(function () { btn.disabled = false; setErr('login-err', 'Couldn’t reach the Circle. Check your connection and try again.'); });
+  });
+
+  document.getElementById('do-approve').addEventListener('click', approve);
+  document.getElementById('do-deny').addEventListener('click', function () {
+    var sep = params.redirect_uri.indexOf('?') >= 0 ? '&' : '?';
+    safeNavigate(params.redirect_uri + sep + "error=access_denied" +
+      (params.state ? "&state=" + encodeURIComponent(params.state) : ""));
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>

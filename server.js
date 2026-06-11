@@ -109,9 +109,13 @@ app.post('/api/register', authLimiter, (req, res) => {
     const info = db.prepare(`INSERT INTO users (email,password_hash,name,city,signup_ack_text,signup_ack_at)
       VALUES (?,?,?,?,?,datetime('now'))`)
       .run(email.toLowerCase().trim(), bcrypt.hashSync(password, 10), name.trim(), (city || '').trim(), ACKNOWLEDGMENT_TEXT);
-    req.session.userId = info.lastInsertRowid;
     mailer.send({ to: email.toLowerCase().trim(), to_user_id: info.lastInsertRowid, template: 'welcome', vars: { name: name.trim() } });
-    res.json({ ok: true, id: info.lastInsertRowid });
+    // Regenerate the session on auth so a pre-login session id can't be fixated.
+    req.session.regenerate((err) => {
+      if (err) return res.status(500).json({ error: 'Could not start your session — please try again.' });
+      req.session.userId = info.lastInsertRowid;
+      res.json({ ok: true, id: info.lastInsertRowid });
+    });
   } catch (e) {
     if (String(e).includes('UNIQUE')) return res.status(409).json({ error: 'That email is already in the Circle — try signing in.' });
     throw e;
@@ -124,8 +128,12 @@ app.post('/api/login', authLimiter, (req, res) => {
   if (!u || !bcrypt.compareSync(password || '', u.password_hash)) {
     return res.status(401).json({ error: 'Email or password didn’t match.' });
   }
-  req.session.userId = u.id;
-  res.json({ ok: true, id: u.id, name: u.name });
+  // Regenerate the session on auth so a pre-login session id can't be fixated.
+  req.session.regenerate((err) => {
+    if (err) return res.status(500).json({ error: 'Could not start your session — please try again.' });
+    req.session.userId = u.id;
+    res.json({ ok: true, id: u.id, name: u.name });
+  });
 });
 
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
@@ -176,8 +184,12 @@ app.get('/auth/google/callback', async (req, res) => {
         .run(email, placeholder, info.given_name ? `${info.given_name} ${(info.family_name || '').charAt(0)}.`.trim() : email.split('@')[0]);
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(ins.lastInsertRowid);
     }
-    req.session.userId = user.id;
-    res.redirect('/home.html');
+    const uid = user.id;
+    req.session.regenerate((err) => {
+      if (err) return res.redirect('/index.html?google=error');
+      req.session.userId = uid;
+      res.redirect('/home.html');
+    });
   } catch (e) {
     console.error('google auth error', e);
     res.redirect('/index.html?google=error');
@@ -215,7 +227,7 @@ app.get('/api/me', requireAuth, (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
   const reviews = db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE subject_id = ?').get(u.id);
   res.json({ ...userPublic(u), email: u.email, links_balance: u.links_balance,
-    momni_plus: !!u.momni_plus, gives_toggle: !!u.gives_toggle,
+    momni_plus: !!u.momni_plus, circle_up: !!u.circle_up, gives_toggle: !!u.gives_toggle,
     rating: reviews.n ? Number(reviews.avg.toFixed(1)) : null, review_count: reviews.n });
 });
 
@@ -602,7 +614,7 @@ const PRODUCTS = {
   'momni-plus': { name: 'Momni+ (annual)', amount: 4900, mode: 'payment', // simple annual pass for v1; recurring later
                   fulfill: (uid) => db.prepare('UPDATE users SET momni_plus = 1 WHERE id = ?').run(uid) },
   'circle-up':  { name: 'Circle Up membership ($1/mo, billed $12/yr)', amount: 1200, mode: 'payment',
-                  fulfill: (uid) => db.prepare('UPDATE users SET links_balance = links_balance + 2 WHERE id = ?').run(uid) },
+                  fulfill: (uid) => db.prepare('UPDATE users SET circle_up = 1, links_balance = links_balance + 2 WHERE id = ?').run(uid) },
 };
 
 async function checkoutOrGrant(req, res, productKey) {
@@ -752,6 +764,182 @@ app.put('/api/admin/suggestions/:id', requireAdmin, (req, res) => {
 
 app.delete('/api/admin/reviews/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM reviews WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ---------- "Sign in with Momni" — OAuth 2.0 provider for the Momni Boards ----------
+// Companion apps authenticate members through the Circle with the authorization-code flow.
+//  - PUBLIC clients (the mobile Boards): PKCE (S256) is MANDATORY and they hold no secret —
+//    the binary can't keep one. PKCE is enforced by client TYPE, never by a per-request flag,
+//    so a request can't downgrade out of it.
+//  - CONFIDENTIAL clients (server-side apps): authenticate with a client secret (Basic or body).
+// Codes are single-use, 10-minute lifetime; access tokens are stored hashed; expired rows are
+// swept. userinfo exposes the membership tier so apps can apply Circle pricing.
+const crypto = require('crypto');
+const sha256hex = (s) => crypto.createHash('sha256').update(s).digest('hex');
+const OAUTH_SCOPES = ['profile'];
+const TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const tierOf = (u) => (u.momni_plus ? 'momni_plus' : (u.circle_up ? 'circle_up' : 'free'));
+const oauthClient = (id) => db.prepare('SELECT * FROM oauth_clients WHERE id = ?').get(String(id || ''));
+const clientRedirects = (client) => { try { return JSON.parse(client.redirect_uris || '[]'); } catch (e) { return []; } };
+const validRedirect = (client, uri) => clientRedirects(client).includes(String(uri || ''));
+const noStore = (res) => res.set('Cache-Control', 'no-store').set('Pragma', 'no-cache');
+// Schemes that must never be a redirect target — they'd execute in the member's session if navigated to.
+const DANGEROUS_SCHEMES = ['javascript:', 'data:', 'vbscript:', 'file:', 'blob:'];
+function redirectUriAllowed(u) {
+  try {
+    const p = new URL(u);
+    if (DANGEROUS_SCHEMES.includes(p.protocol.toLowerCase())) return false;
+    // https anywhere, http only on loopback (dev), or a custom app scheme (choreboard://…) for mobile
+    return p.protocol === 'https:'
+      || (p.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(p.hostname))
+      || (!['http:', 'https:'].includes(p.protocol) && /^[a-z][a-z0-9+.-]*:$/.test(p.protocol));
+  } catch (e) { return false; }
+}
+// Client authentication for the token endpoint: HTTP Basic (client_secret_basic) or POST body.
+function parseClientAuth(req) {
+  const m = String(req.headers.authorization || '').match(/^Basic (.+)$/);
+  if (m) {
+    try {
+      const [cid, csec] = Buffer.from(m[1], 'base64').toString('utf8').split(':');
+      return { client_id: decodeURIComponent(cid || ''), client_secret: decodeURIComponent(csec || '') };
+    } catch (e) { /* fall through to body */ }
+  }
+  const b = req.body || {};
+  return { client_id: b.client_id, client_secret: b.client_secret };
+}
+// Sweep expired/used codes and expired tokens so the tables can't grow unbounded.
+const oauthSweep = () => {
+  try {
+    db.prepare('DELETE FROM oauth_codes WHERE expires_at <= ? OR used = 1').run(Date.now() - 60 * 1000);
+    db.prepare('DELETE FROM oauth_tokens WHERE expires_at <= ?').run(Date.now());
+  } catch (e) { /* ignore */ }
+};
+oauthSweep();
+const _oauthSweepTimer = setInterval(oauthSweep, 60 * 60 * 1000);
+if (_oauthSweepTimer.unref) _oauthSweepTimer.unref();
+
+// Apps send members here; the consent page reads context from authorize-info and posts approve.
+app.get('/oauth/authorize', (req, res) => res.sendFile(path.join(__dirname, 'public', 'authorize.html')));
+
+// Context for the consent page — fully validates the request before anything is shown.
+// Errors the spec says to return to the client (bad scope/response_type/PKCE) come back as a
+// ready-built error_redirect; errors we can't trust a redirect for (bad client/redirect) hard-fail.
+app.get('/api/oauth/authorize-info', (req, res) => {
+  const { client_id, redirect_uri, scope, response_type, code_challenge, code_challenge_method, state } = req.query;
+  const client = oauthClient(client_id);
+  if (!client) return res.status(400).json({ error: 'This sign-in link isn’t from a registered Momni app.' });
+  if (!validRedirect(client, redirect_uri)) return res.status(400).json({ error: 'That app’s return address doesn’t match what’s registered with Momni.' });
+  // From here the redirect_uri is trusted, so protocol errors go back to the client per RFC 6749 §4.1.2.1.
+  const back = (errCode) => {
+    const sep = String(redirect_uri).includes('?') ? '&' : '?';
+    return res.json({ error_redirect: `${redirect_uri}${sep}error=${errCode}${state ? `&state=${encodeURIComponent(String(state))}` : ''}` });
+  };
+  if (response_type !== undefined && response_type !== 'code') return back('unsupported_response_type');
+  const scopes = String(scope || 'profile').split(' ').filter(Boolean);
+  if (!scopes.length || scopes.some(s => !OAUTH_SCOPES.includes(s))) return back('invalid_scope');
+  if (code_challenge && code_challenge_method !== 'S256') return back('invalid_request');
+  if (client.client_type === 'public' && !code_challenge) return back('invalid_request'); // public clients MUST use PKCE
+  const me = req.session.userId ? db.prepare('SELECT id,name FROM users WHERE id = ?').get(req.session.userId) : null;
+  const granted = me ? !!db.prepare('SELECT 1 FROM oauth_user_grants WHERE user_id = ? AND client_id = ?').get(me.id, client.id) : false;
+  res.json({ client_name: client.name, signed_in: !!me, user_name: me ? me.name : null, already_granted: granted });
+});
+
+// Approve mints a code. requireAuth + a same-origin Origin check; never auto-issued without a fresh
+// click (the consent page no longer auto-submits), which closes the lax-cookie forced-authorization path.
+app.post('/api/oauth/approve', requireAuth, (req, res) => {
+  const origin = req.get('origin');
+  const expected = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+  if (origin && origin !== expected) return res.status(403).json({ error: 'Bad origin.' });
+  const { client_id, redirect_uri, state, scope, response_type, code_challenge, code_challenge_method } = req.body;
+  const client = oauthClient(client_id);
+  if (!client || !validRedirect(client, redirect_uri)) return res.status(400).json({ error: 'Invalid sign-in request.' });
+  if (response_type !== undefined && response_type !== 'code') return res.status(400).json({ error: 'Unsupported response type.' });
+  const scopes = String(scope || 'profile').split(' ').filter(Boolean);
+  if (!scopes.length || scopes.some(s => !OAUTH_SCOPES.includes(s))) return res.status(400).json({ error: 'Unsupported scope.' });
+  if (code_challenge && code_challenge_method !== 'S256') return res.status(400).json({ error: 'Only S256 PKCE is supported.' });
+  if (client.client_type === 'public' && !code_challenge) return res.status(400).json({ error: 'This app must use PKCE.' });
+  const code = crypto.randomBytes(32).toString('hex');
+  db.prepare(`INSERT INTO oauth_codes (code, client_id, user_id, redirect_uri, scope, code_challenge, code_challenge_method, expires_at)
+    VALUES (?,?,?,?,?,?,?,?)`)
+    .run(code, client.id, req.session.userId, String(redirect_uri), scopes.join(' '),
+         code_challenge || null, code_challenge ? 'S256' : null, Date.now() + 10 * 60 * 1000);
+  db.prepare('INSERT OR IGNORE INTO oauth_user_grants (user_id, client_id) VALUES (?,?)').run(req.session.userId, client.id);
+  const sep = String(redirect_uri).includes('?') ? '&' : '?';
+  res.json({ redirect: `${redirect_uri}${sep}code=${code}${state ? `&state=${encodeURIComponent(String(state))}` : ''}` });
+});
+
+const tokenLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60, message: 'Too many token requests.' });
+app.post('/oauth/token', tokenLimiter, (req, res) => {
+  noStore(res);
+  const b = req.body || {};
+  if (b.grant_type !== 'authorization_code') return res.status(400).json({ error: 'unsupported_grant_type' });
+  const { client_id, client_secret } = parseClientAuth(req);
+  const row = db.prepare('SELECT * FROM oauth_codes WHERE code = ?').get(String(b.code || ''));
+  if (!row || row.used || row.expires_at < Date.now()) return res.status(400).json({ error: 'invalid_grant' });
+  const client = oauthClient(client_id);
+  if (!client || client.id !== row.client_id || String(b.redirect_uri || '') !== row.redirect_uri) {
+    return res.status(400).json({ error: 'invalid_grant' });
+  }
+  // PKCE: whenever a challenge was recorded, the verifier MUST match. Public clients always have one.
+  if (row.code_challenge) {
+    const challenge = crypto.createHash('sha256').update(String(b.code_verifier || '')).digest('base64url');
+    if (!b.code_verifier || challenge !== row.code_challenge) return res.status(400).json({ error: 'invalid_grant' });
+  }
+  // Client authentication by TYPE — not by what the request chose to send.
+  if (client.client_type === 'public') {
+    if (!row.code_challenge) return res.status(400).json({ error: 'invalid_grant' }); // public ⇒ PKCE required, no secret accepted
+  } else {
+    if (!client_secret || !client.secret_hash || !bcrypt.compareSync(String(client_secret), client.secret_hash)) {
+      return res.status(401).json({ error: 'invalid_client' });
+    }
+  }
+  db.prepare('UPDATE oauth_codes SET used = 1 WHERE code = ?').run(row.code);
+  const token = crypto.randomBytes(32).toString('hex');
+  db.prepare('INSERT INTO oauth_tokens (token_hash, client_id, user_id, scope, expires_at) VALUES (?,?,?,?,?)')
+    .run(sha256hex(token), client.id, row.user_id, row.scope, Date.now() + TOKEN_TTL_SECONDS * 1000);
+  res.json({ access_token: token, token_type: 'Bearer', expires_in: TOKEN_TTL_SECONDS, scope: row.scope });
+});
+
+app.get('/oauth/userinfo', (req, res) => {
+  noStore(res);
+  const m = String(req.headers.authorization || '').match(/^Bearer (.+)$/);
+  if (!m) return res.set('WWW-Authenticate', 'Bearer').status(401).json({ error: 'invalid_token' });
+  const t = db.prepare('SELECT * FROM oauth_tokens WHERE token_hash = ?').get(sha256hex(m[1]));
+  if (!t || t.expires_at < Date.now()) return res.set('WWW-Authenticate', 'Bearer error="invalid_token"').status(401).json({ error: 'invalid_token' });
+  const u = db.prepare('SELECT id,name,email,momni_plus,circle_up,created_at FROM users WHERE id = ?').get(t.user_id);
+  if (!u) return res.set('WWW-Authenticate', 'Bearer error="invalid_token"').status(401).json({ error: 'invalid_token' });
+  res.json({ sub: String(u.id), name: u.name, email: u.email, tier: tierOf(u), member_since: u.created_at });
+});
+
+// HQ: register the Boards as OAuth clients. A confidential client's secret is shown exactly once.
+app.get('/api/admin/oauth/clients', requireAdmin, (req, res) => {
+  res.json(db.prepare('SELECT id,client_type,name,redirect_uris,created_at FROM oauth_clients ORDER BY created_at DESC').all());
+});
+app.post('/api/admin/oauth/clients', requireAdmin, (req, res) => {
+  const { name, redirect_uris, client_type } = req.body;
+  const type = client_type === 'confidential' ? 'confidential' : 'public'; // default public (the mobile Boards)
+  const uris = Array.isArray(redirect_uris) ? redirect_uris.map(u => String(u).trim()).filter(Boolean) : [];
+  if (!name || !String(name).trim() || !uris.length) return res.status(400).json({ error: 'A name and at least one redirect URI are required.' });
+  for (const u of uris) {
+    if (!redirectUriAllowed(u)) return res.status(400).json({ error: `Redirect URI not allowed: ${u} (use https, localhost, or a custom app scheme — not javascript:/data:).` });
+  }
+  const id = 'momni_' + crypto.randomBytes(8).toString('hex');
+  if (type === 'public') {
+    db.prepare('INSERT INTO oauth_clients (id, client_type, secret_hash, name, redirect_uris) VALUES (?,?,?,?,?)')
+      .run(id, 'public', null, String(name).trim(), JSON.stringify(uris));
+    return res.json({ ok: true, client_id: id, client_type: 'public', note: 'Public client — no secret. It must use PKCE (S256).' });
+  }
+  const secret = crypto.randomBytes(24).toString('hex');
+  db.prepare('INSERT INTO oauth_clients (id, client_type, secret_hash, name, redirect_uris) VALUES (?,?,?,?,?)')
+    .run(id, 'confidential', bcrypt.hashSync(secret, 10), String(name).trim(), JSON.stringify(uris));
+  res.json({ ok: true, client_id: id, client_type: 'confidential', client_secret: secret, note: 'Copy the secret now — it is shown only this once.' });
+});
+app.delete('/api/admin/oauth/clients/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM oauth_clients WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM oauth_tokens WHERE client_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM oauth_codes WHERE client_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM oauth_user_grants WHERE client_id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 

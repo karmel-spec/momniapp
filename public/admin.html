@@ -80,6 +80,18 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
         <p class="meta" style="margin-top:6px">In dev mode, emails are logged (not sent). Add RESEND_API_KEY + EMAIL_FROM to send for real.</p>
         <div id="emails" style="margin-top:10px"><p class="empty">Loading…</p></div>
       </div>
+      <div class="card"><h2>🔑 Sign in with Momni — connected apps</h2>
+        <p class="meta" style="margin-bottom:8px">Register each Board (ChoreBoard, Motherboard…) so members can sign in with their Momni account. A confidential app's secret shows once — paste it straight into the app's config.</p>
+        <input id="oc-name" placeholder="App name, e.g. ChoreBoard">
+        <input id="oc-uris" placeholder="Redirect URIs, comma-separated (https://… or choreboard://…)">
+        <select id="oc-type" style="width:100%;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit;font-size:14px;margin-bottom:8px">
+          <option value="public">Public — mobile/single-page app (PKCE, no secret)</option>
+          <option value="confidential">Confidential — server-side app (client secret)</option>
+        </select>
+        <button class="b-ok" id="oc-create">Register app</button>
+        <div id="oc-secret" class="meta" style="margin-top:8px;word-break:break-all"></div>
+        <div id="oc-list" style="margin-top:10px"><p class="empty">Loading…</p></div>
+      </div>
     </div>
   </div>
   <p style="font-size:12px;color:var(--muted)">No burn rate. No investor metrics. The dashboard measures a healthy Circle. 🐘</p>
@@ -93,7 +105,7 @@ async function init(){
     document.getElementById('hq').style.display='block';
     const labels = {mamas:'Mamas in the Circle',hosts:'Hosting mamas',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',gives:'Momni Gives mamas',open_reports:'Open reports'};
     document.getElementById('stats').innerHTML = Object.entries(labels).map(([k,l])=>`<div class="stat"><div class="n">${o[k]}</div><div class="l">${l}</div></div>`).join('');
-    loadReports(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails();
+    loadReports(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadOauthClients();
   }catch(e){}
 }
 async function loadReports(){
@@ -161,6 +173,39 @@ async function loadEmails(){
     ${esc(e.template)} → ${esc(e.to_email)}<div class="meta">${esc(e.subject||'')}${e.created_at?' · '+esc(e.created_at):''}</div></div>`).join('')
     : '<p class="empty">No emails yet.</p>';
 }
+async function loadOauthClients(){
+  const rows = await api('/api/admin/oauth/clients');
+  document.getElementById('oc-list').innerHTML = rows.length ? rows.map(c=>`
+    <div class="item"><b>${esc(c.name)}</b> <span class="pill ${c.client_type==='public'?'p-teal':'p-grey'}">${esc(c.client_type||'confidential')}</span> <span class="meta">${esc(c.id)}</span>
+    <div class="meta">${esc(JSON.parse(c.redirect_uris||'[]').join(' · '))}</div>
+    <button class="b-no" data-ocdel="${esc(c.id)}" data-name="${esc(c.name)}">Remove</button></div>`).join('')
+    : '<p class="empty">No connected apps yet.</p>';
+}
+document.getElementById('oc-create').addEventListener('click', async function(){
+  const btn = this;
+  if(btn.disabled) return;
+  const name = document.getElementById('oc-name').value.trim();
+  const uris = document.getElementById('oc-uris').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const client_type = document.getElementById('oc-type').value;
+  const out = document.getElementById('oc-secret');
+  if(!name || !uris.length){ out.textContent='Name and at least one redirect URI, please.'; return; }
+  btn.disabled = true;
+  try{
+    const d = await api('/api/admin/oauth/clients',{method:'POST',body:JSON.stringify({name,redirect_uris:uris,client_type})});
+    if(!d.ok){ out.textContent = d.error || 'Could not register.'; return; }
+    out.innerHTML = d.client_secret
+      ? `<b>client_id:</b> ${esc(d.client_id)}<br><b>client_secret (copy NOW — shown once):</b> ${esc(d.client_secret)}`
+      : `<b>client_id:</b> ${esc(d.client_id)}<br>Public client — no secret. It must use PKCE (S256).`;
+    document.getElementById('oc-name').value=''; document.getElementById('oc-uris').value='';
+    loadOauthClients();
+  } finally { btn.disabled = false; }
+});
+document.getElementById('oc-list').addEventListener('click', async function(e){
+  const b = e.target.closest('[data-ocdel]'); if(!b) return;
+  if(!confirm('Remove "'+b.dataset.name+'"? Members signed into it will be signed out.')) return;
+  await api('/api/admin/oauth/clients/'+b.dataset.ocdel,{method:'DELETE'});
+  loadOauthClients();
+});
 async function sendCampaign(){
   const template=document.getElementById('em-template').value, target=document.getElementById('em-target').value, body={template};
   if(target==='one'){ const to=document.getElementById('em-email').value.trim(); if(!to){alert('Enter an email address, mama.');return;} body.to=to; }
