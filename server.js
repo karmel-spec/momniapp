@@ -1367,6 +1367,22 @@ app.get('/api/admin/emails', requireAdmin, (req, res) => {
   res.json(db.prepare(`SELECT id,to_email,to_user_id,template,subject,status,related_type,related_id,error,created_at
     FROM emails ORDER BY id DESC LIMIT 200`).all());
 });
+// BETA OUTBOX — every live email is held here until Karmel approves it (see mailer.approvalRequired)
+app.get('/api/admin/emails/:id/view', requireAdmin, (req, res) => {
+  const row = db.prepare('SELECT html, subject FROM emails WHERE id = ?').get(req.params.id);
+  if (!row || !row.html) return res.status(404).send('No stored body for this email.');
+  res.send(row.html);
+});
+app.post('/api/admin/emails/:id/approve', requireAdmin, async (req, res) => {
+  const r = await mailer.deliverHeld(req.params.id);
+  if (r.status !== 'sent') return res.status(400).json({ error: r.error || 'Could not send.' });
+  res.json({ ok: true, status: r.status });
+});
+app.post('/api/admin/emails/:id/discard', requireAdmin, (req, res) => {
+  const info = db.prepare(`UPDATE emails SET status = 'discarded' WHERE id = ? AND status = 'held'`).run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Not found or not awaiting approval.' });
+  res.json({ ok: true });
+});
 // Send a template to one user (user_id or to=email) or a segment (all | legacy). Dev-safe: logs in dev mode.
 const MAX_BROADCAST = 2000; // safety ceiling per call — beyond this, send in batches
 app.post('/api/admin/email', requireAdmin, async (req, res) => {
@@ -1394,12 +1410,14 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
   if (recipients.length > MAX_BROADCAST) {
     return res.status(413).json({ error: `That's ${recipients.length} recipients — over the ${MAX_BROADCAST} per-send limit. Send in smaller batches.` });
   }
-  let sent = 0;
+  let sent = 0, held = 0;
   for (const u of recipients) {
     const r = await mailer.send({ to: u.email, to_user_id: u.id, template, vars: Object.assign({ name: u.name }, vars || {}) });
-    if (r.status !== 'failed') sent++;
+    if (r.status === 'held') held++;
+    else if (r.status !== 'failed') sent++;
   }
-  res.json({ ok: true, recipients: recipients.length, sent, mode: mailer.LIVE ? 'live' : 'dev (logged, not sent)' });
+  res.json({ ok: true, recipients: recipients.length, sent, held,
+    mode: held ? 'held — awaiting your approval in the Outbox' : (mailer.LIVE ? 'live' : 'dev (logged, not sent)') });
 });
 
 // ---------- CRM — Karmel's community/marketing/outreach backend (HQ-only) ----------

@@ -161,12 +161,30 @@ const TEMPLATES = {
   }),
 };
 
+// BETA APPROVAL GATE (Karmel's standing rule, 2026-06-12): NO email leaves the building
+// on its own. Every live email is HELD in the outbox (status 'held') until she approves
+// it in HQ. Flip only by her explicit request: site_settings email_approval_required='0'.
+function approvalRequired() {
+  try {
+    const r = db.prepare("SELECT value FROM site_settings WHERE key = 'email_approval_required'").get();
+    return !r || r.value !== '0'; // default: approval required
+  } catch (e) { return true; }   // any doubt → hold
+}
+
 // Send one email. Never throws — email problems must never break a core action.
 async function send({ to, to_user_id = null, template, vars = {}, related_type = null, related_id = null }) {
   const t = TEMPLATES[template];
   if (!t) { console.error('[mailer] unknown template:', template); return { status: 'failed', error: 'unknown template' }; }
   if (!to) return { status: 'failed', error: 'no recipient' };
   const { subject, html } = t(vars);
+  if (LIVE && approvalRequired()) {
+    try {
+      db.prepare(`INSERT INTO emails (to_email,to_user_id,template,subject,status,related_type,related_id,error,html)
+        VALUES (?,?,?,?,'held',?,?,NULL,?)`)
+        .run(to, to_user_id, template, subject, related_type, related_id == null ? null : String(related_id), html);
+    } catch (e) { console.error('[mailer] could not hold email', e); }
+    return { status: 'held' };
+  }
   let status = 'dev-logged', error = null;
   try {
     if (LIVE) {
@@ -194,8 +212,27 @@ async function send({ to, to_user_id = null, template, vars = {}, related_type =
 // Have we already sent this template for this item to this user? (prevents double-sends)
 function alreadySent({ template, to_user_id, related_type, related_id }) {
   return !!db.prepare(`SELECT 1 FROM emails WHERE template=? AND to_user_id=? AND related_type=? AND related_id=?
-    AND status IN ('sent','dev-logged') LIMIT 1`)
+    AND status IN ('sent','dev-logged','held') LIMIT 1`)
     .get(template, to_user_id, related_type, String(related_id));
 }
 
-module.exports = { send, alreadySent, LIVE, TEMPLATES, EMAIL_FROM };
+// Deliver one HELD email after Karmel approves it in HQ. The only path out of the outbox.
+async function deliverHeld(id) {
+  const row = db.prepare("SELECT * FROM emails WHERE id = ? AND status = 'held'").get(id);
+  if (!row) return { status: 'failed', error: 'Not found or not awaiting approval.' };
+  if (!row.html) return { status: 'failed', error: 'No stored body for this email.' };
+  let status = 'failed', error = null;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: EMAIL_FROM, to: [row.to_email], subject: row.subject, html: row.html, reply_to: EMAIL_REPLY_TO }),
+    });
+    if (res.ok) status = 'sent';
+    else error = `Resend ${res.status}: ${(await res.text()).slice(0, 300)}`;
+  } catch (e) { error = String(e).slice(0, 300); }
+  db.prepare(`UPDATE emails SET status = ?, error = ? WHERE id = ?`).run(status, error, id);
+  return { status, error };
+}
+
+module.exports = { send, alreadySent, deliverHeld, LIVE, TEMPLATES, EMAIL_FROM };

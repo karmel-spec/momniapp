@@ -9,6 +9,8 @@ db.pragma('foreign_keys = ON');
 
 // migration: is_admin flag (no-op if present)
 try { db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
+// migration: store rendered email body so a held email can be approved & sent later (beta approval gate)
+try { db.exec('ALTER TABLE emails ADD COLUMN html TEXT'); } catch (e) { /* exists */ }
 // migration: calendar provider fields (Nylas grant_id + primary calendar_id) — no-op if present/table-absent
 try { db.exec('ALTER TABLE calendar_connections ADD COLUMN grant_id TEXT'); } catch (e) { /* exists or table not yet created */ }
 try { db.exec('ALTER TABLE calendar_connections ADD COLUMN calendar_id TEXT'); } catch (e) { /* exists or table not yet created */ }
@@ -204,10 +206,11 @@ CREATE TABLE IF NOT EXISTS emails (        -- transactional email log (one row p
   to_user_id INTEGER,
   template TEXT NOT NULL,                  -- welcome | onboarding | reactivation | review_request | booking_request | booking_confirmed | newsletter
   subject TEXT,
-  status TEXT DEFAULT 'queued',            -- sent | dev-logged | failed
+  status TEXT DEFAULT 'queued',            -- held | sent | dev-logged | failed | discarded
   related_type TEXT,                       -- e.g. 'link' (for dedupe)
   related_id TEXT,
   error TEXT,
+  html TEXT,                               -- rendered body, kept so a held email can be approved & sent later
   created_at TEXT DEFAULT (datetime('now'))
 );
 

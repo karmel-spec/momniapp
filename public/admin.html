@@ -79,7 +79,7 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
         </div>
         <button class="b-ok" onclick="sendCampaign()">Send</button>
         <span class="meta" id="em-result"></span>
-        <p class="meta" style="margin-top:6px">In dev mode, emails are logged (not sent). Add RESEND_API_KEY + EMAIL_FROM to send for real.</p>
+        <p class="meta" style="margin-top:6px"><strong>Beta approval gate is ON:</strong> every email (campaigns AND automatic ones — welcome, booking, password reset) lands in the Outbox below and waits for your Approve. Nothing sends on its own.</p>
         <div id="emails" style="margin-top:10px"><p class="empty">Loading…</p></div>
       </div>
       <div class="card"><h2>🔑 Sign in with Momni — connected apps</h2>
@@ -225,10 +225,34 @@ function emTargetChange(){ document.getElementById('em-email').style.display = d
 function emTemplateChange(){ document.getElementById('em-news').style.display = document.getElementById('em-template').value==='newsletter'?'block':'none'; }
 async function loadEmails(){
   const rows = await api('/api/admin/emails');
-  document.getElementById('emails').innerHTML = rows.length ? rows.slice(0,40).map(e=>`
+  const held = rows.filter(e=>e.status==='held');
+  const rest = rows.filter(e=>e.status!=='held');
+  const outbox = held.length ? `
+    <div style="border:2px solid #D9A03A;background:#FFF8EA;border-radius:12px;padding:10px 12px;margin-bottom:10px">
+      <strong>📬 Outbox — ${held.length} awaiting your approval</strong>
+      <div class="meta" style="margin-bottom:6px">Nothing sends until you approve it. Discarded emails never send.</div>
+      ${held.map(e=>`<div class="item">
+        <span class="pill" style="background:#D9A03A;color:#fff">held</span>
+        ${esc(e.template)} → ${esc(e.to_email)}<div class="meta">${esc(e.subject||'')}${e.created_at?' · '+esc(e.created_at):''}</div>
+        <div style="margin-top:5px">
+          <a href="/api/admin/emails/${e.id}/view" target="_blank" class="meta" style="margin-right:10px;text-decoration:underline">Preview</a>
+          <button class="b-ok" style="padding:4px 12px;font-size:12.5px" onclick="approveEmail(${e.id})">Approve &amp; send</button>
+          <button class="b-warn" style="padding:4px 12px;font-size:12.5px" onclick="discardEmail(${e.id})">Discard</button>
+        </div></div>`).join('')}
+    </div>` : '<p class="meta" style="margin-bottom:8px">📬 Outbox empty — no emails awaiting approval.</p>';
+  document.getElementById('emails').innerHTML = outbox + (rest.length ? rest.slice(0,40).map(e=>`
     <div class="item"><span class="pill ${e.status==='sent'?'p-teal':'p-grey'}">${esc(e.status)}</span>
     ${esc(e.template)} → ${esc(e.to_email)}<div class="meta">${esc(e.subject||'')}${e.created_at?' · '+esc(e.created_at):''}</div></div>`).join('')
-    : '<p class="empty">No emails yet.</p>';
+    : '<p class="empty">No emails yet.</p>');
+}
+async function approveEmail(id){
+  if(!confirm('Send this email for real?')) return;
+  const r = await api('/api/admin/emails/'+id+'/approve', {method:'POST'});
+  alert(r.ok ? 'Sent 💜' : (r.error||'Could not send.')); loadEmails();
+}
+async function discardEmail(id){
+  const r = await api('/api/admin/emails/'+id+'/discard', {method:'POST'});
+  if(!r.ok) alert(r.error||'Could not discard.'); loadEmails();
 }
 // ---- Shop: digital downloads ----
 function money(c){ return c<=0 ? 'Free' : '$'+(c/100).toFixed(2); }
