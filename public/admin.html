@@ -139,6 +139,10 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
           <div id="sc-tl-list" style="margin-top:8px"></div>
         </div>
 
+        <strong style="font-size:14px">📚 Brief Library</strong>
+        <p class="meta" style="margin:4px 0 6px">Research, proposals and plans — filed forever. Click to read full-screen.</p>
+        <div id="bl-list" style="margin-bottom:14px"><p class="empty">Loading…</p></div>
+
         <strong style="font-size:14px">🔢 Site numbers</strong>
         <p class="meta" style="margin:4px 0 6px">Name = value, one per line (e.g. <code>mamas_total = 25,373</code>). Any page element tagged with that name shows the value — ask Claude to tag a number anywhere on the site.</p>
         <textarea id="sc-stats" style="width:100%;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:monospace;font-size:13px;min-height:64px" placeholder="mamas_total = 25,373"></textarea>
@@ -311,7 +315,20 @@ async function sendCampaign(){
 }
 
 // ---- Site Console: announcement bar + timeline moments + site numbers ----
+async function loadBriefs(){
+  try{
+    const briefs = await api('/api/admin/briefs');
+    document.getElementById('bl-list').innerHTML = briefs.length ? briefs.map(b=>
+      `<div class="item" style="padding:9px 12px;display:flex;align-items:center;gap:8px">
+        <a href="/api/admin/briefs/${b.id}/view" target="_blank" style="flex:1;color:#4A3880;font-weight:600">${esc(b.title)}</a>
+        <span class="meta">${esc(b.category)} · ${esc(b.updated_at.slice(0,10))}</span>
+        <a style="color:#C94B4B;cursor:pointer;font-size:12px" onclick="delBrief(${b.id},'${esc(b.title).replace(/'/g,"&#39;")}')">remove</a>
+      </div>`).join('') : '<p class="empty">No briefs filed yet.</p>';
+  }catch(e){}
+}
+async function delBrief(id,t){ if(!confirm('Remove "'+t+'" from the library?'))return; await api('/api/admin/briefs/'+id,{method:'DELETE'}); loadBriefs(); }
 async function loadSiteConsole(){
+  loadBriefs();
   try{
     const a = await api('/api/site/announcement');
     document.getElementById('sc-ann-text').value = a.text||'';

@@ -410,6 +410,15 @@ CREATE TABLE IF NOT EXISTS timeline_events ( -- Momni History entries Karmel add
   img TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS briefs (          -- HQ Brief Library: research, proposals, plans — filed forever
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  category TEXT DEFAULT 'Brief',          -- Brief | Proposal | Plan | Reference
+  html TEXT NOT NULL,                     -- full rendered document body
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
 `);
 
 // Starter tag set — created once; Karmel can add/rename/recolor freely in the CRM.

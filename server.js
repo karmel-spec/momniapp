@@ -1765,5 +1765,46 @@ app.delete('/api/admin/site/timeline/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- Brief Library — research, proposals & plans filed in HQ forever ----------
+app.get('/api/admin/briefs', requireAdmin, (req, res) => {
+  res.json(db.prepare(`SELECT id, title, category, length(html) AS size, created_at, updated_at
+                       FROM briefs ORDER BY updated_at DESC`).all());
+});
+app.post('/api/admin/briefs', requireAdmin, uploadJson, (req, res) => {
+  const { title, category, html } = req.body || {};
+  if (!String(title || '').trim() || !String(html || '').trim()) return res.status(400).json({ error: 'Title and content required.' });
+  // upsert by title so re-filing a brief updates it instead of duplicating
+  const existing = db.prepare('SELECT id FROM briefs WHERE title = ?').get(String(title).trim());
+  if (existing) {
+    db.prepare(`UPDATE briefs SET category = ?, html = ?, updated_at = datetime('now') WHERE id = ?`)
+      .run(String(category || 'Brief').slice(0, 30), String(html), existing.id);
+    return res.json({ ok: true, id: existing.id, updated: true });
+  }
+  const info = db.prepare('INSERT INTO briefs (title, category, html) VALUES (?,?,?)')
+    .run(String(title).trim().slice(0, 200), String(category || 'Brief').slice(0, 30), String(html));
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+app.delete('/api/admin/briefs/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM briefs WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+// Full-page reader (admin-gated) — opens in its own tab from the HQ card
+app.get('/api/admin/briefs/:id/view', requireAdmin, (req, res) => {
+  const b = db.prepare('SELECT * FROM briefs WHERE id = ?').get(req.params.id);
+  if (!b) return res.status(404).send('Brief not found.');
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${b.title.replace(/</g, '&lt;')} — Momni Brief Library</title><meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>body{font-family:'Albert Sans',sans-serif;color:#2B2233;background:#F5F0FE;line-height:1.7;margin:0;padding:30px 18px}
+.doc{max-width:840px;margin:0 auto;background:#fff;border:1.5px solid #E5E0F0;border-radius:20px;padding:42px 48px;box-shadow:0 16px 44px rgba(43,34,51,.08)}
+.doc h1,.doc h2,.doc h3{font-family:'Montserrat',sans-serif;color:#2B2233;line-height:1.3}.doc h1{font-size:28px}.doc h2{font-size:21px;margin-top:32px;color:#4A3880}.doc h3{font-size:17px;margin-top:24px}
+.doc table{border-collapse:collapse;width:100%;font-size:13.5px;margin:14px 0}.doc th,.doc td{border:1px solid #E5E0F0;padding:7px 10px;text-align:left;vertical-align:top}.doc th{background:#F5F0FE}
+.doc code{background:#F5F0FE;border-radius:4px;padding:1px 6px;font-size:13px}.doc li{margin:4px 0}.doc a{color:#0D878F}
+.meta{max-width:840px;margin:0 auto 14px;font-size:13px;color:#6B6477;display:flex;justify-content:space-between}
+.meta a{color:#6D58A4;font-weight:600;text-decoration:none}</style></head><body>
+<div class="meta"><span>📚 Momni Brief Library · ${b.category} · filed ${b.created_at.slice(0,10)}</span><a href="/admin.html">← Back to HQ</a></div>
+<div class="doc">${b.html}</div></body></html>`);
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Momni 2.0 app running → http://localhost:${PORT}`));
