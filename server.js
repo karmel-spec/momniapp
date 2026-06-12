@@ -1696,5 +1696,74 @@ app.delete('/api/admin/crm/views/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- Site Console — small HQ-editable bits the marketing site reads live ----------
+function siteCors(req, res) {
+  const o = req.headers.origin || '';
+  if (/^https:\/\/(www\.)?momni\.com$/.test(o) || /^http:\/\/localhost(:\d+)?$/.test(o)) {
+    res.set('Access-Control-Allow-Origin', o); res.set('Vary', 'Origin');
+  }
+}
+function getSetting(key, fallback) {
+  const row = db.prepare('SELECT value FROM site_settings WHERE key = ?').get(key);
+  if (!row) return fallback;
+  try { return JSON.parse(row.value); } catch (e) { return fallback; }
+}
+function putSetting(key, obj) {
+  db.prepare(`INSERT INTO site_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`)
+    .run(key, JSON.stringify(obj));
+}
+
+// Public reads (momni.com fetches these on every page / the history page)
+app.get('/api/site/announcement', (req, res) => {
+  siteCors(req, res);
+  res.json(getSetting('announcement', { on: false, text: '', href: '' }));
+});
+app.get('/api/site/timeline', (req, res) => {
+  siteCors(req, res);
+  res.json(db.prepare('SELECT date, title, body, tag, link, img FROM timeline_events ORDER BY date DESC').all());
+});
+app.get('/api/site/stats', (req, res) => {
+  siteCors(req, res);
+  res.json(getSetting('stats', {}));
+});
+
+// HQ writes
+app.put('/api/admin/site/announcement', requireAdmin, (req, res) => {
+  const text = String(req.body.text || '').slice(0, 200);
+  let href = String(req.body.href || '').trim().slice(0, 300);
+  if (href && !/^(https?:\/\/|\/)/.test(href)) href = ''; // http(s) or site-relative only
+  putSetting('announcement', { on: !!req.body.on && !!text, text, href });
+  res.json({ ok: true, announcement: getSetting('announcement', {}) });
+});
+app.put('/api/admin/site/stats', requireAdmin, (req, res) => {
+  const stats = {};
+  for (const [k, v] of Object.entries(req.body.stats || {})) {
+    if (/^[a-z0-9_-]{1,40}$/i.test(k)) stats[k] = String(v).slice(0, 80);
+  }
+  putSetting('stats', stats);
+  res.json({ ok: true, stats });
+});
+app.get('/api/admin/site/timeline', requireAdmin, (req, res) => {
+  res.json(db.prepare('SELECT * FROM timeline_events ORDER BY date DESC').all());
+});
+app.post('/api/admin/site/timeline', requireAdmin, (req, res) => {
+  const { date, title } = req.body;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return res.status(400).json({ error: 'Date must be YYYY-MM-DD.' });
+  if (!String(title || '').trim()) return res.status(400).json({ error: 'Give the moment a title.' });
+  let link = String(req.body.link || '').trim().slice(0, 300);
+  if (link && !/^(https?:\/\/|\/|\.\.\/)/.test(link)) link = null;
+  let img = String(req.body.img || '').trim().slice(0, 300);
+  if (img && !/^(https?:\/\/|\/|\.\.\/)/.test(img)) img = null;
+  const info = db.prepare('INSERT INTO timeline_events (date, title, body, tag, link, img) VALUES (?,?,?,?,?,?)')
+    .run(date, String(title).trim().slice(0, 150), String(req.body.body || '').trim().slice(0, 1000),
+         String(req.body.tag || 'Milestone').slice(0, 30), link || null, img || null);
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+app.delete('/api/admin/site/timeline/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM timeline_events WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Momni 2.0 app running → http://localhost:${PORT}`));

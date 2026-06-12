@@ -392,6 +392,24 @@ CREATE TABLE IF NOT EXISTS crm_views (       -- saved filter sets ("segments")
   filters TEXT NOT NULL DEFAULT '{}',     -- JSON of the filter state
   created_at TEXT DEFAULT (datetime('now'))
 );
+
+-- ===== Site Console (HQ-editable bits the marketing site reads live) =====
+CREATE TABLE IF NOT EXISTS site_settings (   -- announcement bar, site numbers, future knobs
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT '',         -- JSON blob per key
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS timeline_events ( -- Momni History entries Karmel adds from HQ
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,                     -- YYYY-MM-DD
+  title TEXT NOT NULL,
+  body TEXT DEFAULT '',
+  tag TEXT DEFAULT 'Milestone',           -- Relaunch | Milestone | Press | The Book | Origin | Community | Foundation
+  link TEXT,
+  img TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
 `);
 
 // Starter tag set — created once; Karmel can add/rename/recolor freely in the CRM.

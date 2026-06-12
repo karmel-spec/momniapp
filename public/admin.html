@@ -108,6 +108,43 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
         <span class="meta" id="sp-result"></span>
         <div id="sp-list" style="margin-top:10px"><p class="empty">Loading…</p></div>
       </div>
+      <div class="card"><h2>🖊️ Site Console — edit without a deploy</h2>
+        <p class="meta" style="margin-bottom:10px">These publish to momni.com instantly. Everything else (page copy, design) stays in Claude Code where the brand rules are enforced.</p>
+
+        <strong style="font-size:14px">📣 Announcement bar</strong>
+        <div style="margin:6px 0 14px">
+          <input id="sc-ann-text" placeholder="One line — e.g. Circle Up book club starts Monday! 💜" maxlength="200">
+          <input id="sc-ann-href" placeholder="Link (optional) — https://… or /circles/" maxlength="300">
+          <div style="display:flex;gap:10px;align-items:center">
+            <label class="meta"><input type="checkbox" id="sc-ann-on"> Show it on every momni.com page</label>
+            <button class="b-ok" style="margin-left:auto" onclick="saveAnnouncement()">Publish</button>
+          </div>
+          <span class="meta" id="sc-ann-status"></span>
+        </div>
+
+        <strong style="font-size:14px">📅 Momni History — add a moment</strong>
+        <div style="margin:6px 0 14px">
+          <div style="display:flex;gap:8px">
+            <input id="sc-tl-date" type="date" style="width:160px">
+            <select id="sc-tl-tag" style="padding:8px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit">
+              <option>Milestone</option><option>Press</option><option>Community</option><option>Relaunch</option><option>The Book</option><option>Origin</option><option>Foundation</option>
+            </select>
+          </div>
+          <input id="sc-tl-title" placeholder="Title — e.g. First Circle gathering in Texas" maxlength="150">
+          <textarea id="sc-tl-body" placeholder="What happened (a sentence or two)" style="width:100%;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit;font-size:14px;margin-bottom:6px;min-height:48px"></textarea>
+          <input id="sc-tl-link" placeholder="Link (optional)" maxlength="300">
+          <input id="sc-tl-img" placeholder="Photo URL (optional)" maxlength="300">
+          <button class="b-ok" onclick="addTimeline()">Add to the timeline</button>
+          <span class="meta" id="sc-tl-status"></span>
+          <div id="sc-tl-list" style="margin-top:8px"></div>
+        </div>
+
+        <strong style="font-size:14px">🔢 Site numbers</strong>
+        <p class="meta" style="margin:4px 0 6px">Name = value, one per line (e.g. <code>mamas_total = 25,373</code>). Any page element tagged with that name shows the value — ask Claude to tag a number anywhere on the site.</p>
+        <textarea id="sc-stats" style="width:100%;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:monospace;font-size:13px;min-height:64px" placeholder="mamas_total = 25,373"></textarea>
+        <button class="b-ok" onclick="saveStats()">Save numbers</button>
+        <span class="meta" id="sc-stats-status"></span>
+      </div>
     </div>
   </div>
   <p style="font-size:12px;color:var(--muted)">No burn rate. No investor metrics. The dashboard measures a healthy Circle. 🐘</p>
@@ -121,7 +158,7 @@ async function init(){
     document.getElementById('hq').style.display='block';
     const labels = {mamas:'Mamas in the Circle',hosts:'Hosting mamas',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',gives:'Momni Gives mamas',open_reports:'Open reports'};
     document.getElementById('stats').innerHTML = Object.entries(labels).map(([k,l])=>`<div class="stat"><div class="n">${o[k]}</div><div class="l">${l}</div></div>`).join('');
-    loadReports(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadOauthClients(); loadShop();
+    loadReports(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadOauthClients(); loadShop(); loadSiteConsole();
   }catch(e){}
 }
 async function loadReports(){
@@ -271,6 +308,52 @@ async function sendCampaign(){
   try{ const d=await api('/api/admin/email',{method:'POST',body:JSON.stringify(body)});
     res.textContent = d.ok ? ' '+d.sent+'/'+d.recipients+' — '+d.mode : ' '+(d.error||'failed'); loadEmails();
   }catch(e){ res.textContent=' failed'; }
+}
+
+// ---- Site Console: announcement bar + timeline moments + site numbers ----
+async function loadSiteConsole(){
+  try{
+    const a = await api('/api/site/announcement');
+    document.getElementById('sc-ann-text').value = a.text||'';
+    document.getElementById('sc-ann-href').value = a.href||'';
+    document.getElementById('sc-ann-on').checked = !!a.on;
+    const stats = await api('/api/site/stats');
+    document.getElementById('sc-stats').value = Object.entries(stats).map(([k,v])=>k+' = '+v).join('\n');
+    loadTimelineList();
+  }catch(e){}
+}
+async function saveAnnouncement(){
+  const s=document.getElementById('sc-ann-status'); s.textContent=' publishing…';
+  const d=await api('/api/admin/site/announcement',{method:'PUT',body:JSON.stringify({
+    text:document.getElementById('sc-ann-text').value, href:document.getElementById('sc-ann-href').value,
+    on:document.getElementById('sc-ann-on').checked })});
+  s.textContent = d.ok ? (d.announcement.on?' live on every page ✓':' saved (hidden) ✓') : ' failed';
+}
+async function loadTimelineList(){
+  const rows = await api('/api/admin/site/timeline');
+  document.getElementById('sc-tl-list').innerHTML = rows.length ? rows.map(r=>
+    `<div class="item" style="padding:8px 12px"><span class="meta">${esc(r.date)}</span> <strong>${esc(r.title)}</strong>
+     <a style="float:right;color:#C94B4B;cursor:pointer;font-size:12px" onclick="delTimeline(${r.id})">remove</a></div>`).join('')
+    : '<p class="empty">No HQ-added moments yet — the built-in history still shows.</p>';
+}
+async function addTimeline(){
+  const s=document.getElementById('sc-tl-status'); s.textContent=' adding…';
+  const d=await api('/api/admin/site/timeline',{method:'POST',body:JSON.stringify({
+    date:document.getElementById('sc-tl-date').value, title:document.getElementById('sc-tl-title').value,
+    body:document.getElementById('sc-tl-body').value, tag:document.getElementById('sc-tl-tag').value,
+    link:document.getElementById('sc-tl-link').value, img:document.getElementById('sc-tl-img').value })});
+  s.textContent = d.ok ? ' on the timeline ✓' : ' '+(d.error||'failed');
+  if(d.ok){ ['sc-tl-title','sc-tl-body','sc-tl-link','sc-tl-img'].forEach(i=>document.getElementById(i).value=''); loadTimelineList(); }
+}
+async function delTimeline(id){ if(!confirm('Remove this moment from the timeline?'))return; await api('/api/admin/site/timeline/'+id,{method:'DELETE'}); loadTimelineList(); }
+async function saveStats(){
+  const s=document.getElementById('sc-stats-status'); s.textContent=' saving…';
+  const stats={};
+  document.getElementById('sc-stats').value.split('\n').forEach(line=>{
+    const m=line.match(/^\s*([A-Za-z0-9_-]{1,40})\s*=\s*(.+?)\s*$/); if(m) stats[m[1]]=m[2];
+  });
+  const d=await api('/api/admin/site/stats',{method:'PUT',body:JSON.stringify({stats})});
+  s.textContent = d.ok ? ' saved ✓' : ' failed';
 }
 </script>
 

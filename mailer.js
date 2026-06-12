@@ -13,6 +13,8 @@ const { db } = require('./db');
 
 const RESEND_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Momni <onboarding@resend.dev>';
+// Replies land in a real, monitored inbox — hello@ is a display identity only.
+const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || 'support@momni.com';
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 const LIVE = !!RESEND_KEY;
 
@@ -171,7 +173,7 @@ async function send({ to, to_user_id = null, template, vars = {}, related_type =
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html }),
+        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html, reply_to: EMAIL_REPLY_TO }),
       });
       if (res.ok) status = 'sent';
       else { status = 'failed'; error = `Resend ${res.status}: ${(await res.text()).slice(0, 300)}`; }
