@@ -456,9 +456,12 @@ app.get('/api/hosts/:id', (req, res) => {
 });
 
 app.get('/api/map', (req, res) => {
+  // momni.com's Movement Map reads this for live 2.0 lights — same-brand CORS only
+  const origin = req.headers.origin || '';
+  if (/^https:\/\/(www\.)?momni\.com$/.test(origin)) { res.set('Access-Control-Allow-Origin', origin); res.set('Vary', 'Origin'); }
   const hosts = db.prepare('SELECT * FROM users WHERE is_host = 1 AND lat IS NOT NULL').all().map(userPublic);
   const circles = db.prepare('SELECT * FROM circles').all();
-  const legacy = db.prepare('SELECT city, lat, lng, count FROM legacy_pins').all(); // anonymized, city-level only
+  const legacy = db.prepare('SELECT city, lat, lng, count, role FROM legacy_pins').all(); // anonymized, real-town level only
   const litUp = db.prepare('SELECT COUNT(*) c FROM users WHERE legacy_1_0 = 1').get().c;
   const firstMamas = legacy.reduce((s, p) => s + p.count, 0);
   res.json({ hosts, circles, legacy, counters: { first_mamas: firstMamas, lit_up: litUp + 287 } });

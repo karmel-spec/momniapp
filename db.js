@@ -34,6 +34,15 @@ try {
   const cols = db.prepare('PRAGMA table_info(oauth_clients)').all();
   if (cols.length && !cols.find(c => c.name === 'client_type')) db.exec('DROP TABLE oauth_clients');
 } catch (e) { /* table absent — CREATE TABLE below handles it */ }
+// migration: role-aware legacy pins (Karmel's day/night map — hosts teal, guests purple).
+// Adding the column clears the table so it reseeds from the new role-aware legacy_pins.json.
+try {
+  const lpCols = db.prepare('PRAGMA table_info(legacy_pins)').all();
+  if (lpCols.length && !lpCols.find(c => c.name === 'role')) {
+    db.exec('ALTER TABLE legacy_pins ADD COLUMN role TEXT');
+    db.exec('DELETE FROM legacy_pins');
+  }
+} catch (e) { /* table absent — CREATE TABLE below includes role */ }
 // migration: remap host care_types to the 2.0 booking vocabulary (Available Now / Night Out /
 // Recurring / Overnight). Idempotent — only rewrites rows that still carry an old token.
 try {
@@ -206,7 +215,8 @@ CREATE TABLE IF NOT EXISTS legacy_pins (    -- anonymized city-level Momni 1.0 c
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   city TEXT NOT NULL,
   lat REAL NOT NULL, lng REAL NOT NULL,
-  count INTEGER NOT NULL
+  count INTEGER NOT NULL,
+  role TEXT                                 -- host | guest (1.0 role); drives teal/purple on the map
 );
 
 -- "Sign in with Momni" — OAuth 2.0 provider tables for the Momni Boards companion apps
@@ -435,23 +445,23 @@ function seed() {
     insertCircleProd.run('BYU Married Housing Circle','Provo',40.2520,-111.6360,'Thursdays 4pm · Wymount playground',0);
   }
   if (db.prepare('SELECT COUNT(*) c FROM legacy_pins').get().c === 0) {
-    const ip = db.prepare('INSERT INTO legacy_pins (city,lat,lng,count) VALUES (?,?,?,?)');
-    // Individual anonymous 1.0 pins (city-level, jittered; no names ever) from legacy_pins.json if present
+    const ip = db.prepare('INSERT INTO legacy_pins (city,lat,lng,count,role) VALUES (?,?,?,?,?)');
+    // Individual anonymous 1.0 pins (real towns, jittered; no names ever) from legacy_pins.json if present
     const pinsPath = path.join(__dirname, 'legacy_pins.json');
     let loaded = false;
     try {
       const pins = JSON.parse(require('fs').readFileSync(pinsPath, 'utf8'));
       const tx = db.transaction(() => {
-        for (const p of pins) ip.run(`${p.city}, ${p.state}`, p.lat, p.lng, 1);
+        for (const p of pins) ip.run(`${p.city}, ${p.state}`, p.lat, p.lng, 1, p.role || 'guest');
       });
       tx();
       loaded = pins.length > 0;
     } catch (e) { /* fall back to clusters */ }
     if (!loaded) {
-      ip.run('Salt Lake City',40.7608,-111.8910,420); ip.run('Houston',29.7604,-95.3698,267);
-      ip.run('Dallas',32.7767,-96.7970,198); ip.run('Atlanta',33.7490,-84.3880,154);
-      ip.run('Phoenix',33.4484,-112.0740,96); ip.run('Boise',43.6150,-116.2023,52);
-      ip.run('St. George',37.0965,-113.5684,61);
+      ip.run('Salt Lake City',40.7608,-111.8910,420,null); ip.run('Houston',29.7604,-95.3698,267,null);
+      ip.run('Dallas',32.7767,-96.7970,198,null); ip.run('Atlanta',33.7490,-84.3880,154,null);
+      ip.run('Phoenix',33.4484,-112.0740,96,null); ip.run('Boise',43.6150,-116.2023,52,null);
+      ip.run('St. George',37.0965,-113.5684,61,null);
     }
   }
   if (process.env.SEED_DEMO !== '1') return;

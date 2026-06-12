@@ -46,6 +46,23 @@ a{text-decoration:none;color:inherit}
 .you-tip{background:var(--white);border:1.5px solid var(--purple);color:var(--purple-deep);border-radius:100px;padding:1px 9px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(43,34,51,0.15)}
 .you-tip::before{display:none}
 
+/* Day/night map (Karmel's pick: daylight by day, a softened night map after dark) */
+.night-tiles{filter:brightness(1.24) contrast(.95)}
+#themeToggle{position:absolute;top:12px;right:12px;z-index:500;background:rgba(255,255,255,.95);border:1.5px solid #EEE9F9;border-radius:100px;width:38px;height:38px;font-size:18px;cursor:pointer;box-shadow:0 4px 14px rgba(43,34,51,.15)}
+.map-wrap.night .legend{background:rgba(22,18,30,.88);color:#EFEAF7}
+.map-wrap.night .legend span[style*="color"]{color:#B9B0C9 !important}
+.map-wrap.night #themeToggle{background:rgba(22,18,30,.88);border-color:#3A3148;color:#fff}
+/* the lit 2.0 pin — a tiny light, pulsing (she's back online) */
+.lit{position:relative;display:block}
+.lit .halo{position:absolute;inset:-11px;border-radius:50%;animation:lpulse 2.4s ease-in-out infinite}
+.lit .core{position:absolute;inset:3px;border-radius:50%}
+.lit.algae .halo{background:radial-gradient(circle,rgba(146,226,193,.6) 0%,rgba(146,226,193,0) 70%)}
+.lit.algae .core{background:radial-gradient(circle,#fff 0%,#92E2C1 50%,rgba(146,226,193,0) 78%)}
+.lit.gold .halo{inset:-13px;background:radial-gradient(circle,rgba(255,217,138,.65) 0%,rgba(255,217,138,0) 70%)}
+.lit.gold .core{background:radial-gradient(circle,#fff 0%,#FFD98A 48%,rgba(255,217,138,0) 78%)}
+@keyframes lpulse{0%,100%{transform:scale(.75);opacity:.75}50%{transform:scale(1.3);opacity:1}}
+@media (prefers-reduced-motion: reduce){.lit .halo{animation:none}}
+
 /* Banner */
 .pin-banner{margin:16px 18px;background:var(--purple);color:#fff;border-radius:18px;padding:20px 22px;text-align:center}
 .pin-banner .script{font-size:26px;color:var(--algae);display:block;line-height:1.25;margin-bottom:8px}
@@ -99,11 +116,12 @@ a{text-decoration:none;color:inherit}
       <button class="chip" data-r="all">Everywhere</button>
     </div>
 
-    <div class="map-wrap">
+    <div class="map-wrap" id="map-wrap">
       <div id="map"></div>
+      <button id="themeToggle" title="Switch day/night map" aria-label="Switch day/night map">🌙</button>
       <div class="legend">
-        <div><span class="dot" style="background:var(--teal)"></span><strong>Circling Up Now</strong><br><span style="margin-left:17px;color:var(--muted)">Reactivated &amp; New Momnis for 2.0</span></div>
-        <div><span class="dot" style="background:var(--clay-deep)"></span><strong>The First Mamas &mdash; Momni 1.0</strong><br><span style="margin-left:17px;color:var(--muted)">Each 1.0 pin is anonymous until re-claimed</span></div>
+        <div><span class="lit algae" style="display:inline-block;position:relative;width:11px;height:11px;margin-right:6px;vertical-align:middle"><span class="halo"></span><span class="core"></span></span><strong>Circling Up Now — her light is on</strong><br><span style="margin-left:17px;color:var(--muted)">Reactivated &amp; New Momnis for 2.0</span></div>
+        <div><span class="dot" style="background:var(--teal)"></span><strong>1.0 host mama</strong> &middot; <span class="dot" style="background:var(--purple);opacity:.6"></span><strong>1.0 guest mama</strong><br><span style="margin-left:17px;color:var(--muted)">Each 1.0 pin is anonymous until re-claimed</span></div>
         <div><span class="dot" style="background:var(--purple)"></span>Circles</div>
       </div>
     </div>
@@ -141,9 +159,49 @@ a{text-decoration:none;color:inherit}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 var map = L.map('map').setView([40.27, -111.68], 11);
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-  attribution: 'Tiles © Esri — Source: Esri, HERE, Garmin'
-}).addTo(map);
+
+// Day/night map (Karmel's pick): daylight map 6am–7pm, softened night map after dark.
+// Night basemap is Esri's Dark Gray Canvas (charcoal, readable labels) lifted a touch brighter.
+var dayTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  {attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 19});
+var nightBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+  {attribution: 'Tiles © Esri', className: 'night-tiles', maxNativeZoom: 16, maxZoom: 19});
+var nightRef = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+  {className: 'night-tiles', maxNativeZoom: 16, maxZoom: 19});
+
+var THEMES = {
+  day:   { lit: 'algae', litSize: 18, legacyHost: {color:'#0D878F', op:.72}, legacyGuest: {color:'#6D58A4', op:.40} },
+  night: { lit: 'gold',  litSize: 22, legacyHost: {color:'#2FA8B0', op:.60}, legacyGuest: {color:'#9B86CF', op:.35} }
+};
+function autoTheme(){ var h = new Date().getHours(); return (h >= 19 || h < 6) ? 'night' : 'day'; }
+var mapTheme = localStorage.getItem('momni-map-theme') || autoTheme();
+
+function litIcon(theme){
+  var s = THEMES[theme].litSize;
+  return L.divIcon({ className: '', iconSize: [s, s], iconAnchor: [s/2, s/2],
+    html: '<span class="lit ' + THEMES[theme].lit + '" style="width:' + s + 'px;height:' + s + 'px"><span class="halo"></span><span class="core"></span></span>' });
+}
+
+var hostMarkers = [], legacyMarkers = [];
+function applyTheme(theme){
+  mapTheme = theme;
+  var t = THEMES[theme];
+  if (theme === 'night') { dayTiles.remove(); nightBase.addTo(map); nightRef.addTo(map); }
+  else { nightBase.remove(); nightRef.remove(); dayTiles.addTo(map); }
+  document.getElementById('map-wrap').classList.toggle('night', theme === 'night');
+  document.getElementById('themeToggle').textContent = theme === 'night' ? '☀️' : '🌙';
+  hostMarkers.forEach(function(m){ m.setIcon(litIcon(theme)); });
+  legacyMarkers.forEach(function(e){
+    var s = e.role === 'host' ? t.legacyHost : t.legacyGuest;
+    e.marker.setStyle({ color: s.color, fillColor: s.color, fillOpacity: s.op });
+  });
+}
+applyTheme(mapTheme);
+document.getElementById('themeToggle').addEventListener('click', function(){
+  var next = mapTheme === 'night' ? 'day' : 'night';
+  localStorage.setItem('momni-map-theme', next);
+  applyTheme(next);
+});
 
 function esc(s){
   return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
@@ -261,20 +319,24 @@ function locate(done){
   }, {timeout: 3000, maximumAge: 300000});
 }
 
-// Map data: teal hosts, clay legacy clusters, purple circles
+// Map data: lit 2.0 hosts (her light is on), role-colored 1.0 mamas, purple circles
 fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
   data.hosts.forEach(function(h){
     // Popup content built at open time, so distance is there once we know where you are
-    L.circleMarker([h.lat, h.lng],{radius:9,color:'#0D878F',fillColor:'#0D878F',fillOpacity:0.9,weight:2})
-     .addTo(map).bindPopup(function(){ return hostPopup(h); });
+    var m = L.marker([h.lat, h.lng], {icon: litIcon(mapTheme)})
+      .addTo(map).bindPopup(function(){ return hostPopup(h); });
+    hostMarkers.push(m);
   });
   var cv = L.canvas({padding:0.5});
   var legacyPopup = L.popup();
   var legacyLayer = L.layerGroup();
+  var t = THEMES[mapTheme];
   data.legacy.forEach(function(p){
-    L.circleMarker([p.lat, p.lng],{renderer:cv,radius:p.precision==='state'?2.5:3,color:'#C99F72',fillColor:'#C99F72',fillOpacity:0.55,weight:1})
-     .on('click',function(e){ legacyPopup.setLatLng(e.latlng).setContent('<div class="pop legacy"><strong>Momni 1.0 mama</strong> &mdash; anonymous until she reclaims her pin.<br>Share the reactivation link and new Momni link with moms you know.<br><a href="https://momni.com/share/" target="_blank" rel="noopener" class="req" style="margin-top:8px">Share &amp; invite moms ↗</a></div>').openOn(map); })
+    var s = p.role === 'host' ? t.legacyHost : t.legacyGuest;
+    var m = L.circleMarker([p.lat, p.lng],{renderer:cv,radius:p.role==='host'?3.2:2.5,color:s.color,fillColor:s.color,fillOpacity:s.op,weight:0})
+     .on('click',function(e){ legacyPopup.setLatLng(e.latlng).setContent('<div class="pop legacy"><strong>Momni 1.0 mama</strong>'+(p.role==='host'?' &mdash; she hosted':'')+' &mdash; anonymous until she reclaims her pin.<br>Share the reactivation link and new Momni link with moms you know.<br><a href="https://momni.com/share/" target="_blank" rel="noopener" class="req" style="margin-top:8px">Share &amp; invite moms ↗</a></div>').openOn(map); })
      .addTo(legacyLayer);
+    legacyMarkers.push({marker: m, role: p.role});
   });
   legacyLayer.addTo(map);
   data.circles.forEach(function(c){
