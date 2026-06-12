@@ -134,6 +134,17 @@ const TEMPLATES = {
       `Your download: ${v.title || 'Momni Shop'}`),
   }),
 
+  // CRM outreach — a personal note from Karmel, composed in the HQ CRM.
+  crm_outreach: (v) => ({
+    subject: v.subject || 'A note from Karmel at Momni',
+    html: layout(
+      (v.heading ? h1(v.heading) : '') +
+      String(v.body || '').split(/\n{2,}/).map(par => p(esc(par).replace(/\n/g, '<br>'))).join('') +
+      (v.ctaHref ? `<p style="margin:20px 0">${btn(v.ctaHref, v.ctaLabel || 'Open Momni')}</p>` : '') +
+      script('— Karmel'),
+      v.subject || 'A note from Karmel'),
+  }),
+
   // Circle Leader reminder to her members about a gathering.
   circle_reminder: (v) => ({
     subject: v.subject || `Reminder: ${v.circle || 'your Circle'} is getting together`,

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Momni CRM — HQ</title>
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Albert+Sans:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--purple:#6D58A4;--purple-deep:#4A3880;--teal:#0D878F;--teal-soft:#E1F7F2;--algae:#92E2C1;--lavender:#F5F0FE;--ink:#2B2233;--muted:#6B6477;--line:#E5E0F0;--danger:#C94B4B;--clay:#D9C0A3}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);font-size:14px}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:13.5px;border:1.5px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--purple)}
+.topbar{background:#fff;border-bottom:1.5px solid var(--line);padding:10px 18px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:30}
+.topbar img{height:30px}
+.topbar h1{font-family:'Montserrat',sans-serif;font-size:17px;font-weight:800}
+.topbar .script{font-family:'Caveat',cursive;color:var(--teal);font-size:18px}
+.topbar a.back{margin-left:auto;color:var(--purple);font-weight:600;text-decoration:none;font-size:13px}
+.stats{display:flex;gap:10px;flex-wrap:wrap;padding:14px 18px 0}
+.stat{background:#fff;border:1.5px solid var(--line);border-radius:13px;padding:9px 16px;min-width:96px}
+.stat .n{font-family:'Montserrat',sans-serif;font-weight:800;font-size:19px;color:var(--purple-deep)}
+.stat .l{font-size:11.5px;color:var(--muted)}
+.stat.hot .n{color:var(--teal)}
+.layout{display:grid;grid-template-columns:228px 1fr;gap:14px;padding:14px 18px 40px;align-items:start}
+.rail{background:#fff;border:1.5px solid var(--line);border-radius:15px;padding:14px;position:sticky;top:64px;max-height:calc(100vh - 80px);overflow:auto}
+.rail h3{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:14px 0 6px}
+.rail h3:first-child{margin-top:0}
+.rail label{display:flex;align-items:center;gap:7px;padding:4px 2px;font-size:13px;cursor:pointer}
+.rail select,.rail input[type=text]{width:100%;margin-top:2px}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:100px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid transparent;margin:0 4px 6px 0;background:var(--lavender)}
+.chip.on{border-color:var(--purple);background:#fff}
+.chip .dot{width:8px;height:8px;border-radius:50%}
+.chip .ct{color:var(--muted);font-weight:500}
+.viewrow{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:13px}
+.viewrow a{color:var(--purple);font-weight:600;cursor:pointer;text-decoration:none}
+.viewrow .x{color:var(--muted);cursor:pointer;margin-left:auto;font-size:12px}
+.clearbtn{width:100%;margin-top:12px;background:var(--lavender);border:none;border-radius:9px;padding:8px;font-weight:600;color:var(--muted)}
+.main{min-width:0}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.toolbar input[type=search]{flex:1;min-width:200px;padding:9px 13px;border-radius:100px}
+.btn{border:none;border-radius:100px;padding:9px 16px;font-weight:700;font-size:13px}
+.btn.primary{background:var(--algae);color:#0B4A36}
+.btn.purple{background:var(--purple);color:#fff}
+.btn.ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink);font-weight:600}
+.btn.danger{background:#FDECEC;color:var(--danger)}
+.bulkbar{display:none;background:var(--purple-deep);color:#fff;border-radius:13px;padding:9px 14px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap}
+.bulkbar.show{display:flex}
+.bulkbar select{border-radius:8px;padding:6px 8px;border:none;font-size:12.5px}
+.bulkbar .btn{padding:7px 13px;font-size:12.5px}
+.tablewrap{background:#fff;border:1.5px solid var(--line);border-radius:15px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:880px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:11px 10px;border-bottom:1.5px solid var(--line);background:#FBFAFE;position:sticky;top:0}
+td{padding:9px 10px;border-bottom:1px solid #F1EDF7;vertical-align:middle}
+tr.row{cursor:pointer}
+tr.row:hover td{background:#FBF9FF}
+td .nm{font-weight:700}
+.b{display:inline-block;border-radius:100px;font-size:10.5px;font-weight:700;padding:1.5px 8px;margin-left:5px;vertical-align:1px}
+.b.legacy{background:#F4EAD9;color:#7A5B2E}
+.b.member{background:var(--teal-soft);color:var(--teal)}
+.b.host{background:#EFE9FB;color:var(--purple-deep)}
+.b.leader{background:var(--purple);color:#fff}
+.b.dnc{background:#FDECEC;color:var(--danger)}
+.tag{display:inline-flex;align-items:center;gap:4px;border-radius:100px;padding:1.5px 8px;font-size:11px;font-weight:600;background:var(--lavender);margin:1px 3px 1px 0;white-space:nowrap}
+.tag .dot{width:7px;height:7px;border-radius:50%}
+.muted{color:var(--muted)}
+.pager{display:flex;align-items:center;gap:10px;justify-content:flex-end;padding:10px 4px}
+.pager button{background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:6px 12px;font-weight:600}
+.pager button:disabled{opacity:.4;cursor:default}
+/* drawer */
+.scrim{display:none;position:fixed;inset:0;background:rgba(43,34,51,.35);z-index:40}
+.scrim.show{display:block}
+.drawer{position:fixed;top:0;right:-560px;width:548px;max-width:96vw;height:100vh;background:#fff;z-index:50;box-shadow:-18px 0 48px rgba(43,34,51,.18);transition:right .22s ease;display:flex;flex-direction:column}
+.drawer.show{right:0}
+.dhead{padding:18px 22px 14px;border-bottom:1.5px solid var(--line)}
+.dhead .nm{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800}
+.dhead .sub{color:var(--muted);font-size:12.5px;margin-top:3px}
+.dhead .x{position:absolute;top:14px;right:16px;background:var(--lavender);border:none;border-radius:50%;width:30px;height:30px;font-size:15px}
+.quick{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.quick a,.quick button{display:inline-flex;align-items:center;gap:6px;background:var(--teal-soft);color:var(--teal);border:none;border-radius:100px;padding:7px 14px;font-weight:700;font-size:12.5px;text-decoration:none}
+.quick a.em{background:#EFE9FB;color:var(--purple-deep)}
+.dbody{flex:1;overflow:auto;padding:16px 22px 30px}
+.sec{margin-bottom:20px}
+.sec h4{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px}
+.kv{display:grid;grid-template-columns:96px 1fr;gap:5px 10px;font-size:13px}
+.kv .k{color:var(--muted)}
+.kv input,.kv select{padding:4px 8px;font-size:13px}
+.notebox{border:1.5px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px;font-size:13px;position:relative}
+.notebox .when{font-size:11px;color:var(--muted);margin-top:5px}
+.notebox.pinned{border-color:var(--clay);background:#FDFAF5}
+.notebox .tools{position:absolute;top:7px;right:9px;display:flex;gap:7px;font-size:11px}
+.notebox .tools span{cursor:pointer;color:var(--muted)}
+.act{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid #F1EDF7;font-size:12.5px}
+.act .ic{width:26px;height:26px;border-radius:50%;background:var(--lavender);display:flex;align-items:center;justify-content:center;flex:none;font-size:13px}
+.act .when{color:var(--muted);font-size:11px}
+.composer textarea{width:100%;min-height:64px;resize:vertical}
+.composer .row{display:flex;gap:8px;margin-top:7px;align-items:center}
+.bio{background:var(--lavender);border-radius:11px;padding:11px 13px;font-size:13px;font-style:italic;color:#4d4458}
+/* modal */
+.modal{display:none;position:fixed;inset:0;background:rgba(43,34,51,.45);z-index:60;align-items:center;justify-content:center;padding:18px}
+.modal.show{display:flex}
+.mcard{background:#fff;border-radius:18px;padding:24px;max-width:520px;width:100%;max-height:92vh;overflow:auto}
+.mcard h3{font-family:'Montserrat',sans-serif;font-size:17px;font-weight:800;margin-bottom:12px}
+.mcard label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:10px 0 4px}
+.mcard input[type=text],.mcard input[type=email],.mcard textarea,.mcard select{width:100%}
+.mcard textarea{min-height:120px}
+.mrow{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.hint{font-size:11.5px;color:var(--muted);margin-top:5px}
+.devnote{background:#FFF6E5;border:1.5px solid #E0B85C;border-radius:10px;padding:8px 12px;font-size:12px;margin-top:10px;display:none}
+.lock{max-width:430px;margin:80px auto;background:#fff;border:1.5px solid var(--line);border-radius:18px;padding:36px;text-align:center;display:none}
+.lock h2{font-family:'Montserrat',sans-serif;margin-bottom:8px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:100px;padding:10px 22px;font-size:13px;font-weight:600;z-index:70;opacity:0;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (max-width:880px){.layout{grid-template-columns:1fr}.rail{position:static;max-height:none}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+  <h1>CRM</h1><span class="script">every mama, remembered 💜</span>
+  <a class="back" href="admin.html">← Back to HQ</a>
+</div>
+
+<div id="lock" class="lock">
+  <h2>This room is Karmel-only</h2>
+  <p class="muted">Sign in with your admin account first, then come back.</p>
+  <p style="margin-top:14px"><a class="btn purple" style="text-decoration:none" href="index.html">Sign in</a></p>
+</div>
+
+<div id="appwrap">
+  <div class="stats" id="stats"></div>
+
+  <div class="layout">
+    <aside class="rail">
+      <h3>Saved views</h3>
+      <div id="views"><span class="muted" style="font-size:12px">None yet — set filters, then save.</span></div>
+      <button class="btn ghost" style="width:100%;margin-top:6px;padding:7px" onclick="saveView()">＋ Save current view</button>
+
+      <h3>Source</h3>
+      <label><input type="radio" name="source" value="" checked> Everyone</label>
+      <label><input type="radio" name="source" value="1.0"> Momni 1.0 legacy</label>
+      <label><input type="radio" name="source" value="2.0"> Joined in 2.0</label>
+      <label><input type="radio" name="source" value="manual"> Added by hand</label>
+
+      <h3>Role</h3>
+      <label><input type="radio" name="role" value="" checked> Any role</label>
+      <label><input type="radio" name="role" value="host"> Hosts</label>
+      <label><input type="radio" name="role" value="guest"> Guests only</label>
+      <label><input type="checkbox" id="f-member"> In the 2.0 app now</label>
+      <label><input type="checkbox" id="f-leader"> Circle Leaders</label>
+
+      <h3>Location</h3>
+      <select id="f-state"><option value="">All states</option></select>
+      <input type="text" id="f-city" placeholder="City contains…">
+
+      <h3>Stage</h3>
+      <select id="f-stage">
+        <option value="">Any stage</option>
+        <option value="community">Community</option>
+        <option value="engaged">Engaged</option>
+        <option value="reactivated">Reactivated</option>
+        <option value="core">Core</option>
+      </select>
+
+      <h3>Reachable by</h3>
+      <select id="f-has"><option value="">Anything</option><option value="email">Has email</option><option value="phone">Has phone</option></select>
+
+      <h3>Tags <a style="float:right;font-size:11px;color:var(--purple);cursor:pointer;text-transform:none;letter-spacing:0" onclick="manageTags()">manage</a></h3>
+      <div id="tagchips"></div>
+
+      <button class="clearbtn" onclick="clearFilters()">Clear all filters</button>
+    </aside>
+
+    <main class="main">
+      <div class="toolbar">
+        <input type="search" id="q" placeholder="Search name, email, phone, city…">
+        <select id="sort">
+          <option value="name">Sort: Name</option>
+          <option value="joined">Sort: 1.0 join date</option>
+          <option value="state">Sort: State</option>
+          <option value="recent">Sort: Recent touch</option>
+        </select>
+        <button class="btn primary" onclick="openNew()">＋ New contact</button>
+        <button class="btn ghost" onclick="exportCsv()">⬇ Export CSV</button>
+      </div>
+
+      <div class="bulkbar" id="bulkbar">
+        <strong id="bulkcount">0 selected</strong>
+        <select id="bulktag"></select>
+        <button class="btn primary" onclick="bulk('tag')">Tag</button>
+        <button class="btn ghost" onclick="bulk('untag')">Untag</button>
+        <select id="bulkstage">
+          <option value="community">Community</option><option value="engaged">Engaged</option>
+          <option value="reactivated">Reactivated</option><option value="core">Core</option>
+        </select>
+        <button class="btn ghost" onclick="bulk('stage')">Set stage</button>
+        <button class="btn purple" onclick="openEmail(selectedIds())">✉ Email selected</button>
+        <button class="btn ghost" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.4)" onclick="clearSel()">Clear</button>
+      </div>
+
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th style="width:30px"><input type="checkbox" id="selall"></th>
+            <th>Mama</th><th>Reach her</th><th>Where</th><th>Tags</th><th>Joined 1.0</th><th>Last touch</th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="7" class="muted" style="padding:30px;text-align:center">Loading the Circle…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <span class="muted" id="pageinfo"></span>
+        <button id="prev" onclick="page--;load()">‹ Prev</button>
+        <button id="next" onclick="page++;load()">Next ›</button>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- contact drawer -->
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" style="position:fixed"><div style="position:relative;display:flex;flex-direction:column;height:100%">
+  <div class="dhead" id="dhead"></div>
+  <div class="dbody" id="dbody"></div>
+</div></aside>
+
+<!-- email modal -->
+<div class="modal" id="emailmodal">
+  <div class="mcard">
+    <h3 id="em-title">Email</h3>
+    <label>Subject</label><input type="text" id="em-subject" placeholder="A note from Karmel at Momni">
+    <label>Message</label><textarea id="em-body" placeholder="Hi {{first_name}},&#10;&#10;…"></textarea>
+    <p class="hint">Use <code>{{first_name}}</code> to personalize. Sent in Momni's warm branded template, signed — Karmel. Mamas marked do-not-email are skipped automatically.</p>
+    <div class="devnote" id="em-devnote">📭 Email is in <strong>dev mode</strong> — messages are logged in HQ, not actually sent, until Resend is connected.</div>
+    <div class="mrow">
+      <button class="btn ghost" onclick="hide('emailmodal')">Cancel</button>
+      <button class="btn purple" id="em-send" onclick="sendEmail()">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- new contact modal -->
+<div class="modal" id="newmodal">
+  <div class="mcard">
+    <h3>New contact</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">
+      <div><label>First name</label><input type="text" id="n-first"></div>
+      <div><label>Last name</label><input type="text" id="n-last"></div>
+      <div><label>Email</label><input type="email" id="n-email"></div>
+      <div><label>Phone</label><input type="text" id="n-phone"></div>
+      <div><label>City</label><input type="text" id="n-city"></div>
+      <div><label>State</label><input type="text" id="n-state"></div>
+    </div>
+    <label><input type="checkbox" id="n-host" style="width:auto"> She hosts (or wants to)</label>
+    <div class="mrow">
+      <button class="btn ghost" onclick="hide('newmodal')">Cancel</button>
+      <button class="btn primary" onclick="createContact()">Add her</button>
+    </div>
+  </div>
+</div>
+
+<!-- tag manager modal -->
+<div class="modal" id="tagmodal">
+  <div class="mcard">
+    <h3>Tags</h3>
+    <div id="taglist"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <input type="text" id="t-name" placeholder="New tag name" style="flex:1">
+      <input type="color" id="t-color" value="#6D58A4" style="width:44px;height:36px;padding:2px">
+      <button class="btn primary" onclick="addTag()">Add</button>
+    </div>
+    <div class="mrow"><button class="btn ghost" onclick="hide('tagmodal');loadTags()">Done</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let page = 1, per = 50, total = 0, tags = [], current = null, sel = new Set(), emailTargets = [], statsCache = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtPhone = p => p && p.length === 10 ? `(${p.slice(0,3)}) ${p.slice(3,6)}-${p.slice(6)}` : (p || '');
+const fmtDate = d => d ? new Date(d.slice(0,10) + 'T12:00:00').toLocaleDateString(undefined, {year:'numeric',month:'short',day:'numeric'}) : '';
+const ago = d => { if (!d) return '—'; const days = Math.floor((Date.now() - new Date(d.replace(' ','T') + 'Z')) / 864e5); return days <= 0 ? 'today' : days === 1 ? 'yesterday' : days < 30 ? days + 'd ago' : Math.floor(days/30) + 'mo ago'; };
+function toast(m){ const t = $('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2600); }
+function hide(id){ $(id).classList.remove('show'); }
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' }, opts));
+  if (r.status === 401 || r.status === 403) { $('appwrap').style.display = 'none'; $('lock').style.display = 'block'; throw new Error('auth'); }
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(d.error || ('HTTP ' + r.status)); e.data = d; e.status = r.status; throw e; }
+  return d;
+}
+
+function filters() {
+  const f = { q: $('q').value.trim(), source: document.querySelector('input[name=source]:checked').value,
+    role: document.querySelector('input[name=role]:checked').value, state: $('f-state').value,
+    city: $('f-city').value.trim(), stage: $('f-stage').value, has: $('f-has').value,
+    member: $('f-member').checked ? '1' : '', leader: $('f-leader').checked ? '1' : '',
+    tag: (document.querySelector('#tagchips .chip.on') || {}).dataset?.id || '', sort: $('sort').value };
+  return f;
+}
+function qs(extra) { const f = Object.assign(filters(), extra || {}); return Object.entries(f).filter(([,v]) => v).map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&'); }
+
+async function loadStats() {
+  const s = statsCache = await api('/api/admin/crm/stats');
+  $('stats').innerHTML = [
+    ['Mamas in the CRM', s.total.toLocaleString()], ['Momni 1.0', s.legacy.toLocaleString()],
+    ['In the 2.0 app', s.members_2_0.toLocaleString(), 1], ['Reactivated 💜', s.reactivated.toLocaleString(), 1],
+    ['Hosts', s.hosts.toLocaleString()], ['With phone', s.with_phone.toLocaleString()],
+    ['With email', s.with_email.toLocaleString()], ['States', s.states], ['Touches · 30d', s.touches_30d],
+  ].map(([l, n, hot]) => `<div class="stat${hot ? ' hot' : ''}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+}
+
+async function loadStates() {
+  // states come from the stats top list + a fixed US list fallback; cheap: derive from export endpoint? Use top_states + datalist of all
+  const ALL = 'Alabama,Alaska,Arizona,Arkansas,California,Colorado,Connecticut,Delaware,District of Columbia,Florida,Georgia,Hawaii,Idaho,Illinois,Indiana,Iowa,Kansas,Kentucky,Louisiana,Maine,Maryland,Massachusetts,Michigan,Minnesota,Mississippi,Missouri,Montana,Nebraska,Nevada,New Hampshire,New Jersey,New Mexico,New York,North Carolina,North Dakota,Ohio,Oklahoma,Oregon,Pennsylvania,Rhode Island,South Carolina,South Dakota,Tennessee,Texas,Utah,Vermont,Virginia,Washington,West Virginia,Wisconsin,Wyoming'.split(',');
+  $('f-state').innerHTML = '<option value="">All states</option>' + ALL.map(s => `<option>${s}</option>`).join('');
+}
+
+async function loadTags() {
+  tags = await api('/api/admin/crm/tags');
+  const on = (document.querySelector('#tagchips .chip.on') || {}).dataset?.id;
+  $('tagchips').innerHTML = tags.map(t => `<span class="chip${String(t.id) === on ? ' on' : ''}" data-id="${t.id}" onclick="toggleTagFilter(this)"><span class="dot" style="background:${esc(t.color)}"></span>${esc(t.name)} <span class="ct">${t.count}</span></span>`).join('') || '<span class="muted" style="font-size:12px">No tags yet.</span>';
+  $('bulktag').innerHTML = tags.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+}
+function toggleTagFilter(el) { const was = el.classList.contains('on'); document.querySelectorAll('#tagchips .chip').forEach(c => c.classList.remove('on')); if (!was) el.classList.add('on'); page = 1; load(); }
+
+async function loadViews() {
+  const vs = await api('/api/admin/crm/views');
+  $('views').innerHTML = vs.length ? vs.map(v => `<div class="viewrow"><a onclick='applyView(${esc(JSON.stringify(v.filters))})'>📌 ${esc(v.name)}</a><span class="x" onclick="delView(${v.id})">✕</span></div>`).join('')
+    : '<span class="muted" style="font-size:12px">None yet — set filters, then save.</span>';
+}
+async function saveView() {
+  const name = prompt('Name this view (e.g. "Utah hosts with phones"):'); if (!name) return;
+  await api('/api/admin/crm/views', { method: 'POST', body: JSON.stringify({ name, filters: filters() }) });
+  loadViews(); toast('View saved');
+}
+async function delView(id) { await api('/api/admin/crm/views/' + id, { method: 'DELETE' }); loadViews(); }
+function applyView(json) {
+  const f = typeof json === 'string' ? JSON.parse(json) : json;
+  $('q').value = f.q || ''; $('f-city').value = f.city || ''; $('f-state').value = f.state || '';
+  $('f-stage').value = f.stage || ''; $('f-has').value = f.has || ''; $('sort').value = f.sort || 'name';
+  $('f-member').checked = f.member === '1'; $('f-leader').checked = f.leader === '1';
+  document.querySelectorAll('input[name=source]').forEach(r => r.checked = r.value === (f.source || ''));
+  document.querySelectorAll('input[name=role]').forEach(r => r.checked = r.value === (f.role || ''));
+  document.querySelectorAll('#tagchips .chip').forEach(c => c.classList.toggle('on', c.dataset.id === String(f.tag || '')));
+  page = 1; load();
+}
+function clearFilters(){ applyView({}); }
+
+async function load() {
+  const d = await api('/api/admin/crm/contacts?' + qs({ page, per }));
+  total = d.total; page = d.page;
+  $('pageinfo').textContent = total ? `${((page-1)*per+1).toLocaleString()}–${Math.min(page*per, total).toLocaleString()} of ${total.toLocaleString()}` : 'No mamas match';
+  $('prev').disabled = page <= 1; $('next').disabled = page * per >= total;
+  $('rows').innerHTML = d.rows.map(r => {
+    const name = esc((r.first_name + ' ' + r.last_name).trim()) || '<span class="muted">(no name)</span>';
+    const badges = (r.source === '1.0' ? '<span class="b legacy">1.0</span>' : '') + (r.user_id ? '<span class="b member">in app</span>' : '')
+      + (r.is_host ? '<span class="b host">host</span>' : '') + (r.is_leader ? '<span class="b leader">leader</span>' : '')
+      + (r.do_not_email ? '<span class="b dnc">DNC</span>' : '');
+    const reach = [r.email ? `<div>${esc(r.email)}</div>` : '', r.phone ? `<div class="muted">${fmtPhone(r.phone)}</div>` : ''].join('');
+    const tagshtml = (r.tags || []).map(t => `<span class="tag"><span class="dot" style="background:${esc(t.color)}"></span>${esc(t.name)}</span>`).join('');
+    return `<tr class="row" data-id="${r.id}">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="rowsel" data-id="${r.id}" ${sel.has(r.id) ? 'checked' : ''}></td>
+      <td><span class="nm">${name}</span>${badges}${r.note_count ? `<span class="muted" style="font-size:11px"> · ${r.note_count} note${r.note_count > 1 ? 's' : ''}</span>` : ''}</td>
+      <td>${reach || '<span class="muted">—</span>'}</td>
+      <td>${esc([r.city, r.state].filter(Boolean).join(', ')) || '<span class="muted">—</span>'}</td>
+      <td>${tagshtml}</td><td class="muted">${fmtDate(r.joined_1_0) || '—'}</td><td class="muted">${ago(r.last_activity_at)}</td></tr>`;
+  }).join('') || '<tr><td colspan="7" class="muted" style="padding:30px;text-align:center">No mamas match these filters.</td></tr>';
+  document.querySelectorAll('tr.row').forEach(tr => tr.onclick = () => openDrawer(+tr.dataset.id));
+  document.querySelectorAll('.rowsel').forEach(cb => cb.onchange = () => { cb.checked ? sel.add(+cb.dataset.id) : sel.delete(+cb.dataset.id); syncBulk(); });
+  $('selall').checked = false;
+}
+
+function selectedIds(){ return [...sel]; }
+function syncBulk() { $('bulkcount').textContent = sel.size + ' selected'; $('bulkbar').classList.toggle('show', sel.size > 0); }
+function clearSel(){ sel.clear(); document.querySelectorAll('.rowsel').forEach(c => c.checked = false); syncBulk(); }
+$('selall').onchange = e => { document.querySelectorAll('.rowsel').forEach(cb => { cb.checked = e.target.checked; e.target.checked ? sel.add(+cb.dataset.id) : sel.delete(+cb.dataset.id); }); syncBulk(); };
+
+async function bulk(action) {
+  const value = action === 'stage' ? $('bulkstage').value : $('bulktag').value;
+  const r = await api('/api/admin/crm/bulk', { method: 'POST', body: JSON.stringify({ ids: selectedIds(), action, value }) });
+  toast(`Done — ${r.changed} updated`); load(); loadTags(); loadStats();
+}
+
+function exportCsv(){ location.href = '/api/admin/crm/export.csv?' + qs(); }
+
+// ---- drawer ----
+async function openDrawer(id) {
+  current = await api('/api/admin/crm/contacts/' + id);
+  renderDrawer();
+  $('drawer').classList.add('show'); $('scrim').classList.add('show');
+}
+function closeDrawer(){ $('drawer').classList.remove('show'); $('scrim').classList.remove('show'); current = null; }
+
+function renderDrawer() {
+  const c = current;
+  const name = (c.first_name + ' ' + c.last_name).trim() || '(no name)';
+  $('dhead').innerHTML = `
+    <button class="x" onclick="closeDrawer()">✕</button>
+    <div class="nm">${esc(name)}</div>
+    <div class="sub">${c.source === '1.0' ? 'Momni 1.0 mama' + (c.joined_1_0 ? ' · joined ' + fmtDate(c.joined_1_0) : '') : c.source === '2.0' ? 'Joined in 2.0' : 'Added by hand'}
+      ${c.legacy_id ? ' · 1.0 id ' + c.legacy_id : ''}${c.member ? ' · <strong style="color:var(--teal)">in the app now</strong>' + (c.member.is_leader ? ' · Circle Leader' : '') : ''}</div>
+    <div class="quick">
+      ${c.email && !c.do_not_email ? `<button class="em" style="font:inherit" onclick="openEmail([${c.id}])">✉ Email her</button>` : ''}
+      ${c.phone && !c.do_not_text ? `<a href="sms:+1${c.phone}" onclick="logTouch('text')">💬 Text ${fmtPhone(c.phone)}</a>` : ''}
+      ${c.phone ? `<a href="tel:+1${c.phone}" onclick="logTouch('call')">📞 Call</a>` : ''}
+      <button onclick="logTouchPrompt()" style="background:var(--lavender);color:var(--ink)">＋ Log a touch</button>
+    </div>`;
+
+  const tagOpts = tags.filter(t => !c.tags.find(x => x.id === t.id)).map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  $('dbody').innerHTML = `
+    <div class="sec"><h4>Tags</h4>
+      ${c.tags.map(t => `<span class="tag" style="font-size:12px"><span class="dot" style="background:${esc(t.color)}"></span>${esc(t.name)} <span style="cursor:pointer;margin-left:2px" onclick="untag(${t.id})">✕</span></span>`).join('') || '<span class="muted">No tags yet.</span>'}
+      <div style="display:flex;gap:7px;margin-top:8px">
+        <select id="d-tagsel" style="flex:1">${tagOpts || '<option value="">All tags applied</option>'}</select>
+        <button class="btn ghost" onclick="tagIt()">Add tag</button>
+      </div>
+    </div>
+
+    <div class="sec"><h4>Details <span style="float:right;font-weight:400;text-transform:none;letter-spacing:0"><a style="color:var(--purple);cursor:pointer" onclick="saveDetails()">save changes</a></span></h4>
+      <div class="kv">
+        <span class="k">First</span><input id="d-first" value="${esc(c.first_name)}">
+        <span class="k">Last</span><input id="d-last" value="${esc(c.last_name)}">
+        <span class="k">Email</span><input id="d-email" value="${esc(c.email || '')}">
+        <span class="k">Phone</span><input id="d-phone" value="${esc(c.phone || '')}">
+        <span class="k">City</span><input id="d-city" value="${esc(c.city || '')}">
+        <span class="k">State</span><input id="d-state" value="${esc(c.state || '')}">
+        <span class="k">Stage</span><select id="d-stage">${['community','engaged','reactivated','core'].map(s => `<option ${c.stage === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+        <span class="k">Host?</span><select id="d-host"><option value="1" ${c.is_host ? 'selected' : ''}>Yes — she hosts</option><option value="0" ${!c.is_host ? 'selected' : ''}>No</option></select>
+        <span class="k">Do not email</span><select id="d-dne"><option value="0" ${!c.do_not_email ? 'selected' : ''}>OK to email</option><option value="1" ${c.do_not_email ? 'selected' : ''}>Do NOT email</option></select>
+        <span class="k">Do not text</span><select id="d-dnt"><option value="0" ${!c.do_not_text ? 'selected' : ''}>OK to text</option><option value="1" ${c.do_not_text ? 'selected' : ''}>Do NOT text</option></select>
+      </div>
+    </div>
+
+    ${c.host_bio ? `<div class="sec"><h4>Her 1.0 hosting listing${c.property_type ? ' · ' + esc(c.property_type) : ''}</h4><div class="bio">“${esc(c.host_bio)}”</div></div>` : ''}
+
+    <div class="sec"><h4>Notes</h4>
+      <div class="composer"><textarea id="d-note" placeholder="What do you want to remember about her?"></textarea>
+        <div class="row"><label style="font-size:12px"><input type="checkbox" id="d-pin"> Pin to top</label>
+        <button class="btn primary" style="margin-left:auto" onclick="addNote()">Add note</button></div></div>
+      <div id="d-notes" style="margin-top:10px">${c.notes.map(noteHtml).join('') || '<span class="muted">No notes yet.</span>'}</div>
+    </div>
+
+    <div class="sec"><h4>Activity</h4>
+      <div id="d-acts">${c.activities.map(actHtml).join('') || '<span class="muted">No touches logged yet.</span>'}</div>
+    </div>
+
+    ${c.emails.length ? `<div class="sec"><h4>Email history</h4>${c.emails.map(e => `<div class="act"><div class="ic">✉</div><div><div>${esc(e.subject)} <span class="b ${e.status === 'sent' ? 'member' : 'legacy'}">${esc(e.status)}</span></div><div class="when">${esc(e.created_at)}</div></div></div>`).join('')}</div>` : ''}
+
+    <div class="sec" style="text-align:right"><a style="color:var(--danger);font-size:12px;cursor:pointer" onclick="delContact()">Delete this contact</a></div>`;
+}
+const noteHtml = n => `<div class="notebox${n.pinned ? ' pinned' : ''}"><div class="tools"><span onclick="pinNote(${n.id},${n.pinned ? 0 : 1})">${n.pinned ? 'unpin' : 'pin'}</span><span onclick="delNote(${n.id})">delete</span></div>${esc(n.body).replace(/\n/g,'<br>')}<div class="when">${esc(n.created_at)}${n.pinned ? ' · 📌 pinned' : ''}</div></div>`;
+const ACT_IC = { email: '✉', text: '💬', call: '📞', meeting: '🤝', other: '⭐' };
+const actHtml = a => `<div class="act"><div class="ic">${ACT_IC[a.kind] || '⭐'}</div><div><div><strong>${esc(a.kind)}</strong>${a.direction === 'in' ? ' (she reached out)' : ''}${a.subject ? ' — ' + esc(a.subject) : ''}</div>${a.body ? `<div>${esc(a.body).replace(/\n/g,'<br>')}</div>` : ''}<div class="when">${esc(a.created_at)}</div></div></div>`;
+
+async function saveDetails() {
+  await api('/api/admin/crm/contacts/' + current.id, { method: 'PUT', body: JSON.stringify({
+    first_name: $('d-first').value, last_name: $('d-last').value, email: $('d-email').value, phone: $('d-phone').value,
+    city: $('d-city').value, state: $('d-state').value, stage: $('d-stage').value,
+    is_host: $('d-host').value === '1', do_not_email: $('d-dne').value === '1', do_not_text: $('d-dnt').value === '1' }) });
+  toast('Saved 💜'); openDrawer(current.id); load(); loadStats();
+}
+async function tagIt() { const v = $('d-tagsel').value; if (!v) return; await api(`/api/admin/crm/contacts/${current.id}/tags`, { method: 'POST', body: JSON.stringify({ tag_id: +v }) }); openDrawer(current.id); loadTags(); load(); }
+async function untag(tid) { await api(`/api/admin/crm/contacts/${current.id}/tags/${tid}`, { method: 'DELETE' }); openDrawer(current.id); loadTags(); load(); }
+async function addNote() { const b = $('d-note').value.trim(); if (!b) return; await api(`/api/admin/crm/contacts/${current.id}/notes`, { method: 'POST', body: JSON.stringify({ body: b, pinned: $('d-pin').checked }) }); openDrawer(current.id); load(); }
+async function pinNote(id, p) { await api('/api/admin/crm/notes/' + id, { method: 'PUT', body: JSON.stringify({ pinned: !!p }) }); openDrawer(current.id); }
+async function delNote(id) { if (!confirm('Delete this note?')) return; await api('/api/admin/crm/notes/' + id, { method: 'DELETE' }); openDrawer(current.id); }
+async function delContact() { if (!confirm('Delete this contact and all her notes/activity? This cannot be undone.')) return; await api('/api/admin/crm/contacts/' + current.id, { method: 'DELETE' }); closeDrawer(); load(); loadStats(); toast('Contact deleted'); }
+async function logTouch(kind) { try { await api(`/api/admin/crm/contacts/${current.id}/activities`, { method: 'POST', body: JSON.stringify({ kind }) }); } catch (e) {} }
+async function logTouchPrompt() {
+  const kind = prompt('What kind of touch? (call / text / email / meeting / other)', 'call'); if (!kind) return;
+  const body = prompt('Anything to remember about it?') || '';
+  try { await api(`/api/admin/crm/contacts/${current.id}/activities`, { method: 'POST', body: JSON.stringify({ kind: kind.trim().toLowerCase(), body }) }); openDrawer(current.id); }
+  catch (e) { toast(e.message); }
+}
+
+// ---- email ----
+function openEmail(ids) {
+  emailTargets = ids || [];
+  if (!emailTargets.length) return toast('Pick at least one mama first');
+  $('em-title').textContent = emailTargets.length === 1 ? 'Email her' : `Email ${emailTargets.length} mamas`;
+  $('em-devnote').style.display = 'none';
+  $('emailmodal').classList.add('show');
+}
+async function sendEmail(confirmed) {
+  const subject = $('em-subject').value.trim(), body = $('em-body').value.trim();
+  if (!subject || !body) return toast('Subject and message, mama 💜');
+  $('em-send').disabled = true;
+  try {
+    const r = await api('/api/admin/crm/email', { method: 'POST', body: JSON.stringify({ ids: emailTargets, subject, body, confirm: !!confirmed }) });
+    hide('emailmodal');
+    toast(r.mode.startsWith('dev') ? `Logged ${r.sent} email${r.sent > 1 ? 's' : ''} (dev mode — not sent yet)` : `Sent ${r.sent} email${r.sent > 1 ? 's' : ''} 💌`);
+    if (current) openDrawer(current.id);
+  } catch (e) {
+    if (e.status === 409 && e.data?.needsConfirm) { if (confirm(e.data.message)) { $('em-send').disabled = false; return sendEmail(true); } }
+    else toast(e.message);
+  }
+  $('em-send').disabled = false;
+}
+
+// ---- new contact / tags mgmt ----
+function openNew(){ $('newmodal').classList.add('show'); }
+async function createContact() {
+  try {
+    const r = await api('/api/admin/crm/contacts', { method: 'POST', body: JSON.stringify({
+      first_name: $('n-first').value, last_name: $('n-last').value, email: $('n-email').value, phone: $('n-phone').value,
+      city: $('n-city').value, state: $('n-state').value, is_host: $('n-host').checked, is_guest: true }) });
+    hide('newmodal'); ['n-first','n-last','n-email','n-phone','n-city','n-state'].forEach(i => $(i).value = '');
+    load(); loadStats(); toast('Added to the Circle 💜'); openDrawer(r.id);
+  } catch (e) { toast(e.message); }
+}
+function manageTags() {
+  $('taglist').innerHTML = tags.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:5px 0">
+    <span class="dot" style="width:12px;height:12px;border-radius:50%;background:${esc(t.color)}"></span>
+    <span style="flex:1">${esc(t.name)} <span class="muted">(${t.count})</span></span>
+    <a style="color:var(--danger);font-size:12px;cursor:pointer" onclick="delTag(${t.id},'${esc(t.name)}')">delete</a></div>`).join('');
+  $('tagmodal').classList.add('show');
+}
+async function addTag() {
+  const name = $('t-name').value.trim(); if (!name) return;
+  try { await api('/api/admin/crm/tags', { method: 'POST', body: JSON.stringify({ name, color: $('t-color').value }) }); $('t-name').value = ''; await loadTags(); manageTags(); }
+  catch (e) { toast(e.message); }
+}
+async function delTag(id, name) { if (!confirm(`Delete the tag "${name}"? It will be removed from every contact.`)) return; await api('/api/admin/crm/tags/' + id, { method: 'DELETE' }); await loadTags(); manageTags(); load(); }
+
+// ---- wiring ----
+let deb; $('q').addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(() => { page = 1; load(); }, 280); });
+['f-state','f-stage','f-has','sort'].forEach(id => $(id).addEventListener('change', () => { page = 1; load(); }));
+$('f-city').addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(() => { page = 1; load(); }, 350); });
+['f-member','f-leader'].forEach(id => $(id).addEventListener('change', () => { page = 1; load(); }));
+document.querySelectorAll('input[name=source],input[name=role]').forEach(r => r.addEventListener('change', () => { page = 1; load(); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); ['emailmodal','newmodal','tagmodal'].forEach(hide); } });
+
+(async function init() {
+  try { await loadStats(); } catch (e) { return; }
+  loadStates(); await loadTags(); loadViews(); load();
+})();
+</script>
+</body>
+</html>

@@ -16,7 +16,7 @@ const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
-const { db, seed } = require('./db');
+const { db, seed, syncCrmFromUsers } = require('./db');
 const mailer = require('./mailer');
 const calendar = require('./calendar');
 
@@ -27,6 +27,8 @@ if (process.env.SEED_DEMO_FULL === '1') {
   try { const r = require('./demo-data').seedDemoFull(db); console.log(r.skipped ? 'Demo data already present.' : 'Full demo data seeded on boot.'); }
   catch (e) { console.error('Demo seed failed (non-fatal):', e.message); }
 }
+// Mirror every live 2.0 account into the CRM (idempotent; matches 1.0 cards by email)
+try { syncCrmFromUsers(); } catch (e) { console.error('CRM sync failed (non-fatal):', e.message); }
 
 const app = express();
 // JSON body parsing everywhere EXCEPT the Stripe webhook (which needs the raw body for signature checks)
@@ -1393,6 +1395,300 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
     if (r.status !== 'failed') sent++;
   }
   res.json({ ok: true, recipients: recipients.length, sent, mode: mailer.LIVE ? 'live' : 'dev (logged, not sent)' });
+});
+
+// ---------- CRM — Karmel's community/marketing/outreach backend (HQ-only) ----------
+// Every route is admin-gated. Contact data (25K+ 1.0 mamas) never reaches member-facing APIs.
+const { importContacts } = require('./crm-import');
+
+// Build the WHERE clause shared by list + export + stats-by-filter.
+function crmWhere(q) {
+  const where = [], params = [];
+  if (q.q) {
+    const like = `%${String(q.q).trim()}%`;
+    where.push(`(c.first_name || ' ' || c.last_name LIKE ? OR c.email LIKE ? OR c.phone LIKE ? OR c.city LIKE ?)`);
+    params.push(like, like, like, like);
+  }
+  if (q.source === '1.0' || q.source === '2.0' || q.source === 'manual') { where.push('c.source = ?'); params.push(q.source); }
+  if (q.role === 'host') where.push('c.is_host = 1');
+  if (q.role === 'guest') where.push('c.is_guest = 1 AND c.is_host = 0');
+  if (q.state) { where.push('c.state = ?'); params.push(String(q.state)); }
+  if (q.city) { where.push('c.city LIKE ?'); params.push(`%${String(q.city)}%`); }
+  if (q.stage && ['community','engaged','reactivated','core'].includes(q.stage)) { where.push('c.stage = ?'); params.push(q.stage); }
+  if (q.has === 'phone') where.push("c.phone IS NOT NULL AND c.phone != ''");
+  if (q.has === 'email') where.push("c.email IS NOT NULL AND c.email != ''");
+  if (q.member === '1') where.push('c.user_id IS NOT NULL');           // she's in the 2.0 app today
+  if (q.leader === '1') where.push('EXISTS (SELECT 1 FROM circles ci WHERE ci.leader_id = c.user_id)');
+  if (q.tag) { where.push('EXISTS (SELECT 1 FROM crm_contact_tags ct WHERE ct.contact_id = c.id AND ct.tag_id = ?)'); params.push(+q.tag); }
+  if (q.dnc === '0') where.push('c.do_not_email = 0');
+  return { sql: where.length ? 'WHERE ' + where.join(' AND ') : '', params };
+}
+const CRM_SORTS = {
+  name: "LOWER(c.last_name), LOWER(c.first_name)",
+  joined: "c.joined_1_0 IS NULL, c.joined_1_0 DESC",
+  state: "c.state IS NULL, c.state, c.city",
+  recent: "COALESCE(c.last_activity_at, c.updated_at) DESC",
+};
+
+app.get('/api/admin/crm/stats', requireAdmin, (req, res) => {
+  syncCrmFromUsers(); // keep 2.0 members mirrored into the CRM
+  const g = (sql) => db.prepare(sql).get().c;
+  res.json({
+    total: g('SELECT COUNT(*) c FROM crm_contacts'),
+    legacy: g("SELECT COUNT(*) c FROM crm_contacts WHERE source = '1.0'"),
+    members_2_0: g('SELECT COUNT(*) c FROM crm_contacts WHERE user_id IS NOT NULL'),
+    reactivated: g("SELECT COUNT(*) c FROM crm_contacts WHERE stage = 'reactivated'"),
+    hosts: g('SELECT COUNT(*) c FROM crm_contacts WHERE is_host = 1'),
+    with_phone: g("SELECT COUNT(*) c FROM crm_contacts WHERE phone IS NOT NULL AND phone != ''"),
+    with_email: g("SELECT COUNT(*) c FROM crm_contacts WHERE email IS NOT NULL AND email != ''"),
+    states: g('SELECT COUNT(DISTINCT state) c FROM crm_contacts WHERE state IS NOT NULL'),
+    notes: g('SELECT COUNT(*) c FROM crm_notes'),
+    touches_30d: g("SELECT COUNT(*) c FROM crm_activities WHERE created_at > datetime('now','-30 days')"),
+    top_states: db.prepare(`SELECT state, COUNT(*) n FROM crm_contacts WHERE state IS NOT NULL
+                            GROUP BY state ORDER BY n DESC LIMIT 8`).all(),
+  });
+});
+
+app.get('/api/admin/crm/contacts', requireAdmin, (req, res) => {
+  const { sql, params } = crmWhere(req.query);
+  const per = Math.min(Math.max(+req.query.per || 50, 10), 200);
+  const page = Math.max(+req.query.page || 1, 1);
+  const order = CRM_SORTS[req.query.sort] || CRM_SORTS.name;
+  const total = db.prepare(`SELECT COUNT(*) c FROM crm_contacts c ${sql}`).get(...params).c;
+  const rows = db.prepare(`
+    SELECT c.id, c.legacy_id, c.user_id, c.first_name, c.last_name, c.email, c.phone,
+           c.city, c.state, c.source, c.is_host, c.is_guest, c.stage, c.joined_1_0,
+           c.do_not_email, c.do_not_text, c.last_activity_at,
+           (SELECT COUNT(*) FROM crm_notes n WHERE n.contact_id = c.id) note_count,
+           (SELECT json_group_array(json_object('id', t.id, 'name', t.name, 'color', t.color))
+              FROM crm_contact_tags ct JOIN crm_tags t ON t.id = ct.tag_id WHERE ct.contact_id = c.id) tags,
+           EXISTS (SELECT 1 FROM circles ci WHERE ci.leader_id = c.user_id) is_leader
+    FROM crm_contacts c ${sql} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...params, per, (page - 1) * per);
+  for (const r of rows) r.tags = JSON.parse(r.tags || '[]');
+  res.json({ total, page, per, rows });
+});
+
+app.get('/api/admin/crm/contacts/:id', requireAdmin, (req, res) => {
+  const c = db.prepare('SELECT * FROM crm_contacts WHERE id = ?').get(req.params.id);
+  if (!c) return res.status(404).json({ error: 'Contact not found.' });
+  c.tags = db.prepare(`SELECT t.id, t.name, t.color FROM crm_contact_tags ct
+                       JOIN crm_tags t ON t.id = ct.tag_id WHERE ct.contact_id = ? ORDER BY t.name`).all(c.id);
+  c.notes = db.prepare('SELECT * FROM crm_notes WHERE contact_id = ? ORDER BY pinned DESC, id DESC').all(c.id);
+  c.activities = db.prepare('SELECT * FROM crm_activities WHERE contact_id = ? ORDER BY id DESC LIMIT 100').all(c.id);
+  c.member = c.user_id ? db.prepare(`SELECT id, name, city, is_host, momni_plus, circle_up, created_at,
+      EXISTS (SELECT 1 FROM circles ci WHERE ci.leader_id = users.id) is_leader FROM users WHERE id = ?`).get(c.user_id) : null;
+  c.emails = c.email ? db.prepare(`SELECT id, template, subject, status, created_at FROM emails
+      WHERE to_email = ? ORDER BY id DESC LIMIT 25`).all(c.email) : [];
+  res.json(c);
+});
+
+const CRM_EDITABLE = ['first_name','last_name','email','phone','city','state','postal_code','stage',
+                      'is_host','is_guest','do_not_email','do_not_text','host_bio','property_type'];
+app.post('/api/admin/crm/contacts', requireAdmin, (req, res) => {
+  const b = req.body || {};
+  if (!String(b.first_name || '').trim() && !String(b.email || '').trim())
+    return res.status(400).json({ error: 'Give her at least a name or an email.' });
+  const info = db.prepare(`INSERT INTO crm_contacts (first_name,last_name,email,phone,city,state,postal_code,source,is_host,is_guest,stage)
+    VALUES (?,?,?,?,?,?,?,'manual',?,?,?)`).run(
+    String(b.first_name || '').slice(0, 60), String(b.last_name || '').slice(0, 60),
+    b.email ? String(b.email).trim().toLowerCase().slice(0, 120) : null,
+    b.phone ? String(b.phone).replace(/\D/g, '').slice(0, 11) : null,
+    b.city ? String(b.city).slice(0, 80) : null, b.state ? String(b.state).slice(0, 40) : null,
+    b.postal_code ? String(b.postal_code).slice(0, 10) : null,
+    b.is_host ? 1 : 0, b.is_guest ? 1 : 0,
+    ['community','engaged','reactivated','core'].includes(b.stage) ? b.stage : 'community');
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+app.put('/api/admin/crm/contacts/:id', requireAdmin, (req, res) => {
+  const sets = [], params = [];
+  for (const k of CRM_EDITABLE) {
+    if (!(k in (req.body || {}))) continue;
+    let v = req.body[k];
+    if (k === 'email') v = v ? String(v).trim().toLowerCase().slice(0, 120) : null;
+    else if (k === 'phone') v = v ? String(v).replace(/\D/g, '').slice(0, 11) : null;
+    else if (['is_host','is_guest','do_not_email','do_not_text'].includes(k)) v = v ? 1 : 0;
+    else if (k === 'stage' && !['community','engaged','reactivated','core'].includes(v)) continue;
+    else if (v != null) v = String(v).slice(0, 600);
+    sets.push(`${k} = ?`); params.push(v);
+  }
+  if (!sets.length) return res.status(400).json({ error: 'Nothing to update.' });
+  const r = db.prepare(`UPDATE crm_contacts SET ${sets.join(', ')}, updated_at = datetime('now') WHERE id = ?`)
+    .run(...params, req.params.id);
+  if (!r.changes) return res.status(404).json({ error: 'Contact not found.' });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/crm/contacts/:id', requireAdmin, (req, res) => {
+  const r = db.prepare('DELETE FROM crm_contacts WHERE id = ?').run(req.params.id);
+  res.json({ ok: !!r.changes });
+});
+
+// ----- tags -----
+app.get('/api/admin/crm/tags', requireAdmin, (req, res) => {
+  res.json(db.prepare(`SELECT t.*, (SELECT COUNT(*) FROM crm_contact_tags ct WHERE ct.tag_id = t.id) count
+                       FROM crm_tags t ORDER BY t.name`).all());
+});
+app.post('/api/admin/crm/tags', requireAdmin, (req, res) => {
+  const name = String(req.body.name || '').trim().slice(0, 40);
+  if (!name) return res.status(400).json({ error: 'Tag needs a name.' });
+  try {
+    const info = db.prepare('INSERT INTO crm_tags (name, color) VALUES (?, ?)')
+      .run(name, /^#[0-9a-fA-F]{6}$/.test(req.body.color || '') ? req.body.color : '#6D58A4');
+    res.json({ ok: true, id: info.lastInsertRowid });
+  } catch (e) { res.status(409).json({ error: 'That tag already exists.' }); }
+});
+app.put('/api/admin/crm/tags/:id', requireAdmin, (req, res) => {
+  const sets = [], params = [];
+  if (req.body.name) { sets.push('name = ?'); params.push(String(req.body.name).trim().slice(0, 40)); }
+  if (/^#[0-9a-fA-F]{6}$/.test(req.body.color || '')) { sets.push('color = ?'); params.push(req.body.color); }
+  if (!sets.length) return res.status(400).json({ error: 'Nothing to update.' });
+  try {
+    const r = db.prepare(`UPDATE crm_tags SET ${sets.join(', ')} WHERE id = ?`).run(...params, req.params.id);
+    if (!r.changes) return res.status(404).json({ error: 'Tag not found.' });
+    res.json({ ok: true });
+  } catch (e) { res.status(409).json({ error: 'That tag name is taken.' }); }
+});
+app.delete('/api/admin/crm/tags/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM crm_tags WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+app.post('/api/admin/crm/contacts/:id/tags', requireAdmin, (req, res) => {
+  if (!db.prepare('SELECT 1 FROM crm_contacts WHERE id = ?').get(req.params.id)) return res.status(404).json({ error: 'Contact not found.' });
+  if (!db.prepare('SELECT 1 FROM crm_tags WHERE id = ?').get(+req.body.tag_id)) return res.status(404).json({ error: 'Tag not found.' });
+  db.prepare('INSERT OR IGNORE INTO crm_contact_tags (contact_id, tag_id) VALUES (?, ?)').run(req.params.id, +req.body.tag_id);
+  res.json({ ok: true });
+});
+app.delete('/api/admin/crm/contacts/:id/tags/:tagId', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM crm_contact_tags WHERE contact_id = ? AND tag_id = ?').run(req.params.id, req.params.tagId);
+  res.json({ ok: true });
+});
+
+// ----- notes -----
+app.post('/api/admin/crm/contacts/:id/notes', requireAdmin, (req, res) => {
+  const body = String(req.body.body || '').trim().slice(0, 4000);
+  if (!body) return res.status(400).json({ error: 'Write the note first.' });
+  if (!db.prepare('SELECT 1 FROM crm_contacts WHERE id = ?').get(req.params.id)) return res.status(404).json({ error: 'Contact not found.' });
+  const info = db.prepare('INSERT INTO crm_notes (contact_id, body, pinned) VALUES (?, ?, ?)')
+    .run(req.params.id, body, req.body.pinned ? 1 : 0);
+  db.prepare("UPDATE crm_contacts SET last_activity_at = datetime('now') WHERE id = ?").run(req.params.id);
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+app.put('/api/admin/crm/notes/:id', requireAdmin, (req, res) => {
+  const sets = [], params = [];
+  if ('body' in req.body) { sets.push('body = ?'); params.push(String(req.body.body || '').trim().slice(0, 4000)); }
+  if ('pinned' in req.body) { sets.push('pinned = ?'); params.push(req.body.pinned ? 1 : 0); }
+  if (!sets.length) return res.status(400).json({ error: 'Nothing to update.' });
+  const r = db.prepare(`UPDATE crm_notes SET ${sets.join(', ')} WHERE id = ?`).run(...params, req.params.id);
+  if (!r.changes) return res.status(404).json({ error: 'Note not found.' });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/crm/notes/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM crm_notes WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ----- activities (log a call / text / meeting; emails log themselves on send) -----
+app.post('/api/admin/crm/contacts/:id/activities', requireAdmin, (req, res) => {
+  const kind = String(req.body.kind || '');
+  if (!['email','text','call','meeting','other'].includes(kind)) return res.status(400).json({ error: 'bad kind' });
+  if (!db.prepare('SELECT 1 FROM crm_contacts WHERE id = ?').get(req.params.id)) return res.status(404).json({ error: 'Contact not found.' });
+  const info = db.prepare('INSERT INTO crm_activities (contact_id, kind, direction, subject, body) VALUES (?,?,?,?,?)')
+    .run(req.params.id, kind, req.body.direction === 'in' ? 'in' : 'out',
+         String(req.body.subject || '').slice(0, 200), String(req.body.body || '').slice(0, 4000));
+  db.prepare("UPDATE crm_contacts SET last_activity_at = datetime('now') WHERE id = ?").run(req.params.id);
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+
+// ----- bulk ops on a selection -----
+app.post('/api/admin/crm/bulk', requireAdmin, (req, res) => {
+  const ids = (Array.isArray(req.body.ids) ? req.body.ids : []).map(Number).filter(Number.isFinite).slice(0, 5000);
+  if (!ids.length) return res.status(400).json({ error: 'No contacts selected.' });
+  const { action, value } = req.body;
+  const inList = ids.map(() => '?').join(',');
+  let changed = 0;
+  if (action === 'tag' || action === 'untag') {
+    if (!db.prepare('SELECT 1 FROM crm_tags WHERE id = ?').get(+value)) return res.status(404).json({ error: 'Tag not found.' });
+    if (action === 'tag') {
+      const add = db.prepare('INSERT OR IGNORE INTO crm_contact_tags (contact_id, tag_id) VALUES (?, ?)');
+      const tx = db.transaction(() => { for (const id of ids) changed += add.run(id, +value).changes; }); tx();
+    } else {
+      changed = db.prepare(`DELETE FROM crm_contact_tags WHERE tag_id = ? AND contact_id IN (${inList})`).run(+value, ...ids).changes;
+    }
+  } else if (action === 'stage' && ['community','engaged','reactivated','core'].includes(value)) {
+    changed = db.prepare(`UPDATE crm_contacts SET stage = ?, updated_at = datetime('now') WHERE id IN (${inList})`).run(value, ...ids).changes;
+  } else if (action === 'dnc') {
+    changed = db.prepare(`UPDATE crm_contacts SET do_not_email = ?, do_not_text = ?, updated_at = datetime('now') WHERE id IN (${inList})`)
+      .run(value ? 1 : 0, value ? 1 : 0, ...ids).changes;
+  } else {
+    return res.status(400).json({ error: 'bad action' });
+  }
+  res.json({ ok: true, changed });
+});
+
+// ----- outreach email (one or many; {{first_name}} personalization; respects do-not-email) -----
+app.post('/api/admin/crm/email', requireAdmin, async (req, res) => {
+  const ids = (Array.isArray(req.body.ids) ? req.body.ids : []).map(Number).filter(Number.isFinite).slice(0, MAX_BROADCAST);
+  const subject = String(req.body.subject || '').trim().slice(0, 150);
+  const body = String(req.body.body || '').trim().slice(0, 8000);
+  if (!ids.length || !subject || !body) return res.status(400).json({ error: 'Pick recipients and write a subject + message.' });
+  const inList = ids.map(() => '?').join(',');
+  const all = db.prepare(`SELECT id, first_name, email, do_not_email FROM crm_contacts WHERE id IN (${inList})`).all(...ids);
+  const recipients = all.filter(c => c.email && !c.do_not_email);
+  const skipped = all.length - recipients.length;
+  if (!recipients.length) return res.status(404).json({ error: 'No emailable contacts in that selection (missing email or do-not-email).' });
+  if (recipients.length > 10 && !req.body.confirm) {
+    return res.status(409).json({ error: 'confirm_required', needsConfirm: true, recipients: recipients.length, skipped,
+      message: `This will email ${recipients.length} mamas${skipped ? ` (${skipped} skipped: no email / do-not-email)` : ''}. Resend with confirm to proceed.` });
+  }
+  const logAct = db.prepare("INSERT INTO crm_activities (contact_id, kind, direction, subject, body) VALUES (?, 'email', 'out', ?, ?)");
+  const touch = db.prepare("UPDATE crm_contacts SET last_activity_at = datetime('now') WHERE id = ?");
+  let sent = 0;
+  for (const c of recipients) {
+    const fn = c.first_name || 'mama';
+    const r = await mailer.send({ to: c.email, template: 'crm_outreach',
+      vars: { subject: subject.replace(/{{\s*first_name\s*}}/gi, fn), body: body.replace(/{{\s*first_name\s*}}/gi, fn) } });
+    if (r.status !== 'failed') { sent++; logAct.run(c.id, subject, body.slice(0, 500)); touch.run(c.id); }
+  }
+  res.json({ ok: true, recipients: recipients.length, sent, skipped, mode: mailer.LIVE ? 'live' : 'dev (logged, not sent)' });
+});
+
+// ----- CSV export of the current filter -----
+app.get('/api/admin/crm/export.csv', requireAdmin, (req, res) => {
+  const { sql, params } = crmWhere(req.query);
+  const rows = db.prepare(`SELECT c.first_name, c.last_name, c.email, c.phone, c.city, c.state, c.postal_code,
+      c.source, c.is_host, c.stage, c.joined_1_0,
+      (SELECT group_concat(t.name, '; ') FROM crm_contact_tags ct JOIN crm_tags t ON t.id = ct.tag_id WHERE ct.contact_id = c.id) tags
+    FROM crm_contacts c ${sql} ORDER BY ${CRM_SORTS[req.query.sort] || CRM_SORTS.name} LIMIT 30000`).all(...params);
+  const csv = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const head = 'first_name,last_name,email,phone,city,state,postal_code,source,is_host,stage,joined_1_0,tags';
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="momni-crm-export.csv"');
+  res.send([head, ...rows.map(r => [r.first_name, r.last_name, r.email, r.phone, r.city, r.state, r.postal_code,
+    r.source, r.is_host, r.stage, r.joined_1_0, r.tags].map(csv).join(','))].join('\n'));
+});
+
+// ----- import (batched JSON from the converter; also used to top-up later exports) -----
+app.post('/api/admin/crm/import', requireAdmin, uploadJson, (req, res) => {
+  const rows = Array.isArray(req.body.rows) ? req.body.rows : null;
+  if (!rows || !rows.length) return res.status(400).json({ error: 'Send { rows: [...] }.' });
+  try { res.json({ ok: true, ...importContacts(db, rows) }); }
+  catch (e) { console.error('CRM import failed:', e); res.status(500).json({ error: 'Import failed: ' + e.message }); }
+});
+
+// ----- saved views (segments) -----
+app.get('/api/admin/crm/views', requireAdmin, (req, res) => {
+  res.json(db.prepare('SELECT * FROM crm_views ORDER BY name').all());
+});
+app.post('/api/admin/crm/views', requireAdmin, (req, res) => {
+  const name = String(req.body.name || '').trim().slice(0, 60);
+  if (!name) return res.status(400).json({ error: 'Name the view first.' });
+  db.prepare(`INSERT INTO crm_views (name, filters) VALUES (?, ?)
+              ON CONFLICT(name) DO UPDATE SET filters = excluded.filters`)
+    .run(name, JSON.stringify(req.body.filters || {}));
+  res.json({ ok: true });
+});
+app.delete('/api/admin/crm/views/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM crm_views WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
 });
 
 const PORT = process.env.PORT || 3000;

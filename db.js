@@ -315,7 +315,115 @@ CREATE TABLE IF NOT EXISTS user_badges (
   awarded_at TEXT DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, badge_key)
 );
+
+-- ===== CRM (HQ-only — every route admin-gated; this data never reaches member-facing APIs) =====
+CREATE TABLE IF NOT EXISTS crm_contacts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  legacy_id INTEGER,                      -- her Momni 1.0 user id (from the export workbook)
+  user_id INTEGER REFERENCES users(id),   -- her live 2.0 account, once matched by email
+  first_name TEXT DEFAULT '',
+  last_name TEXT DEFAULT '',
+  email TEXT,
+  phone TEXT,                             -- 10 digits, unformatted
+  city TEXT, state TEXT, postal_code TEXT,
+  source TEXT DEFAULT 'manual',           -- 1.0 | 2.0 | manual
+  is_host INTEGER DEFAULT 0,
+  is_guest INTEGER DEFAULT 0,
+  host_bio TEXT,                          -- her 1.0 host listing, in her own words
+  property_type TEXT,
+  joined_1_0 TEXT,                        -- yyyy-mm-dd she joined Momni 1.0
+  stage TEXT DEFAULT 'community',         -- community | engaged | reactivated | core
+  do_not_email INTEGER DEFAULT 0,
+  do_not_text INTEGER DEFAULT 0,
+  last_activity_at TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_crm_email  ON crm_contacts(email);
+CREATE INDEX IF NOT EXISTS idx_crm_state  ON crm_contacts(state);
+CREATE INDEX IF NOT EXISTS idx_crm_source ON crm_contacts(source);
+CREATE INDEX IF NOT EXISTS idx_crm_legacy ON crm_contacts(legacy_id);
+
+CREATE TABLE IF NOT EXISTS crm_tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT UNIQUE NOT NULL COLLATE NOCASE,
+  color TEXT DEFAULT '#6D58A4',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS crm_contact_tags (
+  contact_id INTEGER NOT NULL REFERENCES crm_contacts(id) ON DELETE CASCADE,
+  tag_id INTEGER NOT NULL REFERENCES crm_tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (contact_id, tag_id)
+);
+
+CREATE TABLE IF NOT EXISTS crm_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  contact_id INTEGER NOT NULL REFERENCES crm_contacts(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  pinned INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS crm_activities (  -- every touch: emails, texts, calls, meetings
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  contact_id INTEGER NOT NULL REFERENCES crm_contacts(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,                     -- email | text | call | meeting | other
+  direction TEXT DEFAULT 'out',           -- out | in
+  subject TEXT DEFAULT '',
+  body TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_crm_act_contact ON crm_activities(contact_id, created_at);
+
+CREATE TABLE IF NOT EXISTS crm_views (       -- saved filter sets ("segments")
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT UNIQUE NOT NULL,
+  filters TEXT NOT NULL DEFAULT '{}',     -- JSON of the filter state
+  created_at TEXT DEFAULT (datetime('now'))
+);
 `);
+
+// Starter tag set — created once; Karmel can add/rename/recolor freely in the CRM.
+try {
+  if (db.prepare('SELECT COUNT(*) c FROM crm_tags').get().c === 0) {
+    const t = db.prepare('INSERT INTO crm_tags (name, color) VALUES (?, ?)');
+    t.run('Volunteer', '#0D878F');
+    t.run('Circle Leader', '#6D58A4');
+    t.run('Founding Mama', '#D9A03A');
+    t.run('VIP', '#C25B8C');
+    t.run('Beta Tester', '#4A8FD9');
+    t.run('Press / Media', '#2B2233');
+    t.run('Partner / Sponsor', '#3E9E6E');
+    t.run('Do Not Contact', '#C94B4B');
+  }
+} catch (e) { /* first boot ordering */ }
+
+// Keep the CRM in step with live 2.0 membership: every app account gets a contact card,
+// matched to her 1.0 card by email when one exists (that's a reactivated mama). Idempotent,
+// cheap (indexed email lookups), safe to run on every boot.
+function syncCrmFromUsers(database) {
+  const d = database || db;
+  const users = d.prepare("SELECT id, email, name, city, is_host, legacy_1_0, created_at FROM users WHERE email NOT LIKE '%@momni.com'").all();
+  const byEmail = d.prepare('SELECT id, user_id, source, stage FROM crm_contacts WHERE email = ?');
+  const ins = d.prepare(`INSERT INTO crm_contacts (user_id, first_name, last_name, email, city, source, is_host, is_guest, stage)
+                         VALUES (?,?,?,?,?,?,?,?,?)`);
+  const linkUp = d.prepare("UPDATE crm_contacts SET user_id = ?, is_host = MAX(is_host, ?), is_guest = 1, stage = CASE WHEN source = '1.0' THEN 'reactivated' ELSE stage END, updated_at = datetime('now') WHERE id = ?");
+  const tx = d.transaction(() => {
+    for (const u of users) {
+      const email = (u.email || '').trim().toLowerCase();
+      if (!email) continue;
+      const existing = byEmail.get(email);
+      if (existing) {
+        if (!existing.user_id) linkUp.run(u.id, u.is_host ? 1 : 0, existing.id);
+        continue;
+      }
+      const parts = (u.name || '').trim().split(/\s+/);
+      ins.run(u.id, parts[0] || '', parts.slice(1).join(' '), email, u.city || null, '2.0', u.is_host ? 1 : 0, 1, 'engaged');
+    }
+  });
+  tx();
+}
 
 function seed() {
   // Real data only in production: Circles + anonymized legacy pins always seed;
@@ -398,4 +506,4 @@ function seedDemoCircle(database) {
 
 if (process.argv.includes('--seed')) seed();
 
-module.exports = { db, seed, seedDemoCircle };
+module.exports = { db, seed, seedDemoCircle, syncCrmFromUsers };
