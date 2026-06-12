@@ -31,8 +31,10 @@ if (process.env.SEED_DEMO_FULL === '1') {
 try { syncCrmFromUsers(); } catch (e) { console.error('CRM sync failed (non-fatal):', e.message); }
 
 const app = express();
-// JSON body parsing everywhere EXCEPT the Stripe webhook (which needs the raw body for signature checks)
-app.use((req, res, next) => req.path === '/api/stripe/webhook' ? next() : express.json()(req, res, next));
+// JSON body parsing everywhere EXCEPT the Stripe webhook (raw body for signature checks)
+// and the big-payload admin uploads, which carry their own 30mb parser (uploadJson).
+const RAW_BODY_PATHS = ['/api/stripe/webhook', '/api/admin/crm/import', '/api/admin/shop/products'];
+app.use((req, res, next) => RAW_BODY_PATHS.some(p => req.path.startsWith(p)) ? next() : express.json()(req, res, next));
 app.use(express.urlencoded({ extended: true }));
 const IS_PROD = process.env.NODE_ENV === 'production';
 if (IS_PROD) app.set('trust proxy', 1); // Render/Netlify-style proxy → secure cookies work
