@@ -121,6 +121,7 @@ a{text-decoration:none;color:inherit}
         </div>
       </div>
       <p class="preview" id="schedule-preview" aria-live="polite"></p>
+      <p id="cal-check" aria-live="polite" style="display:none;margin-top:8px;font-size:13.5px;font-weight:600;border-radius:10px;padding:9px 12px"></p>
     </div>
 
     <div class="step">
@@ -200,12 +201,61 @@ function toggleRecurring(){
     });
   }
 
+  var hostName = 'this Momni';
   if (hostId) {
     fetch('/api/hosts/' + encodeURIComponent(hostId)).then(function(r){ return r.ok ? r.json() : null; })
       .then(function(h){
-        if (h) document.getElementById('page-title').textContent =
-          'Requesting a Link with ' + h.name + ' · ' + h.city;
+        if (h) { hostName = h.name; document.getElementById('page-title').textContent =
+          'Requesting a Link with ' + h.name + ' · ' + h.city; }
       }).catch(function(){});
+  }
+
+  // Live availability check against the host's synced calendar (free/busy = times only, never event details).
+  // Soft signal: confirms a synced calendar is open, or warns of a conflict — the host still confirms every Link.
+  var calBox = document.getElementById('cal-check');
+  function setCal(text, kind){
+    if (!text) { calBox.style.display = 'none'; return; }
+    calBox.style.display = 'block';
+    calBox.textContent = text;
+    if (kind === 'busy') { calBox.style.background = '#FDECEC'; calBox.style.color = '#B4434E'; }
+    else if (kind === 'open') { calBox.style.background = 'var(--teal-soft)'; calBox.style.color = 'var(--teal-deep)'; }
+    else { calBox.style.background = 'var(--lavender)'; calBox.style.color = 'var(--purple-deep)'; }
+  }
+  function reqWindow(){
+    // Returns [fromISO, toISO] for the requested care window, or null if not enough is chosen yet.
+    var care = document.querySelector('input[name="caretype"]:checked').value;
+    var sd = document.getElementById('start-date').value;
+    if (!sd) return null;
+    var st = document.getElementById('start-time').value, et = document.getElementById('end-time').value;
+    if (care === 'one-time') {
+      if (!st || !et) return null;
+      return [new Date(sd + 'T' + st).toISOString(), new Date(sd + 'T' + et).toISOString()];
+    }
+    if (care === 'overnight') {
+      var ed = document.getElementById('end-date').value || sd;
+      return [new Date(sd + 'T' + (st || '00:00')).toISOString(), new Date(ed + 'T' + (et || '23:59')).toISOString()];
+    }
+    return null; // recurring: skip the per-window check
+  }
+  var calTimer;
+  function checkAvailability(){
+    if (!hostId) return;
+    var win = reqWindow();
+    if (!win) { setCal('', null); return; }
+    clearTimeout(calTimer);
+    calTimer = setTimeout(function(){
+      fetch('/api/hosts/' + encodeURIComponent(hostId) + '/freebusy?from=' + encodeURIComponent(win[0]) + '&to=' + encodeURIComponent(win[1]))
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          if (!d || !d.connected) { setCal('', null); return; } // host hasn't synced — manual availability governs
+          var rs = Date.parse(win[0]), re = Date.parse(win[1]);
+          var clash = (d.busy || []).some(function(b){
+            return rs < Date.parse(b.end) && Date.parse(b.start) < re;
+          });
+          if (clash) setCal('⚠ ' + hostName + ' has something on their calendar then. You can still send the Link, but they may not be free — another time may connect faster.', 'busy');
+          else setCal('✓ Open on ' + hostName + '’s calendar then — their availability is live.', 'open');
+        }).catch(function(){ setCal('', null); });
+    }, 350);
   }
 
   fetch('/api/acknowledgment').then(function(r){ return r.json(); }).then(function(d){
@@ -272,12 +322,13 @@ function toggleRecurring(){
     box.textContent = text;
     box.style.display = text ? 'block' : 'none';
   }
+  function onScheduleChange(){ updatePreview(); checkAvailability(); }
   ['start-date','end-date','start-time','end-time'].forEach(function(id){
     var el = document.getElementById(id);
-    el.addEventListener('input', updatePreview);
-    el.addEventListener('change', updatePreview);
+    el.addEventListener('input', onScheduleChange);
+    el.addEventListener('change', onScheduleChange);
   });
-  document.querySelectorAll('input[name="caretype"]').forEach(function(r){ r.addEventListener('change', updatePreview); });
+  document.querySelectorAll('input[name="caretype"]').forEach(function(r){ r.addEventListener('change', onScheduleChange); });
   document.querySelectorAll('#recurring-days input').forEach(function(c){ c.addEventListener('change', updatePreview); });
   updatePreview();
 
