@@ -200,6 +200,7 @@ main{padding:6px 20px 24px}
     </div>
 
     <div class="card settings">
+      <a href="admin.html" id="hq-link" style="display:none;color:var(--purple);font-weight:700">🛡️ Momni HQ <span style="font-weight:500;color:var(--muted);font-size:13px">· founder dashboard</span></a>
       <a href="#" id="change-pw">Change password</a>
       <a href="#" id="send-feedback">💬 Send feedback in-app</a>
       <a href="#" id="signout">Sign out</a>
@@ -349,6 +350,8 @@ main{padding:6px 20px 24px}
       st.style.display = 'block';
       st.innerHTML = me.rating + '★ <span>from ' + me.review_count + ' Momnis</span>';
     }
+    var hq = document.getElementById('hq-link');
+    if (hq) hq.style.display = me.is_admin ? 'block' : 'none';
     document.getElementById('host-toggle').checked = me.is_host;
     document.getElementById('host-card').style.display = me.is_host ? 'block' : 'none';
     document.getElementById('now-toggle').checked = me.available_now;

@@ -316,6 +316,7 @@ app.get('/api/me', requireAuth, (req, res) => {
   const reviews = db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE subject_id = ?').get(u.id);
   res.json({ ...userPublic(u), email: u.email, links_balance: u.links_balance,
     momni_plus: !!u.momni_plus, circle_up: !!u.circle_up, gives_toggle: !!u.gives_toggle,
+    is_admin: !!u.is_admin,
     rating: reviews.n ? Number(reviews.avg.toFixed(1)) : null, review_count: reviews.n });
 });
 
