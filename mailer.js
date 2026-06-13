@@ -14,7 +14,8 @@ const gmaildraft = require('./gmaildraft');
 
 // Bulk templates always route to the HQ Outbox (Resend) — too many to draft in Gmail.
 // Everything else is "personal" and, when Gmail drafts are configured, lands in support@'s Drafts.
-const BULK_TEMPLATES = new Set(['reactivation', 'newsletter']);
+const BULK_TEMPLATES = new Set(['reactivation', 'reactivation_2', 'reactivation_3',
+  'dormant_30', 'dormant_60', 'community_digest', 'trust_education', 'newsletter']);
 
 const RESEND_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Momni <onboarding@resend.dev>';
@@ -248,6 +249,162 @@ const TEMPLATES = {
       `<p style="margin:20px 0">${btn(APP_URL + '/search.html', 'Send my first Link')}</p>` +
       script('— Karmel'),
       'The only thing Momni ever charges for — and it\'s a dollar.'),
+  }),
+
+  // ───────── Booking lifecycle — the day-before reminder (request/confirmed/review already exist above) ─────────
+  booking_reminder: (v) => ({
+    subject: `Tomorrow: your Momni visit${v.other ? ' with ' + v.other : ''}`,
+    html: layout(
+      h1('A little reminder 💜') +
+      p(`Your Momni visit${v.other ? ` with <strong>${esc(v.other)}</strong>` : ''} is coming up${v.when ? ` — <strong>${esc(v.when)}</strong>` : ' tomorrow'}.`) +
+      p('A quick checklist helps the day go smooth: confirm the drop-off time, share any notes about the littles (naps, snacks, the lovey that must not be lost), and swap phone numbers if you haven\'t.') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/links.html', 'Open this Link')}</p>` +
+      script('— Karmel'),
+      `Your visit${v.other ? ' with ' + v.other : ''} is coming up.`),
+  }),
+
+  // ───────── Reactivation — 3-touch win-back for the 25,373 first Momnis (touch 1 is the 'reactivation' template above) ─────────
+  reactivation_2: (v) => ({
+    subject: 'Look who\'s already back near you',
+    html: layout(
+      h1('The map is lighting up again') +
+      p(`Momnis you may remember from the early days are relighting their pins — real lights, glowing in real neighborhoods. The Circle you helped build in the first place is finding its way home.`) +
+      p('Your pin is still there, waiting. Come see who\'s near you now.') +
+      `<p style="margin:20px 0">${btn('https://momni.com/map/', 'See the map light up')}</p>` +
+      script('— Karmel'),
+      'The Momnis you remember are relighting their pins.'),
+  }),
+  reactivation_3: (v) => ({
+    subject: 'Come light it up 💡',
+    html: layout(
+      h1('Your pin is still on the map') +
+      p('Six years ago we paused. We\'re back now — community-led, built to last — and the only thing missing is you. It takes a minute to relight your pin and be part of the Circle again.') +
+      p('No pressure, ever. Just an open door, the way it always was.') +
+      `<p style="margin:20px 0">${btn(APP_URL, 'Light up my pin')}</p>` +
+      script('Welcome home, — Karmel'),
+      'It takes a minute to come home.'),
+  }),
+
+  // ───────── Dormant re-engagement ─────────
+  dormant_30: (v) => ({
+    subject: `We\'ve missed you, ${v.name || 'Momni'}`,
+    html: layout(
+      h1('It\'s been a minute') +
+      p(`Hi ${esc(v.name || 'Momni')} — no guilt, just a wave from the Circle. New Momnis have joined near you, and a few Circles are meeting this month. Whenever you need a hand (or want to lend one), we\'re here.`) +
+      `<p style="margin:20px 0">${btn(APP_URL + '/search.html', 'See who\'s near me now')}</p>` +
+      script('— Karmel'),
+      'A wave from the Circle — no guilt, just here when you need us.'),
+  }),
+  dormant_60: (v) => ({
+    subject: 'Still saving your spot in the Circle',
+    html: layout(
+      h1('Your spot is still here') +
+      p(`We haven\'t seen you in a while, ${esc(v.name || 'Momni')}, and that\'s okay — life is full. Your profile, your pin, and your people are right where you left them. If there\'s something that would make Momni more useful for your family, just reply and tell me — I read these.`) +
+      `<p style="margin:20px 0">${btn(APP_URL + '/home.html', 'Come back anytime')}</p>` +
+      script('— Karmel'),
+      'Your profile, your pin, and your people are right where you left them.'),
+  }),
+
+  // ───────── Milestones & celebrations ─────────
+  milestone_first_link: (v) => ({
+    subject: 'Your first Link 🎉',
+    html: layout(
+      h1('You did the thing!') +
+      p('You just sent your first Link — the first thread in what we hope is a long, warm web of care around your family. However it goes, you showed up, and that\'s the whole movement in one small act.') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/links.html', 'See your Link')}</p>` +
+      script('Proud of you, — Karmel'),
+      'The first thread in your web of care.'),
+  }),
+  milestone_first_review: (v) => ({
+    subject: 'Your first review just landed ⭐',
+    html: layout(
+      h1('Someone vouched for you') +
+      p('A fellow Momni took a moment to share how it went — and now that trust is part of the Circle\'s map. Reviews are how we grow the most precious thing we have: a trusted picture of who\'s wonderful with our little ones.') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/me.html', 'See your review')}</p>` +
+      script('— Karmel'),
+      'That trust is now part of the Circle.'),
+  }),
+  milestone_helped: (v) => ({
+    subject: `You\'ve helped ${v.count || 'so many'} families 💜`,
+    html: layout(
+      h1(`${v.count || 'So many'} families — because of you`) +
+      p(`Every time you opened your door or sent a Link, a family somewhere breathed a little easier. That\'s ${v.count ? `<strong>${esc(v.count)}</strong> times` : 'more times than you might count'} now. One drop, then rings, then a wave.`) +
+      `<p style="margin:20px 0">${btn(APP_URL + '/home.html', 'Keep circling up')}</p>` +
+      script('Thank you, — Karmel'),
+      'A family somewhere breathed easier because of you.'),
+  }),
+  milestone_anniversary: (v) => ({
+    subject: `Happy Momni-versary, ${v.name || 'friend'} 💜`,
+    html: layout(
+      h1(`${v.years ? esc(v.years) + ' ' : ''}year${v.years === 1 ? '' : 's'} in the Circle`) +
+      p(`It\'s been ${v.years ? `<strong>${esc(v.years)} year${v.years === 1 ? '' : 's'}</strong>` : 'a year'} since you joined the Circle, ${esc(v.name || 'Momni')}. Thank you for being part of something that runs on nothing but moms — and now, Momnis of every kind — showing up for each other.`) +
+      `<p style="margin:20px 0">${btn(APP_URL + '/home.html', 'Here\'s to the next one')}</p>` +
+      script('— Karmel'),
+      'Thank you for showing up, year after year.'),
+  }),
+  milestone_pin_relit: (v) => ({
+    subject: 'Your light is back on the map 💡',
+    html: layout(
+      h1('Welcome home') +
+      p('You relit your pin — and the map is brighter for it. A real, glowing light in your neighborhood, right where it belongs. Come see who else is circling up near you.') +
+      `<p style="margin:20px 0">${btn('https://momni.com/map/', 'See your light on the map')}</p>` +
+      script('So glad you\'re back, — Karmel'),
+      'A real, glowing light, right where it belongs.'),
+  }),
+
+  // ───────── Circles of Care welcomes (concept pending Karmel; Pre-Momni framed community/mentorship, no minor booking) ─────────
+  grandmomni_welcome: (v) => ({
+    subject: 'Welcome, GrandMomni 💜',
+    html: layout(
+      h1('The generation above') +
+      p(`You raised yours — and the young Momnis near you are aching for exactly what you carry: patience, steady hands, and ten thousand years of "this is how you settle a fussy baby." As a GrandMomni, you can host, mentor, and simply be present in a circle that needs you.`) +
+      `<p style="margin:20px 0">${btn(APP_URL + '/me.html', 'Set up my GrandMomni profile')}</p>` +
+      script('— Karmel (a Grand-Mama too)'),
+      'The young Momnis near you are aching for what you carry.'),
+  }),
+  mr_momni_welcome: (v) => ({
+    subject: 'Welcome, Mr. Momni 💜',
+    html: layout(
+      h1('Dads, fully in the circle') +
+      p('Asking for help isn\'t a mom-only thing, and neither is giving it. Whether you\'re holding down solo days, covering while a partner travels, or hosting other kids on a Saturday — you belong here, fully, as a Momni. The "Mr." just says we\'re glad you came.') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/home.html', 'Find your circle')}</p>` +
+      script('— Karmel'),
+      'Asking for help isn\'t a mom-only thing.'),
+  }),
+  pre_momni_welcome: (v) => ({
+    subject: 'Welcome, future Momni 🌱',
+    html: layout(
+      h1('The next generation of caregivers') +
+      p('You\'re the one little ones light up for — and the Circle wants to help you grow that gift. As a Pre-Momni you\'ll learn from Momnis and GrandMomnis, earn badges, and find your people. (A parent helps set this up, and Pre-Momnis are helpers alongside a grown-up, never solo — a parent is always right there.)') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/home.html', 'Start learning')}</p>` +
+      script('— Karmel'),
+      'Learn from the Momnis who came before you.'),
+  }),
+
+  // ───────── Community digest (recurring) ─────────
+  community_digest: (v) => ({
+    subject: v.subject || 'This week in your Circle',
+    html: layout(
+      h1('What\'s happening near you') +
+      (v.circle ? p(`<strong>📍 A Circle near you:</strong> ${esc(v.circle)}${v.when ? ` — ${esc(v.when)}` : ''}.`) : '') +
+      (v.campfire ? p(`<strong>🔥 Top of the Campfire:</strong> ${esc(v.campfire)}`) : '') +
+      (v.newMomnis ? p(`<strong>💜 New nearby:</strong> ${esc(v.newMomnis)} new Momnis joined your area this week.`) : '') +
+      (v.body ? p(esc(v.body)) : '') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/circles.html', 'Open your Circle')}</p>` +
+      script('— Karmel'),
+      v.subject || 'This week in your Circle'),
+  }),
+
+  // ───────── How Momni works — trust education ─────────
+  trust_education: (v) => ({
+    subject: 'How trust works on Momni',
+    html: layout(
+      h1('You are the one who decides') +
+      p('A gentle reminder of how trust gets built here — because it isn\'t us who builds it, it\'s you. Momni doesn\'t vet, screen, or endorse anyone. Instead you get the things real trust is made of:') +
+      `<ul style="font-size:16px;padding-left:20px;margin:0 0 16px"><li>Profiles in people\'s own words — read them like you\'re meeting a friend.</li><li>Reviews from other Momnis, both directions.</li><li>A conversation, and a meet-first hello, before anyone\'s alone with your littles.</li><li>Your own gut. You\'re the filter — you always were.</li></ul>` +
+      `<p style="margin:20px 0">${btn('https://momni.com/conduct/', 'Read Suggested Momni Conduct')}</p>` +
+      script('— Karmel'),
+      'It isn\'t us who builds the trust — it\'s you.'),
   }),
 };
 
