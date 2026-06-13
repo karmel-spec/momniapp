@@ -159,6 +159,91 @@ const TEMPLATES = {
       script('See you there! 💜'),
       v.subject || 'A reminder from your Circle'),
   }),
+
+  // ───────── Welcome & onboarding series (host + guest) — drafts for Karmel; send from HQ, held by the approval gate ─────────
+  host_welcome: (v) => ({
+    subject: `You're a Momni now, ${v.name || 'friend'} 💜`,
+    html: layout(
+      h1(`Welcome home, ${esc(v.name || 'Momni')}.`) +
+      p('You just did something quietly brave: you opened your door.') +
+      p('Being a host means you\'re part of a circle of parents who show up for each other — hour for hour, Momni to Momni. You set your own rate and hours, and you keep every penny. Momni never takes a cut of care.') +
+      p('No one to impress here. Just families finding families. One small first step: finish your profile so the Momnis nearby can get to know you.') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/me.html', 'Finish my profile')}</p>` +
+      script('Welcome home, — Karmel'),
+      'What it means to open your door — and one small first step.'),
+  }),
+  host_profile_nudge: (v) => ({
+    subject: 'Three minutes to finish your profile',
+    html: layout(
+      h1('A few warm words go a long way') +
+      p('The Momnis near you read profiles like they\'d size up a new friend — your story, your littles, your home. The fuller yours is, the easier it is for someone to say "them — I trust them with mine."') +
+      `<ul style="font-size:16px;padding-left:20px;margin:0 0 16px"><li>Your story — a few sentences about your family</li><li>Your littles — so others know who\'ll be in the mix</li><li>Your home — the backyard, the playroom, the no-pets</li></ul>` +
+      p('You don\'t have to be polished. Just be you.') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/me.html', 'Finish my profile')}</p>` +
+      script('— Karmel'),
+      'A few words help a nearby Momni feel like they already know you.'),
+  }),
+  host_calendar_nudge: (v) => ({
+    subject: 'Keep your availability honest (the easy way)',
+    html: layout(
+      h1('Connect the calendar you already live by') +
+      p('Nothing deflates a tired parent like reaching out to someone who turns out to be busy.') +
+      p('Connect the calendar you already use, and your availability stays accurate on its own — booked in real life, booked here. Confirmed Links land on it automatically, too. One tap, and Momni only ever reads your free/busy times — never the details of what\'s on it.') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/me.html', 'Sync my calendar')}</p>` +
+      script('— Karmel'),
+      'Connect the calendar you already use, and Momni keeps your openings true.'),
+  }),
+  host_golive: (v) => ({
+    subject: 'Your light is on the map',
+    html: layout(
+      h1('Your pin is glowing') +
+      p('You\'re a real, lit-up Momni in your neighborhood now. Soon a nearby parent may send you a Link (that\'s a booking request). When they do:') +
+      `<ul style="font-size:16px;padding-left:20px;margin:0 0 16px"><li>You\'ll see their profile and a note — trust runs both ways here.</li><li>We always encourage a quick video hello or a park meetup first.</li><li>You arrange the details together, and they pay you directly. You decide every yes.</li></ul>` +
+      p('That\'s the whole thing. No agency, no middleman, no one deciding for you.') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/search.html', 'See who\'s circling up near me')}</p>` +
+      script('— Karmel'),
+      'What happens when a Momni reaches out — and how the first Link works.'),
+  }),
+  guest_welcome: (v) => ({
+    subject: `Welcome to the Circle, ${v.name || 'friend'} 💜`,
+    html: layout(
+      h1(`Welcome home, ${esc(v.name || 'Momni')}.`) +
+      p('Momni is a circle of parents who share care neighbor to neighbor, Momni to Momni. Not an agency. Not strangers. The family three streets over you just haven\'t met yet.') +
+      p('We don\'t vet or screen anyone, and we\'ll never pretend to. Instead we hand you what real trust is built on: profiles in people\'s own words, reviews from other Momnis, and a conversation before you ever meet. You decide who\'s right for your littles — always.') +
+      p('One first step: open the map and see who\'s near you.') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/search.html', 'See the Momnis near me')}</p>` +
+      script('So glad you\'re here, — Karmel'),
+      'Your people are closer than you think.'),
+  }),
+  guest_profile_nudge: (v) => ({
+    subject: 'Tell your future Momni about your littles',
+    html: layout(
+      h1('Trust runs both ways') +
+      p('When you reach out to a Momni, they see your profile the same way you see theirs. A few warm words about you and your littles makes it easy for someone to say "yes, come over."') +
+      `<ul style="font-size:16px;padding-left:20px;margin:0 0 16px"><li>Your story — who you are, what your days look like</li><li>Your littles — names, ages, the things that help</li></ul>` +
+      `<p style="margin:20px 0">${btn(APP_URL + '/me.html', 'Complete my profile')}</p>` +
+      script('— Karmel'),
+      'A host gets to know you, too.'),
+  }),
+  guest_find: (v) => ({
+    subject: 'How to find the one',
+    html: layout(
+      h1('Reading a profile, and trusting your gut') +
+      p('Finding the right Momni isn\'t a five-star score — it\'s the feeling you get reading their story and seeing their home. Here\'s how Momnis do it:') +
+      `<ul style="font-size:16px;padding-left:20px;margin:0 0 16px"><li>Open a profile like you\'re meeting a new friend.</li><li>Send a Link and start a conversation — ask anything.</li><li>Always meet first: a video hello or a park playdate. The kids tell you a lot.</li><li>Trust your gut. You\'re the filter. You always were.</li></ul>` +
+      `<p style="margin:20px 0">${btn(APP_URL + '/search.html', 'Find the Momni near me')}</p>` +
+      script('— Karmel'),
+      'The meet-first hello, and trusting your gut.'),
+  }),
+  guest_link_explainer: (v) => ({
+    subject: 'What\'s a Link? (and why it\'s just $1)',
+    html: layout(
+      h1('A Link is a single booking — and it\'s $1') +
+      p('That dollar is the whole price list. The care itself? You pay your Momni directly — cash, Venmo, their choice — and they keep every penny. Momni never touches the money and never takes a percentage. We just help you find each other.') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/search.html', 'Send my first Link')}</p>` +
+      script('— Karmel'),
+      'The only thing Momni ever charges for — and it\'s a dollar.'),
+  }),
 };
 
 // BETA APPROVAL GATE (Karmel's standing rule, 2026-06-12): NO email leaves the building
