@@ -34,6 +34,9 @@ try { db.exec('ALTER TABLE users ADD COLUMN phone TEXT'); } catch (e) { /* exist
 try { db.exec('ALTER TABLE users ADD COLUMN sms_opt_in INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
 // migration: id-based read marker (replaces same-second-fragile timestamp watermark)
 try { db.exec('ALTER TABLE link_reads ADD COLUMN last_read_msg_id INTEGER DEFAULT 0'); } catch (e) { /* exists or table not yet created */ }
+// migration: profile photos — avatar + home gallery
+try { db.exec('ALTER TABLE users ADD COLUMN photo_url TEXT'); } catch (e) { /* exists */ }
+try { db.exec("ALTER TABLE users ADD COLUMN gallery TEXT DEFAULT '[]'"); } catch (e) { /* exists */ }
 // migration: Circle Up membership flag (set by the circle-up purchase; read by Sign in with Momni tier)
 try { db.exec('ALTER TABLE users ADD COLUMN circle_up INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
 // migration: paid profile add-ons — search-placement boost + a live business/social link
@@ -96,6 +99,8 @@ CREATE TABLE IF NOT EXISTS users (
   terms_version TEXT,                     -- which Terms/Privacy version the member accepted at signup
   phone TEXT,                             -- optional mobile, normalized to E.164, for SMS alerts
   sms_opt_in INTEGER DEFAULT 0,           -- opted in to real-time text notifications
+  photo_url TEXT,                         -- profile avatar photo (URL); falls back to initials
+  gallery TEXT DEFAULT '[]',              -- JSON array of home/family photo URLs
   legacy_1_0 INTEGER DEFAULT 0,
   links_balance INTEGER DEFAULT 2,       -- free tier: a couple of Links to start
   momni_plus INTEGER DEFAULT 0,

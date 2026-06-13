@@ -354,7 +354,9 @@ main{padding:6px 20px 24px}
 
   function render(){
     var first = (me.name || '').split(' ')[0];
-    document.getElementById('avatar').textContent = (first[0] || '').toUpperCase();
+    var av = document.getElementById('avatar');
+    if (me.photo_url) { av.style.backgroundImage = "url('" + me.photo_url + "')"; av.style.backgroundSize = 'cover'; av.style.backgroundPosition = 'center'; av.textContent = ''; }
+    else av.textContent = (first[0] || '').toUpperCase();
     document.getElementById('me-name').textContent = me.name;
     document.getElementById('me-city').textContent = me.city ? 'Circle member · ' + me.city : 'Circle member';
     document.getElementById('me-badges').innerHTML = (me.badges || []).map(function(b){

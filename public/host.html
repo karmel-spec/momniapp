@@ -24,6 +24,9 @@ a{text-decoration:none;color:inherit}
 main{padding:18px 20px 8px}
 .head{text-align:center;margin-bottom:8px}
 .avatar{width:88px;height:88px;border-radius:50%;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:34px;margin:4px auto 12px}
+.avatar.photo{background-size:cover;background-position:center;color:transparent}
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.gallery img{width:100%;height:92px;object-fit:cover;border-radius:10px;display:block}
 .head h1{font-size:23px;font-weight:800;letter-spacing:-0.02em}
 .loc{font-size:14px;color:var(--muted);margin-top:3px}
 .pills{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:12px}
@@ -94,7 +97,8 @@ main{padding:18px 20px 8px}
     var avg = revs.length ? revs.reduce(function(s,r){ return s + (r.rating||0); }, 0) / revs.length : null;
     var loc = [h.neighborhood, h.city].filter(Boolean).join(' · ');
     var html = '<div class="head">' +
-      '<div class="avatar">' + esc((first[0]||'M').toUpperCase()) + '</div>' +
+      (h.photo_url ? '<div class="avatar photo" style="background-image:url(\'' + esc(h.photo_url) + '\')"></div>'
+                   : '<div class="avatar">' + esc((first[0]||'M').toUpperCase()) + '</div>') +
       '<h1>' + esc(h.name || 'A Momni') + '</h1>' +
       (loc ? '<div class="loc">📍 ' + esc(loc) + ' <span style="font-size:12px">· neighborhood level</span></div>' : '') +
       '<div class="pills">' +
@@ -112,6 +116,8 @@ main{padding:18px 20px 8px}
         (h.hourly_note ? '<div class="rate">'+esc(h.hourly_note)+'</div>' : ''));
     }
     if (h.home_highlights) html += sec('Their home', '<p>'+esc(h.home_highlights)+'</p>');
+    if ((h.gallery||[]).length) html += sec('A peek at our home',
+      '<div class="gallery">' + h.gallery.map(function(src){ return '<img src="'+esc(src)+'" alt="" loading="lazy">'; }).join('') + '</div>');
 
     var av = h.availability || {};
     var avRows = DAYS.filter(function(d){ return (av[d]||[]).length; }).map(function(d){

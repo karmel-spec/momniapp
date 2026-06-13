@@ -111,6 +111,7 @@ const userPublic = (u) => ({
   available_now: !!u.available_now, hourly_note: u.hourly_note,
   shared_items: JSON.parse(u.shared_items || '[]'), legacy_1_0: !!u.legacy_1_0,
   live_link: u.live_link || null, live_link_label: u.live_link_label || null,
+  photo_url: u.photo_url || null, gallery: JSON.parse(u.gallery || '[]'),
   boosted: !!u.profile_boost, badges: badgesFor(u)
 });
 
@@ -398,7 +399,7 @@ app.get('/api/me', requireAuth, (req, res) => {
 
 app.put('/api/me', requireAuth, (req, res) => {
   const allowed = ['name','city','bio','is_host','care_types','available_now','hourly_note','gives_toggle','lat','lng',
-    'kids_note','neighborhood','home_highlights','availability'];
+    'kids_note','neighborhood','home_highlights','availability','photo_url','gallery'];
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
   const updates = {};
   for (const k of allowed) if (k in req.body) updates[k] = req.body[k];
@@ -417,6 +418,7 @@ app.put('/api/me', requireAuth, (req, res) => {
   }
   if ('care_types' in updates) updates.care_types = JSON.stringify(updates.care_types);
   if ('availability' in updates) updates.availability = JSON.stringify(updates.availability);
+  if ('gallery' in updates) updates.gallery = JSON.stringify(updates.gallery);
   for (const boolKey of ['is_host','available_now','gives_toggle']) if (boolKey in updates) updates[boolKey] = updates[boolKey] ? 1 : 0;
   // Phone is normalized to E.164 for SMS; sms_opt_in is the consent flag for real-time texts.
   if ('phone' in req.body) { const raw = String(req.body.phone || '').trim(); updates.phone = raw ? (sms.normalizePhone(raw) || raw.slice(0, 20)) : null; }
