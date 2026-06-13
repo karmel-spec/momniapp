@@ -10,6 +10,11 @@
 // screened/safe/guaranteed; Momni never touches care payments; entity separation disclosed.
 
 const { db } = require('./db');
+const gmaildraft = require('./gmaildraft');
+
+// Bulk templates always route to the HQ Outbox (Resend) — too many to draft in Gmail.
+// Everything else is "personal" and, when Gmail drafts are configured, lands in support@'s Drafts.
+const BULK_TEMPLATES = new Set(['reactivation', 'newsletter']);
 
 const RESEND_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Momni <onboarding@resend.dev>';
@@ -257,12 +262,25 @@ function approvalRequired() {
 }
 
 // Send one email. Never throws — email problems must never break a core action.
-async function send({ to, to_user_id = null, template, vars = {}, related_type = null, related_id = null }) {
+async function send({ to, to_user_id = null, template, vars = {}, related_type = null, related_id = null, prefer = null }) {
   const t = TEMPLATES[template];
   if (!t) { console.error('[mailer] unknown template:', template); return { status: 'failed', error: 'unknown template' }; }
   if (!to) return { status: 'failed', error: 'no recipient' };
   const { subject, html } = t(vars);
   if (LIVE && approvalRequired()) {
+    // HYBRID review flow: personal emails → a draft in support@'s Gmail (Karmel sends from her inbox);
+    // bulk templates or an explicit prefer:'outbox' → the HQ Outbox (Resend), reviewed in the dashboard.
+    const bulk = BULK_TEMPLATES.has(template) || prefer === 'outbox';
+    if (!bulk && gmaildraft.isEnabled()) {
+      const d = await gmaildraft.createDraft({ to, subject, html });
+      const status = d.ok ? 'gmail-draft' : 'failed';
+      try {
+        db.prepare(`INSERT INTO emails (to_email,to_user_id,template,subject,status,related_type,related_id,error,html)
+          VALUES (?,?,?,?,?,?,?,?,?)`)
+          .run(to, to_user_id, template, subject, status, related_type, related_id == null ? null : String(related_id), d.ok ? null : d.error, html);
+      } catch (e) { console.error('[mailer] could not log gmail draft', e); }
+      return { status, error: d.error };
+    }
     try {
       db.prepare(`INSERT INTO emails (to_email,to_user_id,template,subject,status,related_type,related_id,error,html)
         VALUES (?,?,?,?,'held',?,?,NULL,?)`)
@@ -297,7 +315,7 @@ async function send({ to, to_user_id = null, template, vars = {}, related_type =
 // Have we already sent this template for this item to this user? (prevents double-sends)
 function alreadySent({ template, to_user_id, related_type, related_id }) {
   return !!db.prepare(`SELECT 1 FROM emails WHERE template=? AND to_user_id=? AND related_type=? AND related_id=?
-    AND status IN ('sent','dev-logged','held') LIMIT 1`)
+    AND status IN ('sent','dev-logged','held','gmail-draft') LIMIT 1`)
     .get(template, to_user_id, related_type, String(related_id));
 }
 

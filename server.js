@@ -1410,14 +1410,18 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
   if (recipients.length > MAX_BROADCAST) {
     return res.status(413).json({ error: `That's ${recipients.length} recipients — over the ${MAX_BROADCAST} per-send limit. Send in smaller batches.` });
   }
-  let sent = 0, held = 0;
+  let sent = 0, held = 0, drafted = 0;
   for (const u of recipients) {
-    const r = await mailer.send({ to: u.email, to_user_id: u.id, template, vars: Object.assign({ name: u.name }, vars || {}) });
-    if (r.status === 'held') held++;
+    const r = await mailer.send({ to: u.email, to_user_id: u.id, template, vars: Object.assign({ name: u.name }, vars || {}),
+      prefer: segment ? 'outbox' : null }); // a whole segment routes to the Resend Outbox, not thousands of Gmail drafts
+    if (r.status === 'gmail-draft') drafted++;
+    else if (r.status === 'held') held++;
     else if (r.status !== 'failed') sent++;
   }
-  res.json({ ok: true, recipients: recipients.length, sent, held,
-    mode: held ? 'held — awaiting your approval in the Outbox' : (mailer.LIVE ? 'live' : 'dev (logged, not sent)') });
+  const mode = drafted ? `${drafted} draft(s) waiting in support@ Gmail — review &amp; send from your inbox`
+    : held ? 'held — awaiting your approval in the Outbox'
+    : (mailer.LIVE ? 'live' : 'dev (logged, not sent)');
+  res.json({ ok: true, recipients: recipients.length, sent, held, drafted, mode });
 });
 
 // ---------- CRM — Karmel's community/marketing/outreach backend (HQ-only) ----------
