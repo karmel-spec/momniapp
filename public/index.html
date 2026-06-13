@@ -68,6 +68,12 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
       </div>
       <div class="signup-only">
         <label class="clickwrap">
+          <input type="checkbox" id="signup-age">
+          <p>I'm <strong>18 or older</strong>. Momni accounts are for grown-ups making care decisions for their own family.</p>
+        </label>
+      </div>
+      <div class="signup-only">
+        <label class="clickwrap">
           <input type="checkbox" id="signup-ack">
           <p id="signup-ack-text">Loading the acknowledgment…</p>
         </label>
@@ -111,6 +117,7 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
   })();
   var errBox = document.getElementById('auth-err');
   var ackBox = document.getElementById('signup-ack');
+  var ageBox = document.getElementById('signup-age');
   var ackLoaded = false;
   function showErr(msg){ errBox.textContent = msg; errBox.style.display = 'block'; }
   function hideErr(){ errBox.style.display = 'none'; }
@@ -126,9 +133,10 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
     });
   }
   function syncSubmit(){
-    document.getElementById('submit-btn').disabled = signup && !ackBox.checked;
+    document.getElementById('submit-btn').disabled = signup && (!ackBox.checked || !ageBox.checked);
   }
   ackBox.addEventListener('change', syncSubmit);
+  ageBox.addEventListener('change', syncSubmit);
 
   document.getElementById('mode-toggle').addEventListener('click', function(e){
     e.preventDefault();
@@ -156,6 +164,7 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
       body.name = document.getElementById('name').value.trim();
       body.city = document.getElementById('city').value.trim();
       body.acknowledged = ackBox.checked;
+      body.age_affirmed = ageBox.checked;
     }
     fetch(signup ? '/api/register' : '/api/login', {
       method: 'POST',

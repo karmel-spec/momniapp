@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Momni — One last thing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2;
+  --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF; --line:#EEE9F9;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.55;min-height:100vh;display:flex;justify-content:center;align-items:flex-start}
+h1{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{width:100%;max-width:480px;min-height:100vh;background:var(--white);box-shadow:0 0 40px rgba(109,88,164,0.12);display:flex;flex-direction:column}
+.auth{flex:1;display:flex;flex-direction:column;justify-content:center;padding:48px 28px 32px;text-align:center}
+.auth img.logo{height:56px;margin:0 auto 8px;display:block;object-fit:contain}
+.auth .script{font-size:30px;color:var(--teal);margin:6px 0 4px}
+.auth h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:8px}
+.auth p.lead{font-size:15px;color:var(--muted);margin-bottom:8px}
+.clickwrap{background:var(--lavender);border:2px solid var(--purple);border-radius:16px;padding:16px 18px;display:flex;gap:12px;align-items:flex-start;margin:18px 0 0;text-align:left}
+.clickwrap input{width:18px;height:18px;margin-top:3px;accent-color:var(--purple);flex-shrink:0}
+.clickwrap p{font-size:13.5px;line-height:1.6;color:var(--ink);font-weight:400}
+.btn{display:block;width:100%;text-align:center;background:var(--purple);color:white;font-weight:600;font-size:17px;padding:15px;border-radius:100px;margin-top:24px;border:none;cursor:pointer;font-family:inherit;transition:background .15s}
+.btn:hover{background:var(--purple-deep)}
+.btn:disabled{background:#C9C2D6;cursor:not-allowed}
+.err{display:none;background:#FDF0F2;border:1.5px solid #E8B9C3;color:#8A3A4D;border-radius:14px;padding:12px 16px;font-size:14px;margin-top:16px;text-align:left}
+.back{display:block;text-align:center;font-size:14px;color:var(--muted);margin-top:16px}
+.back:hover{color:var(--purple)}
+.disclosure{padding:20px 28px 28px;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="auth">
+    <img class="logo" src="assets/momni-logo-color-horizontal.png" alt="Momni">
+    <span class="script">Almost in, Momni</span>
+    <h1>One last thing</h1>
+    <p class="lead">You signed in with Google — welcome! Before we open the door, two quick boxes.</p>
+    <form id="join-form">
+      <label class="clickwrap">
+        <input type="checkbox" id="join-age">
+        <p>I'm <strong>18 or older</strong>. Momni accounts are for grown-ups making care decisions for their own family.</p>
+      </label>
+      <label class="clickwrap">
+        <input type="checkbox" id="join-ack">
+        <p id="join-ack-text">Loading the acknowledgment…</p>
+      </label>
+      <div class="err" id="join-err"></div>
+      <button class="btn" id="join-btn" type="submit" disabled>Enter the Circle</button>
+      <a class="back" href="/index.html">Use a different account</a>
+    </form>
+  </main>
+  <footer class="disclosure">
+    Momni is a community platform that helps Momnis find each other.
+    Members make their own care decisions, in their own homes, on their own terms.
+    Momni doesn't handle care payments — those happen mom to mom.
+  </footer>
+</div>
+<script>
+(function(){
+  var ageBox = document.getElementById('join-age');
+  var ackBox = document.getElementById('join-ack');
+  var btn = document.getElementById('join-btn');
+  var errBox = document.getElementById('join-err');
+  function showErr(m){ errBox.textContent = m; errBox.style.display = 'block'; }
+  function sync(){ btn.disabled = !(ageBox.checked && ackBox.checked); }
+  ageBox.addEventListener('change', sync);
+  ackBox.addEventListener('change', sync);
+
+  fetch('/api/acknowledgment').then(function(r){ return r.json(); }).then(function(d){
+    document.getElementById('join-ack-text').textContent = d.text;
+  }).catch(function(){
+    document.getElementById('join-ack-text').textContent = 'The acknowledgment couldn’t load — refresh before joining, Momni.';
+  });
+
+  document.getElementById('join-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    errBox.style.display = 'none';
+    btn.disabled = true;
+    fetch('/api/register/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ age_affirmed: ageBox.checked, acknowledged: ackBox.checked })
+    }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(res){
+        if (res.ok) { location = '/home.html'; }
+        else { showErr(res.d.error || 'Something went wrong — try again.'); sync(); }
+      })
+      .catch(function(){ showErr('Couldn’t reach Momni — check your connection.'); sync(); });
+  });
+})();
+</script>
+</body>
+</html>

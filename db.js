@@ -24,6 +24,8 @@ try { db.exec("ALTER TABLE users ADD COLUMN home_highlights TEXT DEFAULT ''"); }
 try { db.exec("ALTER TABLE users ADD COLUMN availability TEXT DEFAULT '{}'"); } catch (e) { /* exists */ }
 try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_text TEXT'); } catch (e) { /* exists */ }
 try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_at TEXT'); } catch (e) { /* exists */ }
+// migration: enforced 18+ age affirmation at signup (COPPA / eligibility) — timestamp set when affirmed
+try { db.exec('ALTER TABLE users ADD COLUMN age_affirmed_at TEXT'); } catch (e) { /* exists */ }
 // migration: Circle Up membership flag (set by the circle-up purchase; read by Sign in with Momni tier)
 try { db.exec('ALTER TABLE users ADD COLUMN circle_up INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
 // migration: paid profile add-ons — search-placement boost + a live business/social link
@@ -82,6 +84,7 @@ CREATE TABLE IF NOT EXISTS users (
   availability TEXT DEFAULT '{}',        -- JSON { "Mon": ["am","pm"], ... }; blocks: am | pm | eve | overnight
   signup_ack_text TEXT,                  -- clickwrap record at signup
   signup_ack_at TEXT,
+  age_affirmed_at TEXT,                   -- when the member affirmed they're 18+ (eligibility / COPPA)
   legacy_1_0 INTEGER DEFAULT 0,
   links_balance INTEGER DEFAULT 2,       -- free tier: a couple of Links to start
   momni_plus INTEGER DEFAULT 0,

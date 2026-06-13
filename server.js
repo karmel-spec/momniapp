@@ -155,14 +155,15 @@ function badgesFor(u) {
 
 // ---------- auth ----------
 app.post('/api/register', authLimiter, (req, res) => {
-  const { email, password, name, city, acknowledged } = req.body;
+  const { email, password, name, city, acknowledged, age_affirmed } = req.body;
   if (!email || !password || !name) return res.status(400).json({ error: 'Name, email, and password are required.' });
   if (password.length < 8) return res.status(400).json({ error: 'Password needs at least 8 characters.' });
+  if (!age_affirmed) return res.status(400).json({ error: 'Momni accounts are for grown-ups — please confirm you’re 18 or older to join.' });
   if (!acknowledged) return res.status(400).json({ error: 'One quick checkbox first, Momni — it’s how we all stay on the same page about how Momni works.' });
   if (ADMIN_EMAILS.includes(email.toLowerCase().trim())) return res.status(403).json({ error: 'That address is reserved for Momni HQ.' });
   try {
-    const info = db.prepare(`INSERT INTO users (email,password_hash,name,city,signup_ack_text,signup_ack_at)
-      VALUES (?,?,?,?,?,datetime('now'))`)
+    const info = db.prepare(`INSERT INTO users (email,password_hash,name,city,signup_ack_text,signup_ack_at,age_affirmed_at)
+      VALUES (?,?,?,?,?,datetime('now'),datetime('now'))`)
       .run(email.toLowerCase().trim(), bcrypt.hashSync(password, 10), name.trim(), (city || '').trim(), ACKNOWLEDGMENT_TEXT);
     mailer.send({ to: email.toLowerCase().trim(), to_user_id: info.lastInsertRowid, template: 'welcome', vars: { name: name.trim() } });
     // Regenerate the session on auth so a pre-login session id can't be fixated.
@@ -301,12 +302,20 @@ app.get('/auth/google/callback', async (req, res) => {
     const info = await infoRes.json();
     if (!info.email || !info.email_verified) return res.redirect('/index.html?google=denied');
     const email = info.email.toLowerCase();
-    let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     if (!user) {
-      const placeholder = bcrypt.hashSync(require('crypto').randomBytes(24).toString('hex'), 10);
-      const ins = db.prepare('INSERT INTO users (email,password_hash,name) VALUES (?,?,?)')
-        .run(email, placeholder, info.given_name ? `${info.given_name} ${(info.family_name || '').charAt(0)}.`.trim() : email.split('@')[0]);
-      user = db.prepare('SELECT * FROM users WHERE id = ?').get(ins.lastInsertRowid);
+      // NEW account via Google: don't create it until they affirm they're 18+ (COPPA / eligibility).
+      // The OAuth flow has no signup form, so stash the verified identity in the session and send
+      // them to the affirmation interstitial. No account exists until /api/register/google confirms.
+      req.session.regenerate((err) => {
+        if (err) return res.redirect('/index.html?google=error');
+        req.session.pendingGoogle = {
+          email,
+          name: info.given_name ? `${info.given_name} ${(info.family_name || '').charAt(0)}.`.trim() : email.split('@')[0],
+        };
+        res.redirect('/join.html');
+      });
+      return;
     }
     const uid = user.id;
     req.session.regenerate((err) => {
@@ -318,6 +327,33 @@ app.get('/auth/google/callback', async (req, res) => {
     console.error('google auth error', e);
     res.redirect('/index.html?google=error');
   }
+});
+
+// Complete a Google sign-up after the 18+ affirmation interstitial (/join.html). The account is
+// created from the pending, Google-verified identity ONLY once the member affirms eligibility.
+app.post('/api/register/google', (req, res) => {
+  const pending = req.session.pendingGoogle;
+  if (!pending || !pending.email) return res.status(400).json({ error: 'Your Google sign-in expired — please start again from the sign-in page.' });
+  const { age_affirmed, acknowledged } = req.body;
+  if (!age_affirmed) return res.status(400).json({ error: 'Momni accounts are for grown-ups — please confirm you’re 18 or older to join.' });
+  if (!acknowledged) return res.status(400).json({ error: 'One quick checkbox first, Momni — it’s how we all stay on the same page about how Momni works.' });
+  const email = String(pending.email).toLowerCase().trim();
+  if (ADMIN_EMAILS.includes(email)) return res.status(403).json({ error: 'That address is reserved for Momni HQ.' });
+  let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  if (!user) {
+    const placeholder = bcrypt.hashSync(require('crypto').randomBytes(24).toString('hex'), 10);
+    const ins = db.prepare(`INSERT INTO users (email,password_hash,name,signup_ack_text,signup_ack_at,age_affirmed_at)
+      VALUES (?,?,?,?,datetime('now'),datetime('now'))`)
+      .run(email, placeholder, pending.name || email.split('@')[0], ACKNOWLEDGMENT_TEXT);
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(ins.lastInsertRowid);
+    mailer.send({ to: email, to_user_id: user.id, template: 'welcome', vars: { name: user.name } });
+  }
+  const uid = user.id;
+  req.session.regenerate((err) => {        // fresh session; drops the consumed pendingGoogle
+    if (err) return res.status(500).json({ error: 'Could not start your session — please try again.' });
+    req.session.userId = uid;
+    res.json({ ok: true, id: uid });
+  });
 });
 
 // ---------- calendar sync (host connects the calendar she already uses; inert until Google creds + OAuth verification are set up) ----------
