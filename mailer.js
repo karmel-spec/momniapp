@@ -26,8 +26,17 @@ const TRANSACTIONAL_TEMPLATES = new Set(['password_reset', 'booking_request', 'b
   'booking_reminder', 'review_request', 'download_ready', 'circle_reminder']);
 
 const RESEND_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || 'Momni <onboarding@resend.dev>';
-// Replies land in a real, monitored inbox — hello@ is a display identity only.
+// From a branded, REPLYABLE Momni address — never a "no-reply" and never the resend.dev sandbox
+// sender. momni.com is verified in Resend, so hello@ is safe as the default From. If EMAIL_FROM is
+// ever a sandbox/no-reply address (e.g. a stale value from first setup), override it and warn loudly
+// rather than quietly mailing 25K Momnis from a foreign, unreplyable sender.
+let EMAIL_FROM = process.env.EMAIL_FROM || 'Momni <hello@momni.com>';
+if (/resend\.dev|no-?reply|do-?not-?reply|donotreply/i.test(EMAIL_FROM)) {
+  console.warn(`[mailer] EMAIL_FROM was "${EMAIL_FROM}" — a sandbox/no-reply sender. Overriding to "Momni <hello@momni.com>". Set EMAIL_FROM="Momni <hello@momni.com>" in Render to silence this.`);
+  EMAIL_FROM = 'Momni <hello@momni.com>';
+}
+// EVERY email sets Reply-To to a real, monitored inbox (support@ is the Google Workspace mailbox
+// Karmel reads), so a recipient can always hit Reply and reach a human. Momni is never "do not reply."
 const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || 'support@momni.com';
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 const LIVE = !!RESEND_KEY;
@@ -95,6 +104,7 @@ function layout(inner, preheader) {
   <tr><td style="background:#6D58A4;padding:20px 28px"><span style="color:#ffffff;font-family:'Montserrat',Helvetica,Arial,sans-serif;font-weight:700;font-size:21px;letter-spacing:-0.01em">Momni</span></td></tr>
   <tr><td style="padding:30px 28px">${inner}</td></tr>
   <tr><td style="padding:18px 28px;background:#F5F0FE;font-size:12px;color:#6B6477;line-height:1.7">
+    Questions, or just want to say hi? Reply to this email — a real Momni reads every one.<br>
     Momni is a community platform — Momnis make their own care decisions and pay each other directly.<br>
     Momni, Inc. and the Momni Foundation (501(c)(3)) are one brand with separate finances.<br>
     ${EMAIL_POSTAL ? esc(EMAIL_POSTAL) + '<br>' : ''}
