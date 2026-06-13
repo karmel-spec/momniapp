@@ -1361,6 +1361,38 @@ oauthSweep();
 const _oauthSweepTimer = setInterval(oauthSweep, 60 * 60 * 1000);
 if (_oauthSweepTimer.unref) _oauthSweepTimer.unref();
 
+// Day-before visit reminders — booking_reminder email (transactional) + SMS to opted-in members.
+// Deduped per visit per member via the emails log, so running it often is harmless. In-process
+// (single Render instance); fine for beta. booking_reminder is transactional, so it isn't gate-held.
+function runDueReminders() {
+  let checked = 0, sent = 0;
+  try {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const visits = db.prepare(`SELECT v.id, v.date, v.start_time, l.guest_id, l.host_id
+      FROM visits v JOIN links l ON l.id = v.link_id WHERE v.status = 'scheduled' AND v.date = ?`).all(tomorrow);
+    for (const v of visits) {
+      checked++;
+      for (const uid of [v.guest_id, v.host_id]) {
+        if (mailer.alreadySent({ template: 'booking_reminder', to_user_id: uid, related_type: 'visit', related_id: v.id })) continue;
+        const u = db.prepare('SELECT id,name,email,phone,sms_opt_in FROM users WHERE id = ?').get(uid);
+        if (!u) continue;
+        const other = db.prepare('SELECT name FROM users WHERE id = ?').get(uid === v.guest_id ? v.host_id : v.guest_id);
+        const when = v.date + (v.start_time ? ' at ' + v.start_time : '');
+        mailer.send({ to: u.email, to_user_id: u.id, template: 'booking_reminder',
+          vars: { other: other ? other.name : 'your Momni', when }, related_type: 'visit', related_id: v.id });
+        if (u.phone && u.sms_opt_in) sms.send({ to: u.phone, to_user_id: u.id, kind: 'booking_reminder', opted_in: true,
+          body: `Momni reminder: your visit${other ? ' with ' + other.name : ''} is tomorrow${v.start_time ? ' at ' + v.start_time : ''}. Details in the app.`,
+          related_type: 'visit', related_id: v.id });
+        sent++;
+      }
+    }
+  } catch (e) { console.error('[reminders] run failed', e); }
+  return { checked, sent };
+}
+const _reminderTimer = setInterval(runDueReminders, 6 * 60 * 60 * 1000);
+if (_reminderTimer.unref) _reminderTimer.unref();
+setTimeout(runDueReminders, 30 * 1000);   // once shortly after boot, then every 6h
+
 // Apps send members here; the consent page reads context from authorize-info and posts approve.
 app.get('/oauth/authorize', (req, res) => res.sendFile(path.join(__dirname, 'public', 'authorize.html')));
 
@@ -1495,6 +1527,19 @@ app.get('/api/admin/texts', requireAdmin, (req, res) => {
   res.json({ live: sms.LIVE, rows: db.prepare(`SELECT id,to_phone,to_user_id,kind,body,status,error,related_type,related_id,created_at
     FROM sms_log ORDER BY id DESC LIMIT 200`).all() });
 });
+// Manual one-off text from HQ — Karmel texts a member/contact (or herself, to test) directly.
+app.post('/api/admin/sms', requireAdmin, async (req, res) => {
+  const to = String(req.body.to || '').trim();
+  const body = String(req.body.body || '').trim().slice(0, 480);
+  if (!to || !body) return res.status(400).json({ error: 'Enter a phone number and a message.' });
+  const norm = sms.normalizePhone(to);
+  const u = norm ? db.prepare('SELECT id FROM users WHERE phone = ?').get(norm) : null;
+  const r = await sms.send({ to, body, to_user_id: u ? u.id : null, kind: 'manual', opted_in: true });
+  if (r.status === 'failed') return res.status(502).json({ error: r.error || 'Could not send.' });
+  res.json({ ok: true, status: r.status });
+});
+// Fire due day-before reminders on demand (the scheduler also runs them automatically every 6h).
+app.post('/api/admin/reminders/run', requireAdmin, (req, res) => res.json({ ok: true, ...runDueReminders() }));
 // BETA OUTBOX — every live email is held here until Karmel approves it (see mailer.approvalRequired)
 app.get('/api/admin/emails/:id/view', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT html, subject FROM emails WHERE id = ?').get(req.params.id);

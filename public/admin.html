@@ -125,8 +125,14 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
         <p class="meta" style="margin-top:6px"><strong>Beta approval gate is ON.</strong> Personal &amp; onboarding emails become <strong>drafts in your support@momni.com Gmail</strong> — review and hit Send from your inbox. Bulk campaigns (a whole segment) hold in the Outbox below via Resend. Nothing sends on its own. <em>(Gmail drafts activate once the service account is set up — until then everything holds in the Outbox.)</em></p>
         <div id="emails" style="margin-top:10px"><p class="empty">Loading…</p></div>
       </div>
-      <div class="card"><h2>📱 Texts — real-time SMS log</h2>
+      <div class="card"><h2>📱 Texts — send &amp; log</h2>
         <p class="meta" id="sms-status" style="margin-bottom:8px">Loading…</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <input id="sms-to" placeholder="+1 801 555 1234" style="flex:0 0 150px">
+          <input id="sms-body" placeholder="Type a message…" style="flex:1;min-width:170px">
+          <button class="b-ok" onclick="sendSms()">Send text</button>
+        </div>
+        <p class="meta" id="sms-send-result" style="margin-bottom:10px"></p>
         <div id="texts"><p class="empty">Loading…</p></div>
       </div>
       <div class="card"><h2>🔑 Sign in with Momni — connected apps</h2>
@@ -311,6 +317,15 @@ async function loadTexts(){
     <div class="item"><span class="pill ${t.status==='sent'?'p-teal':'p-grey'}">${esc(t.status)}</span>
     ${esc(t.kind||'sms')} → ${esc(t.to_phone||'—')}<div class="meta">${esc((t.body||'').slice(0,120))}${t.created_at?' · '+esc(t.created_at):''}</div></div>`).join('')
     : '<p class="empty">No texts yet.</p>';
+}
+async function sendSms(){
+  const to=document.getElementById('sms-to').value.trim(), body=document.getElementById('sms-body').value.trim();
+  const res=document.getElementById('sms-send-result');
+  if(!to||!body){ res.textContent='Enter a number and a message.'; return; }
+  res.textContent='Sending…';
+  const r=await api('/api/admin/sms',{method:'POST',body:JSON.stringify({to:to,body:body})});
+  res.textContent = r.ok ? ('✓ Sent ('+r.status+')'+(r.status==='dev-logged'?' — dev mode; set Twilio env to send for real':'')) : (r.error||'Could not send.');
+  if(r.ok){ document.getElementById('sms-body').value=''; loadTexts(); }
 }
 // ---- Shop: digital downloads ----
 function money(c){ return c<=0 ? 'Free' : '$'+(c/100).toFixed(2); }
