@@ -1542,6 +1542,50 @@ app.post('/api/admin/sms', requireAdmin, async (req, res) => {
 });
 // Fire due day-before reminders on demand (the scheduler also runs them automatically every 6h).
 app.post('/api/admin/reminders/run', requireAdmin, (req, res) => res.json({ ok: true, ...runDueReminders() }));
+
+// Fill out the demo host Sarah M. as a complete showcase profile (board/investor walkthroughs).
+// Idempotent: re-running refreshes her fields + reviews. Demo data only (sarah@example.com).
+function seedDeluxeSarah() {
+  const sarah = db.prepare("SELECT id FROM users WHERE email = 'sarah@example.com'").get();
+  if (!sarah) return { error: 'sarah@example.com not found' };
+  const id = sarah.id;
+  const bio = "Former preschool teacher turned full-time chaos coordinator for two littles of my own. Our home runs on snacks, picture books, and a fenced backyard built for muddy boots. I've been part of the Circle since the very first days of Momni, and there's nothing I love more than giving another family a few hours to breathe. Bring me your wild ones — we'll bake something, build a fort, and wear everyone out before pickup.";
+  const availability = { Mon:['am','pm','eve'], Tue:['am','pm','eve'], Wed:['am','pm'], Thu:['am','pm','eve'], Fri:['eve','overnight'], Sat:['am','pm','eve','overnight'], Sun:['pm','eve'] };
+  const sharedItems = [{ type:'background_check', label:'Background check — purchased & shared by Sarah', url:'https://personal.checkr.com', as_of:'2026-05-01' }];
+  const gallery = ['/assets/photos/baking-with-kids.jpg','/assets/photos/girl-hula-hoop.jpg','/assets/photos/laughing-baby-on-rug.jpg'];
+  db.prepare(`UPDATE users SET name='Sarah M.', city='Orem, UT', bio=?, kids_note=?, neighborhood=?, home_highlights=?,
+    care_types=?, available_now=1, hourly_note=?, availability=?, lat=40.2969, lng=-111.6946,
+    shared_items=?, live_link='https://example.com', live_link_label='Our little family blog',
+    profile_boost=1, momni_plus=1, gives_toggle=1, circle_up=1, legacy_1_0=1, is_host=1,
+    photo_url='/assets/photos/mama-holding-baby-girl.jpg', gallery=? WHERE id=?`).run(
+    bio,
+    "Two of my own — Beck (4, our resident dinosaur expert) and June (18 months, professional snuggler).",
+    "Sharon Park, Orem",
+    "Big fenced backyard, no pets, a whole wall of picture books, a craft table that's always set up, and a nap room that actually works.",
+    JSON.stringify(['available-now','night-out','recurring','overnight']),
+    "$12/hr — paid directly to me, every penny. Two or more littles? Let's chat.",
+    JSON.stringify(availability), JSON.stringify(sharedItems), JSON.stringify(gallery), id);
+  const guests = db.prepare("SELECT id FROM users WHERE email LIKE '%@example.com' AND id != ? ORDER BY id LIMIT 5").all(id).map(r => r.id);
+  db.prepare('DELETE FROM reviews WHERE subject_id = ?').run(id);
+  const old = db.prepare("SELECT id FROM links WHERE host_id = ? AND details LIKE '%sarah-deluxe%'").all(id).map(r => r.id);
+  if (old.length) { const q = old.map(() => '?').join(','); db.prepare(`DELETE FROM reviews WHERE link_id IN (${q})`).run(...old); db.prepare(`DELETE FROM links WHERE id IN (${q})`).run(...old); }
+  const reviews = [
+    [5, "Came home to two happy, worn-out kids and a craft taped to the fridge. Sarah sends photos without me even asking — she's our new regular."],
+    [5, "First time leaving my one-year-old with someone new, and Sarah made it feel like a drop-off at a close friend's. The backyard is a dream."],
+    [5, "Sarah took my three on a snow day with almost no notice. Calm, kind, completely unflappable. I don't know what we'd do without her."],
+    [4, "Wonderful with my toddler — warm, organized, great communication. My only complaint is I want more of her weekend slots!"],
+    [5, "The kind of neighbor you hope for. My kids ask when they get to go back to 'Miss Sarah's.' That says everything."],
+  ];
+  const insLink = db.prepare(`INSERT INTO links (guest_id,host_id,care_type,details,status,acknowledgment_text,acknowledged_at) VALUES (?,?,?,?, 'completed', ?, datetime('now'))`);
+  const insRev = db.prepare(`INSERT INTO reviews (link_id,author_id,subject_id,rating,body,created_at) VALUES (?,?,?,?,?,datetime('now'))`);
+  const tx = db.transaction(() => {
+    guests.forEach((g, i) => { const r = reviews[i % reviews.length]; const info = insLink.run(g, id, 'one-time', JSON.stringify({ seed: 'sarah-deluxe' }), ACKNOWLEDGMENT_TEXT); insRev.run(info.lastInsertRowid, g, id, r[0], r[1]); });
+  });
+  tx();
+  const rv = db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE subject_id = ?').get(id);
+  return { id, reviewers: guests.length, reviews: rv.n, rating: rv.n ? Number(rv.avg.toFixed(2)) : null };
+}
+app.post('/api/admin/seed-demo-sarah', requireAdmin, (req, res) => res.json({ ok: true, ...seedDeluxeSarah() }));
 // BETA OUTBOX — every live email is held here until Karmel approves it (see mailer.approvalRequired)
 app.get('/api/admin/emails/:id/view', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT html, subject FROM emails WHERE id = ?').get(req.params.id);
