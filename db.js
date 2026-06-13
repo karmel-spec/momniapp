@@ -26,6 +26,9 @@ try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_text TEXT'); } catch (e) 
 try { db.exec('ALTER TABLE users ADD COLUMN signup_ack_at TEXT'); } catch (e) { /* exists */ }
 // migration: enforced 18+ age affirmation at signup (COPPA / eligibility) — timestamp set when affirmed
 try { db.exec('ALTER TABLE users ADD COLUMN age_affirmed_at TEXT'); } catch (e) { /* exists */ }
+// migration: Terms/Privacy version accepted at signup (clickwrap evidence) + per-booking on links
+try { db.exec('ALTER TABLE users ADD COLUMN terms_version TEXT'); } catch (e) { /* exists */ }
+try { db.exec('ALTER TABLE links ADD COLUMN terms_version TEXT'); } catch (e) { /* exists or table not yet created */ }
 // migration: Circle Up membership flag (set by the circle-up purchase; read by Sign in with Momni tier)
 try { db.exec('ALTER TABLE users ADD COLUMN circle_up INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
 // migration: paid profile add-ons — search-placement boost + a live business/social link
@@ -85,6 +88,7 @@ CREATE TABLE IF NOT EXISTS users (
   signup_ack_text TEXT,                  -- clickwrap record at signup
   signup_ack_at TEXT,
   age_affirmed_at TEXT,                   -- when the member affirmed they're 18+ (eligibility / COPPA)
+  terms_version TEXT,                     -- which Terms/Privacy version the member accepted at signup
   legacy_1_0 INTEGER DEFAULT 0,
   links_balance INTEGER DEFAULT 2,       -- free tier: a couple of Links to start
   momni_plus INTEGER DEFAULT 0,
@@ -106,6 +110,7 @@ CREATE TABLE IF NOT EXISTS links (
   status TEXT DEFAULT 'requested',       -- requested | confirmed | completed | declined | cancelled
   acknowledgment_text TEXT NOT NULL,     -- exact clickwrap text the guest accepted
   acknowledged_at TEXT NOT NULL,         -- timestamp of acceptance (the legal record)
+  terms_version TEXT,                    -- Terms/Privacy version accepted at this booking
   created_at TEXT DEFAULT (datetime('now'))
 );
 

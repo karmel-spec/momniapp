@@ -75,7 +75,12 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
       <div class="signup-only">
         <label class="clickwrap">
           <input type="checkbox" id="signup-ack">
-          <p id="signup-ack-text">Loading the acknowledgment…</p>
+          <span style="flex:1">
+            <p id="signup-ack-text">Loading the acknowledgment…</p>
+            <p style="margin-top:8px">By joining, I agree to Momni's
+              <a href="https://momni.com/terms/" target="_blank" rel="noopener" style="color:var(--teal-deep);font-weight:600;text-decoration:underline">Terms of Service</a>
+              and <a href="https://momni.com/privacy/" target="_blank" rel="noopener" style="color:var(--teal-deep);font-weight:600;text-decoration:underline">Privacy Policy</a><span id="signup-terms-ver" style="color:var(--muted)"></span>.</p>
+          </span>
         </label>
       </div>
       <div class="err" id="auth-err"></div>
@@ -126,6 +131,7 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
     ackLoaded = true;
     fetch('/api/acknowledgment').then(function(r){ return r.json(); }).then(function(d){
       document.getElementById('signup-ack-text').textContent = d.text;
+      if (d.version) document.getElementById('signup-terms-ver').textContent = ' (v. ' + d.version + ')';
     }).catch(function(){
       ackLoaded = false;
       document.getElementById('signup-ack-text').textContent =

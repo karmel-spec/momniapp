@@ -155,7 +155,12 @@ a{text-decoration:none;color:inherit}
       <h2>One honest acknowledgment</h2>
       <label class="clickwrap">
         <input type="checkbox" id="ack" onchange="document.getElementById('send').disabled = !this.checked">
-        <p id="ack-text">Loading the acknowledgment…</p>
+        <span style="flex:1">
+          <p id="ack-text">Loading the acknowledgment…</p>
+          <p style="margin-top:8px">By sending this Link, I agree to Momni's
+            <a href="https://momni.com/terms/" target="_blank" rel="noopener" style="color:var(--teal-deep);font-weight:600;text-decoration:underline">Terms of Service</a>
+            and <a href="https://momni.com/privacy/" target="_blank" rel="noopener" style="color:var(--teal-deep);font-weight:600;text-decoration:underline">Privacy Policy</a><span id="booking-terms-ver" style="color:var(--muted)"></span>.</p>
+        </span>
       </label>
       <button class="send-btn" id="send" disabled>Send Link request — $1</button>
       <p class="send-note">Every booking is a $1 Link — that's all Momni charges.
@@ -260,6 +265,7 @@ function toggleRecurring(){
 
   fetch('/api/acknowledgment').then(function(r){ return r.json(); }).then(function(d){
     document.getElementById('ack-text').textContent = d.text;
+    if (d.version) document.getElementById('booking-terms-ver').textContent = ' (v. ' + d.version + ')';
   }).catch(function(){
     document.getElementById('ack-text').textContent =
       'The acknowledgment couldn’t load — refresh before sending your Link.';

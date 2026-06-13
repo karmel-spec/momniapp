@@ -90,6 +90,9 @@ if (_rlSweep.unref) _rlSweep.unref();
 app.use(express.static(path.join(__dirname, 'public')));
 
 const ACKNOWLEDGMENT_TEXT = 'I understand Momni is a community platform, not a childcare provider. Momni does not vet, screen, or endorse any member. I am solely responsible for choosing and evaluating my children’s care, just as I would when choosing a trusted friend. Care payments are between me and my Momni.';
+// Bump when the Terms of Service / Privacy Policy materially change. Stamped, server-side, on every
+// acceptance (signup + each booking) so we can prove which version a member agreed to.
+const TERMS_VERSION = '2026-06-13';
 
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Please sign in first, Momni.' });
@@ -162,9 +165,9 @@ app.post('/api/register', authLimiter, (req, res) => {
   if (!acknowledged) return res.status(400).json({ error: 'One quick checkbox first, Momni — it’s how we all stay on the same page about how Momni works.' });
   if (ADMIN_EMAILS.includes(email.toLowerCase().trim())) return res.status(403).json({ error: 'That address is reserved for Momni HQ.' });
   try {
-    const info = db.prepare(`INSERT INTO users (email,password_hash,name,city,signup_ack_text,signup_ack_at,age_affirmed_at)
-      VALUES (?,?,?,?,?,datetime('now'),datetime('now'))`)
-      .run(email.toLowerCase().trim(), bcrypt.hashSync(password, 10), name.trim(), (city || '').trim(), ACKNOWLEDGMENT_TEXT);
+    const info = db.prepare(`INSERT INTO users (email,password_hash,name,city,signup_ack_text,signup_ack_at,age_affirmed_at,terms_version)
+      VALUES (?,?,?,?,?,datetime('now'),datetime('now'),?)`)
+      .run(email.toLowerCase().trim(), bcrypt.hashSync(password, 10), name.trim(), (city || '').trim(), ACKNOWLEDGMENT_TEXT, TERMS_VERSION);
     mailer.send({ to: email.toLowerCase().trim(), to_user_id: info.lastInsertRowid, template: 'welcome', vars: { name: name.trim() } });
     // Regenerate the session on auth so a pre-login session id can't be fixated.
     req.session.regenerate((err) => {
@@ -342,9 +345,9 @@ app.post('/api/register/google', (req, res) => {
   let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (!user) {
     const placeholder = bcrypt.hashSync(require('crypto').randomBytes(24).toString('hex'), 10);
-    const ins = db.prepare(`INSERT INTO users (email,password_hash,name,signup_ack_text,signup_ack_at,age_affirmed_at)
-      VALUES (?,?,?,?,datetime('now'),datetime('now'))`)
-      .run(email, placeholder, pending.name || email.split('@')[0], ACKNOWLEDGMENT_TEXT);
+    const ins = db.prepare(`INSERT INTO users (email,password_hash,name,signup_ack_text,signup_ack_at,age_affirmed_at,terms_version)
+      VALUES (?,?,?,?,datetime('now'),datetime('now'),?)`)
+      .run(email, placeholder, pending.name || email.split('@')[0], ACKNOWLEDGMENT_TEXT, TERMS_VERSION);
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(ins.lastInsertRowid);
     mailer.send({ to: email, to_user_id: user.id, template: 'welcome', vars: { name: user.name } });
   }
@@ -552,9 +555,9 @@ app.post('/api/links', requireAuth, (req, res) => {
   if (!me.momni_plus && me.links_balance < 1) {
     return res.status(402).json({ error: 'You’re out of Links. Buy a bundle (10 for $10) or go Momni+ for unlimited.' });
   }
-  const info = db.prepare(`INSERT INTO links (guest_id,host_id,care_type,details,acknowledgment_text,acknowledged_at)
-    VALUES (?,?,?,?,?,datetime('now'))`)
-    .run(me.id, host.id, care_type, JSON.stringify(details || {}), ACKNOWLEDGMENT_TEXT);
+  const info = db.prepare(`INSERT INTO links (guest_id,host_id,care_type,details,acknowledgment_text,acknowledged_at,terms_version)
+    VALUES (?,?,?,?,?,datetime('now'),?)`)
+    .run(me.id, host.id, care_type, JSON.stringify(details || {}), ACKNOWLEDGMENT_TEXT, TERMS_VERSION);
   const firstMessage = typeof message === 'string' ? message.trim().slice(0, 2000) : '';
   if (firstMessage) db.prepare('INSERT INTO messages (link_id,sender_id,body) VALUES (?,?,?)')
     .run(info.lastInsertRowid, me.id, firstMessage);
@@ -1081,7 +1084,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req,
   res.json({ received: true });
 });
 
-app.get('/api/acknowledgment', (req, res) => res.json({ text: ACKNOWLEDGMENT_TEXT }));
+app.get('/api/acknowledgment', (req, res) => res.json({ text: ACKNOWLEDGMENT_TEXT, version: TERMS_VERSION,
+  terms_url: 'https://momni.com/terms/', privacy_url: 'https://momni.com/privacy/' }));
 
 // ---------- reports (any member can flag; Karmel reviews) ----------
 app.post('/api/reports', requireAuth, (req, res) => {
