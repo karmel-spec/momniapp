@@ -107,7 +107,7 @@ main{padding:6px 20px 24px}
     <div class="card gives">
       <div class="txt">
         <h3>I host (I'm a Momni)</h3>
-        <p>Open your home to other mamas' littles. Hosting is always free.</p>
+        <p>Open your home to other Momnis' littles. Hosting is always free.</p>
       </div>
       <label class="toggle"><input type="checkbox" id="host-toggle"><span class="slider"></span></label>
     </div>
@@ -168,11 +168,11 @@ main{padding:6px 20px 24px}
         <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px" for="bgc-date">As of <span style="font-weight:400;color:var(--muted)">(the date on your check)</span></label>
         <input id="bgc-date" type="date" style="width:100%;border:1.5px solid var(--line);border-radius:12px;padding:11px 13px;font-family:inherit;font-size:15px;margin-bottom:10px">
         <button class="buy" id="bgc-save" type="button" style="border:none;cursor:pointer;font-family:inherit">Share it on my profile</button>
-        <p class="fine" style="margin-top:10px">Where do mamas get one? You purchase it yourself, on yourself — it's yours to share or not:
+        <p class="fine" style="margin-top:10px">Where do Momnis get one? You purchase it yourself, on yourself — it's yours to share or not:
           <a href="https://personal.checkr.com" target="_blank" rel="noopener" style="color:var(--teal-deep);font-weight:600">Checkr Personal ↗</a> ·
           <a href="https://www.goodhire.com/personal-background-check/" target="_blank" rel="noopener" style="color:var(--teal-deep);font-weight:600">GoodHire ↗</a></p>
       </div>
-      <p class="fine">These are your own shared items — reviews from other mamas and content you chose to purchase and display. The reviews are written by members and reflect their opinions, not Momni's — Momni simply invites both mamas to review each other after every visit. A shared check shows with the "as of" date you enter; Momni doesn't review or confirm what's shared, or whether it's current.</p>
+      <p class="fine">These are your own shared items — reviews from other Momnis and content you chose to purchase and display. The reviews are written by members and reflect their opinions, not Momni's — Momni simply invites both Momnis to review each other after every visit. A shared check shows with the "as of" date you enter; Momni doesn't review or confirm what's shared, or whether it's current.</p>
       <p class="fine" id="shares-msg" style="display:none;color:var(--teal-deep)"></p>
     </div>
 
@@ -194,7 +194,7 @@ main{padding:6px 20px 24px}
     <div class="card gives">
       <div class="txt">
         <h3>Momni Gives</h3>
-        <p>Give $1/mo to the Momni Foundation. Totally voluntary — it goes to a separate 501(c)(3) that helps mamas in crisis.</p>
+        <p>Give $1/mo to the Momni Foundation. Totally voluntary — it goes to a separate 501(c)(3) that helps Momnis in crisis.</p>
       </div>
       <label class="toggle"><input type="checkbox" id="gives-toggle"><span class="slider"></span></label>
     </div>
@@ -347,7 +347,7 @@ main{padding:6px 20px 24px}
     if (me.rating) {
       var st = document.getElementById('me-stars');
       st.style.display = 'block';
-      st.innerHTML = me.rating + '★ <span>from ' + me.review_count + ' mamas</span>';
+      st.innerHTML = me.rating + '★ <span>from ' + me.review_count + ' Momnis</span>';
     }
     document.getElementById('host-toggle').checked = me.is_host;
     document.getElementById('host-card').style.display = me.is_host ? 'block' : 'none';
@@ -424,7 +424,7 @@ main{padding:6px 20px 24px}
         msg.textContent = 'Saved — your Circle can get to know you now. 💜';
         updateCompleteness();
       } else {
-        msg.textContent = (d && d.error) || 'That didn’t save — try again, mama.';
+        msg.textContent = (d && d.error) || 'That didn’t save — try again, Momni.';
       }
     });
   });
@@ -443,7 +443,7 @@ main{padding:6px 20px 24px}
     var btn = this, msg = document.getElementById('pin-msg');
     if (!navigator.geolocation) {
       msg.style.display = 'block';
-      msg.textContent = 'This browser can’t share location — no worries, mama. Try again from your phone anytime.';
+      msg.textContent = 'This browser can’t share location — no worries, Momni. Try again from your phone anytime.';
       return;
     }
     btn.disabled = true;
@@ -497,7 +497,7 @@ main{padding:6px 20px 24px}
   (function(){
     var c=new URLSearchParams(location.search).get('calendar'); if(!c) return;
     var msg=document.getElementById('cal-msg'); msg.style.display='block';
-    msg.textContent = c==='connected'?'Your calendar is connected, mama. 💜'
+    msg.textContent = c==='connected'?'Your calendar is connected, Momni. 💜'
       : c==='unconfigured'?'Calendar sync isn’t turned on yet — coming soon.'
       : c==='denied'?'Calendar connection was cancelled.' : 'Calendar connection hit a snag — try again.';
     if(c==='denied'||c==='error') msg.style.color='#B0556A';
@@ -571,7 +571,7 @@ if(cpw)cpw.addEventListener('click',function(e){e.preventDefault();
 var cur=prompt('Current password:');if(cur===null)return;
 var nw=prompt('New password (8+ characters):');if(!nw)return;
 fetch('/api/me/password',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:cur,new_password:nw})})
-.then(function(r){return r.json()}).then(function(d){alert(d.ok?'Password changed, mama. 💜':(d.error||'Something went wrong'));});});
+.then(function(r){return r.json()}).then(function(d){alert(d.ok?'Password changed, Momni. 💜':(d.error||'Something went wrong'));});});
 </script>
 
 <!-- momni-beta-feedback -->

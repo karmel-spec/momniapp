@@ -111,7 +111,7 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
       <span class="script">What's a Link?</span>
       <p>A Link is a single booking with a Momni — and it's $1, every time you
       book. Each booking is one Link. That dollar is the only thing Momni ever
-      charges; the care itself you pay your Momni directly, and she keeps every penny.</p>
+      charges; the care itself you pay your Momni directly, and they keep every penny.</p>
     </div>
 
     <div class="disclosure">
@@ -138,7 +138,7 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
   }
   var CT_LABELS = {'one-time':'One-time','recurring':'Recurring','overnight':'Overnight'};
   var VISIT_LABELS = {scheduled:'Scheduled', checked_in:'Checked in', completed:'Completed', cancelled:'Cancelled'};
-  var PAY_NOTE = 'Time to pay your Momni directly — Venmo or cash, her choice. She keeps every penny. 💜';
+  var PAY_NOTE = 'Time to pay your Momni directly — Venmo or cash, their choice. They keep every penny. 💜';
   var DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   var MON_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -228,7 +228,7 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
       '<h4>Messages</h4>' +
       '<div class="thread" data-thread="'+l.id+'"><p style="font-size:13px;color:var(--muted)">Loading the thread…</p></div>' +
       '<div class="sendrow">' +
-      '<input type="text" maxlength="2000" placeholder="Message her, mama…" data-msginput="'+l.id+'">' +
+      '<input type="text" maxlength="2000" placeholder="Message them, Momni…" data-msginput="'+l.id+'">' +
       '<button class="actbtn" data-sendmsg="'+l.id+'">Send</button>' +
       '</div>' +
       '<div class="inline-msg" data-msgnote="'+l.id+'"></div>' +
@@ -258,7 +258,7 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
     var statusCls = esc(l.status);
     var meta = (CT_LABELS[l.care_type] || esc(l.care_type)) +
       (l.details && l.details.start_date ? ' &middot; ' + esc(l.details.start_date) : '') +
-      (l.i_am_host ? ' &middot; she requested you' : '');
+      (l.i_am_host ? ' &middot; they requested you' : '');
     var actions = '';
     if (l.i_am_host && l.status === 'requested') {
       actions = '<button class="actbtn" data-act="confirmed" data-id="'+l.id+'">Confirm</button>' +
@@ -276,17 +276,17 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
     if (l.status === 'completed' || l.visits_completed > 0) {
       var inner = '';
       if (l.my_review) {
-        inner = '<div class="inline-msg">✓ You reviewed her</div>';
+        inner = '<div class="inline-msg">✓ You reviewed them</div>';
       } else {
         inner = '<a class="review" href="#" data-revtoggle="'+l.id+'">Leave a review</a>' +
           '<div style="display:none" data-revbody="'+l.id+'">' +
           '<select data-rating="'+l.id+'"><option value="5">5 — wonderful</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select>' +
-          '<textarea rows="2" data-text="'+l.id+'" placeholder="How did it go, mama?"></textarea>' +
+          '<textarea rows="2" data-text="'+l.id+'" placeholder="How did it go, Momni?"></textarea>' +
           '<button class="actbtn" data-sendreview="'+l.id+'">Send review</button>' +
           '<div class="inline-msg" data-revmsg="'+l.id+'"></div>' +
           '</div>';
       }
-      if (l.their_review) inner += '<div class="inline-msg">She reviewed you ⭐</div>';
+      if (l.their_review) inner += '<div class="inline-msg">They reviewed you ⭐</div>';
       review = '<div class="rev-form" id="rev-'+l.id+'">' + inner + '</div>';
     }
     return '<div class="lcard">' +
@@ -337,7 +337,7 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
       if (lastMsgCount[id] === msgs.length) return; // nothing new — leave her scroll alone
       lastMsgCount[id] = msgs.length;
       if (!msgs.length) {
-        el.innerHTML = '<p style="font-size:13px;color:var(--muted)">No messages yet — say hello, mama.</p>';
+        el.innerHTML = '<p style="font-size:13px;color:var(--muted)">No messages yet — say hello, Momni.</p>';
         return;
       }
       el.innerHTML = msgs.map(function(m){
@@ -422,7 +422,7 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
     var st = (document.querySelector('[data-vs="' + id + '"]') || {}).value || '';
     var et = (document.querySelector('[data-ve="' + id + '"]') || {}).value || '';
     var note = document.querySelector('[data-addnote="' + id + '"]');
-    if (!date) { if (note) note.textContent = 'Pick a date first, mama.'; return; }
+    if (!date) { if (note) note.textContent = 'Pick a date first, Momni.'; return; }
     fetch('/api/links/' + id + '/visits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -498,7 +498,7 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
   function render(){
     var box = document.getElementById('links-list');
     if (!linksCache.length) {
-      box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No Links yet — find a mama on the Search tab.</p>';
+      box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No Links yet — find a Momni on the Search tab.</p>';
       return;
     }
     var active = linksCache.filter(function(l){ return l.status === 'requested' || l.status === 'confirmed'; });

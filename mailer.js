@@ -6,7 +6,7 @@
 //     AND recorded in the `emails` table so you can see exactly what WOULD go out.
 // Set EMAIL_FROM to a verified sending address in production (e.g. "Momni <hello@momni.com>").
 //
-// Sacred rules live in the copy: warm/candid voice, "mama"; never vetted/verified/
+// Sacred rules live in the copy: warm/candid voice, "Momni" (gender-neutral, 2026-06-12); never vetted/verified/
 // screened/safe/guaranteed; Momni never touches care payments; entity separation disclosed.
 
 const { db } = require('./db');
@@ -34,7 +34,7 @@ function layout(inner, preheader) {
   <tr><td style="background:#6D58A4;padding:20px 28px"><span style="color:#ffffff;font-family:'Montserrat',Helvetica,Arial,sans-serif;font-weight:700;font-size:21px;letter-spacing:-0.01em">Momni</span></td></tr>
   <tr><td style="padding:30px 28px">${inner}</td></tr>
   <tr><td style="padding:18px 28px;background:#F5F0FE;font-size:12px;color:#6B6477;line-height:1.7">
-    Momni is a community platform — mamas make their own care decisions and pay each other directly.<br>
+    Momni is a community platform — Momnis make their own care decisions and pay each other directly.<br>
     Momni, Inc. and the Momni Foundation (501(c)(3)) are one brand with separate finances.<br>
     <a href="${esc(APP_URL)}/me.html" style="color:#0D878F">Manage your preferences</a>
   </td></tr>
@@ -47,30 +47,30 @@ const script = (t) => `<p style="font-family:'Caveat',cursive;font-size:22px;col
 // ---- templates: each returns { subject, html } from its vars ----
 const TEMPLATES = {
   welcome: (v) => ({
-    subject: `Welcome to the Circle, ${v.name || 'mama'} 💜`,
+    subject: `Welcome to the Circle, ${v.name || 'Momni'} 💜`,
     html: layout(
-      h1(`Welcome, ${esc(v.name || 'mama')}.`) +
-      p(`You're in the Circle now — a community of mamas helping mamas, one connection at a time.`) +
-      p(`Here's a gentle first step: complete your profile so other mamas can get to know you, and take a look at who's near you on the map.`) +
+      h1(`Welcome, ${esc(v.name || 'Momni')}.`) +
+      p(`You're in the Circle now — a community of Momnis helping Momnis, one connection at a time.`) +
+      p(`Here's a gentle first step: complete your profile so other Momnis can get to know you, and take a look at who's near you on the map.`) +
       `<p style="margin:20px 0">${btn(APP_URL + '/home.html', 'Open Momni')}</p>` +
       script('— Karmel'),
-      `Welcome to the Circle, ${v.name || 'mama'}.`),
+      `Welcome to the Circle, ${v.name || 'Momni'}.`),
   }),
   onboarding: (v) => ({
-    subject: `Your next step in the Circle, ${v.name || 'mama'}`,
+    subject: `Your next step in the Circle, ${v.name || 'Momni'}`,
     html: layout(
       h1('A few things that make Momni feel like home') +
-      p(`Hi ${esc(v.name || 'mama')} — a few mamas asked what to do first, so here's the short list:`) +
+      p(`Hi ${esc(v.name || 'Momni')} — a few Momnis asked what to do first, so here's the short list:`) +
       `<ul style="font-size:16px;padding-left:20px;margin:0 0 16px"><li>Finish your profile and add what you'd want a new friend to know.</li><li>If you'd like to host, flip on hosting and set your own rate — you keep every penny.</li><li>Put your pin on the map so your neighborhood can find you.</li></ul>` +
       `<p style="margin:20px 0">${btn(APP_URL + '/me.html', 'Finish your profile')}</p>` +
       script('— Karmel'),
       'Your next step in the Circle'),
   }),
   reactivation: (v) => ({
-    subject: `Your pin is still on the map, ${v.name || 'mama'}`,
+    subject: `Your pin is still on the map, ${v.name || 'Momni'}`,
     html: layout(
       h1('Come light it up again') +
-      p(`We've missed you, ${esc(v.name || 'mama')}. Momni is back — community-led, mama-powered, and built to last — and your spot in the Circle is waiting.`) +
+      p(`We've missed you, ${esc(v.name || 'Momni')}. Momni is back — community-led, Momni-powered, and built to last — and your spot in the Circle is waiting.`) +
       p(`Nothing's lost: your pin is still on the map. Come see who's circling up near you now.`) +
       `<p style="margin:20px 0">${btn(APP_URL + '/home.html', 'Come back to the Circle')}</p>` +
       script('— Karmel'),
@@ -81,19 +81,19 @@ const TEMPLATES = {
     html: layout(
       h1('Tell the Circle how it went') +
       p(`Your visit with <strong>${esc(v.other || 'your Momni')}</strong> just wrapped up. Would you take a moment to leave a review?`) +
-      p(`Honest reviews from mamas like you are how the Circle grows the most precious thing we have — a trusted map of who's wonderful with our little ones. It's the kind of word-of-mouth that used to live over the back fence, now shared with the whole Circle.`) +
+      p(`Honest reviews from Momnis like you are how the Circle grows the most precious thing we have — a trusted map of who's wonderful with our little ones. It's the kind of word-of-mouth that used to live over the back fence, now shared with the whole Circle.`) +
       `<p style="margin:20px 0">${btn(APP_URL + '/links.html', 'Leave a review')}</p>` +
       script('— Karmel'),
       `How did your visit with ${v.other || 'your Momni'} go?`),
   }),
   booking_request: (v) => ({
-    subject: `${v.guest || 'A mama'} wants to book you on Momni`,
+    subject: `${v.guest || 'A Momni'} wants to book you on Momni`,
     html: layout(
       h1('You have a new booking request') +
-      p(`<strong>${esc(v.guest || 'A mama')}</strong> sent you a Link${v.care_type ? ` for ${esc(v.care_type)} care` : ''}. Open your Links to see her note and confirm or decline.`) +
+      p(`<strong>${esc(v.guest || 'A Momni')}</strong> sent you a Link${v.care_type ? ` for ${esc(v.care_type)} care` : ''}. Open your Links to see their note and confirm or decline.`) +
       `<p style="margin:20px 0">${btn(APP_URL + '/links.html', 'View the request')}</p>` +
-      p(`<span style="font-size:14px;color:#6B6477">When you confirm, you two arrange the details and she pays you directly — you keep every penny.</span>`),
-      `${v.guest || 'A mama'} wants to book you`),
+      p(`<span style="font-size:14px;color:#6B6477">When you confirm, you two arrange the details and they pay you directly — you keep every penny.</span>`),
+      `${v.guest || 'A Momni'} wants to book you`),
   }),
   booking_confirmed: (v) => ({
     subject: `${v.host || 'Your Momni'} confirmed your Link 🎉`,
@@ -101,7 +101,7 @@ const TEMPLATES = {
       h1('You\'re booked!') +
       p(`<strong>${esc(v.host || 'Your Momni')}</strong> confirmed your Link. You'll find the visit details — and a thread to chat — in your Links.`) +
       `<p style="margin:20px 0">${btn(APP_URL + '/links.html', 'See the details')}</p>` +
-      p(`<span style="font-size:14px;color:#6B6477">Pay your Momni directly — Venmo, cash, her choice. She keeps every penny.</span>`),
+      p(`<span style="font-size:14px;color:#6B6477">Pay your Momni directly — Venmo, cash, their choice. They keep every penny.</span>`),
       `${v.host || 'Your Momni'} confirmed your Link`),
   }),
   newsletter: (v) => ({
@@ -117,7 +117,7 @@ const TEMPLATES = {
     subject: 'Reset your Momni password',
     html: layout(
       h1('Choose a new password') +
-      p(`Hi ${esc(v.name || 'mama')} — tap below to set a new password for your Momni account. The link works once and expires in an hour.`) +
+      p(`Hi ${esc(v.name || 'Momni')} — tap below to set a new password for your Momni account. The link works once and expires in an hour.`) +
       `<p style="margin:20px 0">${btn(v.resetHref, 'Choose a new password')}</p>` +
       p('If you didn’t ask for this, just ignore this email — your password is unchanged.') +
       script('— Momni'),
@@ -128,10 +128,10 @@ const TEMPLATES = {
   download_ready: (v) => ({
     subject: `Your download: ${v.title || 'Momni Shop'}`,
     html: layout(
-      h1('Thank you, mama! 💜') +
+      h1('Thank you, Momni! 💜') +
       p(`Here’s your download — <strong>${esc(v.title || 'your purchase')}</strong>. The link works for a little while and a few downloads, so save the file somewhere safe.`) +
       `<p style="margin:20px 0">${btn(v.downloadHref, 'Download now')}</p>` +
-      p('Every purchase in the Momni Shop helps fund care for mamas in need through the Momni Foundation. Thank you for circling up.') +
+      p('Every purchase in the Momni Shop helps fund care for parents in need through the Momni Foundation. Thank you for circling up.') +
       script('— Momni'),
       `Your download: ${v.title || 'Momni Shop'}`),
   }),

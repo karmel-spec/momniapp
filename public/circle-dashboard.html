@@ -86,7 +86,7 @@ textarea{min-height:64px;resize:vertical}
     </div>
 
     <section id="roster" class="on">
-      <p class="note">The mamas in your Circle. Their contact stays private — reminders are sent by Momni for you.</p>
+      <p class="note">The Momnis in your Circle. Their contact stays private — reminders are sent by Momni for you.</p>
       <div id="roster-list"><p class="empty">Loading…</p></div>
     </section>
 
@@ -109,14 +109,14 @@ textarea{min-height:64px;resize:vertical}
         <label for="rm-subject">Subject</label>
         <input id="rm-subject" placeholder="Quick note about Tuesday">
         <label for="rm-body">Message</label>
-        <textarea id="rm-body" placeholder="Hi mamas! Just a heads-up…"></textarea>
+        <textarea id="rm-body" placeholder="Hi Momnis! Just a heads-up…"></textarea>
         <button class="btn btn-primary" id="rm-send" style="margin-top:12px">Send to my Circle</button>
         <div class="result" id="rm-result"></div>
       </div>
     </section>
 
     <section id="grow">
-      <p class="note">Everything you need to invite more mamas and grow your Circle — no ad budget required. Copy, paste, share.</p>
+      <p class="note">Everything you need to invite more parents and grow your Circle — no ad budget required. Copy, paste, share.</p>
       <div id="grow-posts"></div>
       <div class="post" style="background:var(--teal-soft);border-color:var(--teal-soft)">
         <div class="lbl">Make it shareable</div>
@@ -176,7 +176,7 @@ textarea{min-height:64px;resize:vertical}
     }).then(function(d){
       circle=d.circle;
       document.getElementById('c-name').textContent=circle.name;
-      document.getElementById('c-sub').textContent=circle.member_count+' mamas · '+(circle.meets||'Schedule coming soon');
+      document.getElementById('c-sub').textContent=circle.member_count+' Momnis · '+(circle.meets||'Schedule coming soon');
       document.getElementById('roster-list').innerHTML = d.members.map(function(m){
         var initials=(m.name||'?').split(/\s+/).map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
         return '<div class="member"><span class="av">'+esc(initials)+'</span><div><div class="nm">'+esc(m.name)+'</div><div class="mt">'+esc(m.city||'')+'</div></div>'+
@@ -254,7 +254,7 @@ textarea{min-height:64px;resize:vertical}
   function sendReminder(payload, resultEl){
     fetch('/api/circles/'+id+'/remind',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
       .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});}).then(function(x){
-        var msg = x.ok ? ('Reminder ready for '+x.d.sent+'/'+x.d.recipients+' mamas — '+x.d.mode) : (x.d.error||'Could not send.');
+        var msg = x.ok ? ('Reminder ready for '+x.d.sent+'/'+x.d.recipients+' Momnis — '+x.d.mode) : (x.d.error||'Could not send.');
         if(resultEl){ resultEl.textContent=msg; } else { document.querySelector('.snav[data-sec="remind"]').click(); setResult('rm-result',msg); }
         if(x.ok){ document.getElementById('rm-subject').value=''; document.getElementById('rm-body').value=''; }
       });
@@ -265,9 +265,9 @@ textarea{min-height:64px;resize:vertical}
   function renderGrow(){
     var app='https://app.momni.com', name=circle?circle.name:'my Circle', meets=circle&&circle.meets?circle.meets:'';
     var posts=[
-      {lbl:'Invite a friend (text)', body:'Come join '+name+' on Momni 💜 It’s a circle of local mamas helping each other'+(meets?' — we meet '+meets:'')+'. Join here: '+app},
-      {lbl:'Facebook / group post', body:'📣 Calling '+(circle&&circle.city?circle.city+' ':'')+'mamas! I lead '+name+' on Momni — a community of moms who actually show up for each other.'+(meets?' We gather '+meets+'.':'')+' If you’ve ever wished for a village, come find one. Join free: '+app},
-      {lbl:'Instagram story', body:'I lead '+name+' 💜 Mom friends — come circle up with us. Link in bio / '+app},
+      {lbl:'Invite a friend (text)', body:'Come join '+name+' on Momni 💜 It’s a circle of local Momnis helping each other'+(meets?' — we meet '+meets:'')+'. Join here: '+app},
+      {lbl:'Facebook / group post', body:'📣 Calling '+(circle&&circle.city?circle.city+' ':'')+'Momnis! I lead '+name+' on Momni — a community of Momnis who actually show up for each other.'+(meets?' We gather '+meets+'.':'')+' If you’ve ever wished for a village, come find one. Join free: '+app},
+      {lbl:'Instagram story', body:'I lead '+name+' 💜 Parent friends — come circle up with us. Link in bio / '+app},
       {lbl:'The short one', body:name+' is growing 🐘 Join us on Momni: '+app}
     ];
     document.getElementById('grow-posts').innerHTML = posts.map(function(p,i){

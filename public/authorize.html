@@ -40,7 +40,7 @@ input:focus{outline:none;border-color:var(--purple)}
 <div class="card">
   <img src="/assets/momni-logo-color-horizontal.png" alt="Momni">
 
-  <div id="loading"><p class="sub">One moment, mama…</p></div>
+  <div id="loading"><p class="sub">One moment, Momni…</p></div>
 
   <div id="bad" class="hidden">
     <h1>Hmm, that link isn’t right</h1>
@@ -150,8 +150,8 @@ input:focus{outline:none;border-color:var(--purple)}
         document.getElementById('consent-app').textContent = name;
         if (!x.d.signed_in) return show('login');
         document.getElementById('hello').textContent = x.d.already_granted
-          ? 'Welcome back, ' + (x.d.user_name || 'mama') + ' — reconnect ' + name + '?'
-          : 'Hi ' + (x.d.user_name || 'mama') + ' 👋';
+          ? 'Welcome back, ' + (x.d.user_name || 'Momni') + ' — reconnect ' + name + '?'
+          : 'Hi ' + (x.d.user_name || 'Momni') + ' 👋';
         show('consent'); // always require a fresh tap — never auto-submit
       })
       .catch(function () { fail('Couldn’t reach the Circle. Check your connection and try again.'); });

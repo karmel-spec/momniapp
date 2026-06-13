@@ -125,9 +125,9 @@ a{text-decoration:none;color:inherit}
 
     <div class="step">
       <div class="step-label">Step 3</div>
-      <h2>Meet her first</h2>
+      <h2>Meet them first</h2>
       <div class="meet">
-        <span class="script">Mamas meet before the first Link.</span>
+        <span class="script">Momnis meet before the first Link.</span>
         <p>Before your first Link, we encourage a quick video hello or a park
         meetup with the kids. It's how you'd get to know any new friend — and
         it's how the Circle works.</p>
@@ -158,7 +158,7 @@ a{text-decoration:none;color:inherit}
       </label>
       <button class="send-btn" id="send" disabled>Send Link request — $1</button>
       <p class="send-note">Every booking is a $1 Link — that's all Momni charges.
-      You pay your Momni her rate directly, and she keeps every penny.</p>
+      You pay your Momni their rate directly, and they keep every penny.</p>
       <div id="msg-box" style="display:none;margin-top:16px;border-radius:16px;padding:16px 18px;font-size:14px;line-height:1.6"></div>
     </div>
 
@@ -324,7 +324,7 @@ function toggleRecurring(){
   }
 
   document.getElementById('send').addEventListener('click', function(){
-    if (!hostId) { showMsg('Pick a mama from the search map first.'); return; }
+    if (!hostId) { showMsg('Pick a Momni from the search map first.'); return; }
     if (!document.getElementById('ack').checked) return;
     sendLink();
   });

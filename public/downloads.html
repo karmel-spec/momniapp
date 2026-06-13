@@ -41,7 +41,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.55);padding:30px 0;font-siz
 <header class="hero">
   <div class="wrap">
     <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
-    <span class="script">Made for the mama mind.</span>
+    <span class="script">Made for the Momni mind.</span>
     <h1>Momni Shop — Digital Downloads</h1>
     <p>Printables, planners, and reads you can use tonight. Instant download — no shipping, no waiting. Every purchase helps fund care through the Momni Foundation.</p>
   </div>
@@ -86,7 +86,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.55);padding:30px 0;font-siz
       .then(function(x){
         if (!x.ok) { b.disabled = false; b.textContent = 'Try again'; toast(x.d.error || 'Something went wrong.'); return; }
         if (x.d.checkout_url) { window.location.href = x.d.checkout_url; return; }       // paid → Stripe
-        if (x.d.download_url) { window.location.href = x.d.download_url; b.textContent = 'Downloading ✓'; toast('Enjoy, mama! 💜'); } // free/dev → instant
+        if (x.d.download_url) { window.location.href = x.d.download_url; b.textContent = 'Downloading ✓'; toast('Enjoy, Momni! 💜'); } // free/dev → instant
       })
       .catch(function(){ b.disabled = false; b.textContent = 'Try again'; toast('Couldn’t reach the shop.'); });
   });

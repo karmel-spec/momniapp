@@ -76,7 +76,7 @@ function rateLimit({ windowMs, max, message }) {
     if (rec.count > max) {
       const retry = Math.ceil((rec.resetAt - now) / 1000);
       res.set('Retry-After', String(retry));
-      return res.status(429).json({ error: message || 'Too many tries — give it a minute, mama.' });
+      return res.status(429).json({ error: message || 'Too many tries — give it a minute, Momni.' });
     }
     next();
   };
@@ -92,7 +92,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const ACKNOWLEDGMENT_TEXT = 'I understand Momni is a community platform, not a childcare provider. Momni does not vet, screen, or endorse any member. I am solely responsible for choosing and evaluating my children’s care, just as I would when choosing a trusted friend. Care payments are between me and my Momni.';
 
 function requireAuth(req, res, next) {
-  if (!req.session.userId) return res.status(401).json({ error: 'Please sign in first, mama.' });
+  if (!req.session.userId) return res.status(401).json({ error: 'Please sign in first, Momni.' });
   next();
 }
 // Privacy: public payloads only ever carry ~neighborhood-level coords (2 decimals);
@@ -113,7 +113,7 @@ const userPublic = (u) => ({
 // ---------- badges ----------
 // Auto-badges are computed live from real activity; purchased/granted ones live in user_badges.
 const BADGE_CATALOG = {
-  'founding-member': { label: 'Momni 1.0 Founding Member', emoji: '🌟', note: 'One of the original mamas of Momni 1.0.' },
+  'founding-member': { label: 'Momni 1.0 Founding Member', emoji: '🌟', note: 'One of the original Momnis of Momni 1.0.' },
   'founding-host':   { label: 'Founding Host', emoji: '🏡', note: 'Opened her home in Momni 1.0.' },
   'super-host':      { label: 'Super Host', emoji: '⭐', note: '5+ completed cares with a 4.5★ rating or higher.' },
   'campfire-spark':  { label: 'Campfire Spark', emoji: '✨', note: 'Started the conversation at the Campfire.' },
@@ -158,7 +158,7 @@ app.post('/api/register', authLimiter, (req, res) => {
   const { email, password, name, city, acknowledged } = req.body;
   if (!email || !password || !name) return res.status(400).json({ error: 'Name, email, and password are required.' });
   if (password.length < 8) return res.status(400).json({ error: 'Password needs at least 8 characters.' });
-  if (!acknowledged) return res.status(400).json({ error: 'One quick checkbox first, mama — it’s how we all stay on the same page about how Momni works.' });
+  if (!acknowledged) return res.status(400).json({ error: 'One quick checkbox first, Momni — it’s how we all stay on the same page about how Momni works.' });
   if (ADMIN_EMAILS.includes(email.toLowerCase().trim())) return res.status(403).json({ error: 'That address is reserved for Momni HQ.' });
   try {
     const info = db.prepare(`INSERT INTO users (email,password_hash,name,city,signup_ack_text,signup_ack_at)
@@ -203,7 +203,7 @@ app.post('/api/forgot-password', authLimiter, (req, res) => {
   if (!u) return res.json(generic);
   const c = require('crypto');
   const token = c.randomBytes(32).toString('hex');
-  db.prepare('DELETE FROM password_resets WHERE user_id = ?').run(u.id); // one live link per mama
+  db.prepare('DELETE FROM password_resets WHERE user_id = ?').run(u.id); // one live link per Momni
   db.prepare('INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (?,?,?)')
     .run(c.createHash('sha256').update(token).digest('hex'), u.id, Date.now() + 60 * 60 * 1000);
   mailer.send({ to: u.email, to_user_id: u.id, template: 'password_reset',
@@ -474,7 +474,7 @@ app.post('/api/links', requireAuth, (req, res) => {
   if (!['one-time','recurring','overnight'].includes(care_type)) return res.status(400).json({ error: 'Unknown care type.' });
   const host = db.prepare('SELECT * FROM users WHERE id = ? AND is_host = 1').get(host_id);
   if (!host) return res.status(404).json({ error: 'That Momni was not found.' });
-  if (host.id === req.session.userId) return res.status(400).json({ error: 'You cannot Link with yourself, mama.' });
+  if (host.id === req.session.userId) return res.status(400).json({ error: 'You cannot Link with yourself, Momni.' });
   const me = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
   if (!me.momni_plus && me.links_balance < 1) {
     return res.status(402).json({ error: 'You’re out of Links. Buy a bundle (10 for $10) or go Momni+ for unlimited.' });
@@ -536,7 +536,7 @@ app.put('/api/links/:id', requireAuth, (req, res) => {
     if (calendar.isConnected(link.host_id)) {
       for (const v of db.prepare("SELECT * FROM visits WHERE link_id = ? AND status = 'scheduled'").all(link.id)) {
         calendar.createEvent(link.host_id, {
-          summary: `Momni: ${guest ? guest.name : 'a mama'}'s littles`,
+          summary: `Momni: ${guest ? guest.name : 'a Momni'}'s littles`,
           description: `Booked through Momni (${link.care_type}). Care payment is arranged directly between you two.`,
           date: v.date, startTime: v.start_time, endTime: v.end_time,
           attendeeEmail: guest ? guest.email : null,
@@ -547,7 +547,7 @@ app.put('/api/links/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// ---------- messages (the thread between the two mamas on a Link — participants only) ----------
+// ---------- messages (the thread between the two Momnis on a Link — participants only) ----------
 function linkForParticipant(req, res) {
   const link = db.prepare('SELECT * FROM links WHERE id = ?').get(req.params.id);
   if (!link) { res.status(404).json({ error: 'Not found' }); return null; }
@@ -570,13 +570,13 @@ app.post('/api/links/:id/messages', requireAuth, (req, res) => {
   const link = linkForParticipant(req, res);
   if (!link) return;
   const body = String(req.body.body || '').trim().slice(0, 2000);
-  if (!body) return res.status(400).json({ error: 'Say a little something first, mama.' });
+  if (!body) return res.status(400).json({ error: 'Say a little something first, Momni.' });
   const info = db.prepare('INSERT INTO messages (link_id,sender_id,body) VALUES (?,?,?)')
     .run(link.id, req.session.userId, body);
   res.json({ ok: true, id: info.lastInsertRowid });
 });
 
-// ---------- visits (the shared drop-off/pick-up timeline both mamas can see — coordination, never supervision) ----------
+// ---------- visits (the shared drop-off/pick-up timeline both Momnis can see — coordination, never supervision) ----------
 // When a host confirms, build the timeline from the Link's details (once; never duplicates).
 function generateVisitsForLink(link) {
   if (db.prepare('SELECT COUNT(*) c FROM visits WHERE link_id = ?').get(link.id).c > 0) return;
@@ -615,7 +615,7 @@ app.post('/api/links/:id/visits', requireAuth, (req, res) => {
   if (!link) return;
   if (link.status !== 'confirmed') return res.status(400).json({ error: 'Visits can be added once the Link is confirmed.' });
   const { date, end_date, start_time, end_time } = req.body;
-  if (!date) return res.status(400).json({ error: 'Pick a date first, mama.' });
+  if (!date) return res.status(400).json({ error: 'Pick a date first, Momni.' });
   const info = db.prepare('INSERT INTO visits (link_id,date,end_date,start_time,end_time) VALUES (?,?,?,?,?)')
     .run(link.id, String(date), end_date || null, start_time || null, end_time || null);
   res.json({ ok: true, id: info.lastInsertRowid });
@@ -640,7 +640,7 @@ app.put('/api/visits/:id', requireAuth, (req, res) => {
     }
     db.prepare(`UPDATE visits SET status = 'completed', checkout_at = datetime('now') WHERE id = ?`).run(visit.id);
     // One-time and overnight Links complete themselves when the last visit checks out.
-    // Recurring Links stay confirmed until a mama marks them completed herself.
+    // Recurring Links stay confirmed until a Momni marks them completed themselves.
     let linkStatus = link.status;
     if ((link.care_type === 'one-time' || link.care_type === 'overnight') && link.status === 'confirmed') {
       const open = db.prepare(`SELECT COUNT(*) c FROM visits WHERE link_id = ?
@@ -650,7 +650,7 @@ app.put('/api/visits/:id', requireAuth, (req, res) => {
         linkStatus = 'completed';
       }
     }
-    // Both mamas get one review request per Link the moment a visit wraps up (guarded against double-sends).
+    // Both Momnis get one review request per Link the moment a visit wraps up (guarded against double-sends).
     const g = db.prepare('SELECT id,name,email FROM users WHERE id = ?').get(link.guest_id);
     const h = db.prepare('SELECT id,name,email FROM users WHERE id = ?').get(link.host_id);
     for (const [who, other] of [[g, h], [h, g]]) {
@@ -688,7 +688,7 @@ app.post('/api/reviews', requireAuth, (req, res) => {
 });
 
 // ---------- circles ----------
-// Annotate each circle with the signed-in mama's relationship to it (for the "Manage" button).
+// Annotate each circle with the signed-in Momni's relationship to it (for the "Manage" button).
 app.get('/api/circles', (req, res) => {
   const me = req.session.userId || 0;
   const rows = db.prepare('SELECT * FROM circles').all();
@@ -698,7 +698,7 @@ app.get('/api/circles', (req, res) => {
 });
 app.post('/api/circles', requireAuth, (req, res) => {
   const { name, city, meets } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Your Circle needs a name, mama.' });
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Your Circle needs a name, Momni.' });
   const me = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
   const info = db.prepare('INSERT INTO circles (name,city,meets,member_count,leader_id) VALUES (?,?,?,1,?)')
     .run(name.trim().slice(0, 80), (city || me.city || '').slice(0, 60), (meets || 'Schedule coming soon').slice(0, 120), me.id);
@@ -1022,11 +1022,11 @@ app.post('/api/reports', requireAuth, (req, res) => {
 // ---------- in-app feedback (lands in Karmel's Suggestions queue) ----------
 app.post('/api/feedback', requireAuth, (req, res) => {
   const { body, page } = req.body;
-  if (!body || !String(body).trim()) return res.status(400).json({ error: 'Tell us a little something first, mama.' });
+  if (!body || !String(body).trim()) return res.status(400).json({ error: 'Tell us a little something first, Momni.' });
   const me = db.prepare('SELECT name FROM users WHERE id = ?').get(req.session.userId);
   db.prepare("INSERT INTO suggestions (source,submitted_by,body,page) VALUES ('in-app',?,?,?)")
     .run(me.name, String(body).trim().slice(0, 4000), String(page || '').slice(0, 200));
-  res.json({ ok: true, note: 'Thank you, mama — your idea is in Karmel’s queue. The Circle is built by YOU. 💜' });
+  res.json({ ok: true, note: 'Thank you, Momni — your idea is in Karmel’s queue. The Circle is built by YOU. 💜' });
 });
 
 // ---------- founder admin (Momni HQ) ----------
@@ -1081,12 +1081,12 @@ app.get('/api/admin/links', requireAdmin, (req, res) => {
     FROM links l JOIN users g ON g.id=l.guest_id JOIN users h ON h.id=l.host_id
     ORDER BY l.created_at DESC LIMIT 50`).all());
 });
-// Admin password reset: HQ sets a temporary password, mama changes it after signing in.
+// Admin password reset: HQ sets a temporary password, the Momni changes it after signing in.
 app.post('/api/admin/users/:id/reset-password', requireAdmin, (req, res) => {
   const temp = 'circle-' + require('crypto').randomBytes(4).toString('hex');
   const r = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
     .run(bcrypt.hashSync(temp, 10), req.params.id);
-  if (!r.changes) return res.status(404).json({ error: 'Mama not found.' });
+  if (!r.changes) return res.status(404).json({ error: 'Momni not found.' });
   res.json({ ok: true, temp_password: temp, note: 'Share this with her privately; she should change it after signing in.' });
 });
 
@@ -1119,7 +1119,7 @@ app.delete('/api/admin/reviews/:id', requireAdmin, (req, res) => {
 const CAMPFIRE_CATEGORIES = ['idea', 'feature', 'question', 'win'];
 const postLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30, message: 'You’re on fire 🔥 — give it a little bit before posting again.' });
 
-// List posts with vote/comment counts and whether the signed-in mama has voted.
+// List posts with vote/comment counts and whether the signed-in Momni has voted.
 app.get('/api/campfire', (req, res) => {
   const { category, sort } = req.query;
   const me = req.session.userId || 0;
@@ -1138,7 +1138,7 @@ app.get('/api/campfire', (req, res) => {
 app.post('/api/campfire', requireAuth, postLimiter, (req, res) => {
   const { category, title, body } = req.body;
   const cat = CAMPFIRE_CATEGORIES.includes(category) ? category : 'idea';
-  if (!title || !String(title).trim()) return res.status(400).json({ error: 'Give your idea a title, mama.' });
+  if (!title || !String(title).trim()) return res.status(400).json({ error: 'Give your idea a title, Momni.' });
   const info = db.prepare('INSERT INTO campfire_posts (user_id, category, title, body) VALUES (?,?,?,?)')
     .run(req.session.userId, cat, String(title).trim().slice(0, 140), String(body || '').trim().slice(0, 4000));
   res.json({ ok: true, id: info.lastInsertRowid });
@@ -1405,7 +1405,7 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
   // Guard against accidental mass-sends: a segment blast must be explicitly confirmed.
   if (segment && !confirm) {
     return res.status(409).json({ error: 'confirm_required', needsConfirm: true, recipients: recipients.length,
-      message: `This will email ${recipients.length} ${segment === 'all' ? 'members' : 'legacy mamas'}. Resend with confirm to proceed.` });
+      message: `This will email ${recipients.length} ${segment === 'all' ? 'members' : 'legacy Momnis'}. Resend with confirm to proceed.` });
   }
   if (recipients.length > MAX_BROADCAST) {
     return res.status(413).json({ error: `That's ${recipients.length} recipients — over the ${MAX_BROADCAST} per-send limit. Send in smaller batches.` });
@@ -1421,7 +1421,7 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
 });
 
 // ---------- CRM — Karmel's community/marketing/outreach backend (HQ-only) ----------
-// Every route is admin-gated. Contact data (25K+ 1.0 mamas) never reaches member-facing APIs.
+// Every route is admin-gated. Contact data (25K+ 1.0 Momnis) never reaches member-facing APIs.
 const { importContacts } = require('./crm-import');
 
 // Build the WHERE clause shared by list + export + stats-by-filter.
@@ -1660,13 +1660,13 @@ app.post('/api/admin/crm/email', requireAdmin, async (req, res) => {
   if (!recipients.length) return res.status(404).json({ error: 'No emailable contacts in that selection (missing email or do-not-email).' });
   if (recipients.length > 10 && !req.body.confirm) {
     return res.status(409).json({ error: 'confirm_required', needsConfirm: true, recipients: recipients.length, skipped,
-      message: `This will email ${recipients.length} mamas${skipped ? ` (${skipped} skipped: no email / do-not-email)` : ''}. Resend with confirm to proceed.` });
+      message: `This will email ${recipients.length} Momnis${skipped ? ` (${skipped} skipped: no email / do-not-email)` : ''}. Resend with confirm to proceed.` });
   }
   const logAct = db.prepare("INSERT INTO crm_activities (contact_id, kind, direction, subject, body) VALUES (?, 'email', 'out', ?, ?)");
   const touch = db.prepare("UPDATE crm_contacts SET last_activity_at = datetime('now') WHERE id = ?");
   let sent = 0;
   for (const c of recipients) {
-    const fn = c.first_name || 'mama';
+    const fn = c.first_name || 'Momni';
     const r = await mailer.send({ to: c.email, template: 'crm_outreach',
       vars: { subject: subject.replace(/{{\s*first_name\s*}}/gi, fn), body: body.replace(/{{\s*first_name\s*}}/gi, fn) } });
     if (r.status !== 'failed') { sent++; logAct.run(c.id, subject, body.slice(0, 500)); touch.run(c.id); }

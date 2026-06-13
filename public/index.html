@@ -47,7 +47,7 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
 <div class="app">
   <main class="auth">
     <img class="logo" src="assets/momni-logo-color-horizontal.png" alt="Momni">
-    <span class="script" id="script-line">Welcome back, mama</span>
+    <span class="script" id="script-line">Welcome back, Momni</span>
     <h1 id="title-line">Sign in to your Circle</h1>
     <form id="auth-form">
       <div class="signup-only">
@@ -88,7 +88,7 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
     <div class="hint" id="demo-hint" style="display:none">Demo: sarah@example.com / momni-demo</div>
   </main>
   <footer class="disclosure">
-    Momni is a community platform that helps mamas find each other.
+    Momni is a community platform that helps Momnis find each other.
     Members make their own care decisions, in their own homes, on their own terms.
     Momni doesn't handle care payments — those happen mom to mom.
   </footer>
@@ -122,7 +122,7 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
     }).catch(function(){
       ackLoaded = false;
       document.getElementById('signup-ack-text').textContent =
-        'The acknowledgment couldn’t load — refresh before joining, mama.';
+        'The acknowledgment couldn’t load — refresh before joining, Momni.';
     });
   }
   function syncSubmit(){
@@ -135,7 +135,7 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
     signup = !signup;
     hideErr();
     document.querySelectorAll('.signup-only').forEach(function(el){ el.style.display = signup ? 'block' : 'none'; });
-    document.getElementById('script-line').textContent = signup ? 'Come on in, mama' : 'Welcome back, mama';
+    document.getElementById('script-line').textContent = signup ? 'Come on in, Momni' : 'Welcome back, Momni';
     document.getElementById('title-line').textContent = signup ? 'Join the Circle' : 'Sign in to your Circle';
     document.getElementById('submit-btn').textContent = signup ? 'Join the Circle' : 'Continue';
     document.getElementById('join-line').firstChild.textContent = signup ? 'Already with us? ' : 'New here? ';
@@ -172,7 +172,7 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
 </script>
 <script>
 (function(){var q=new URLSearchParams(location.search).get('google');var el=document.getElementById('google-err');if(q)el.style.display='block';
-if(q==='unconfigured')el.textContent='Google sign-in isn\u2019t set up yet \u2014 use email for now, mama.';
+if(q==='unconfigured')el.textContent='Google sign-in isn\u2019t set up yet \u2014 use email for now, Momni.';
 if(q==='denied')el.textContent='Google sign-in was cancelled.';
 if(q==='error')el.textContent='Google sign-in hit a snag \u2014 try email instead.';if(['localhost','127.0.0.1'].includes(location.hostname))document.getElementById('demo-hint').style.display='block';})();
 </script>

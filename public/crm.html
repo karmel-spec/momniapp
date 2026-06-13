@@ -118,7 +118,7 @@ td .nm{font-weight:700}
 <body>
 <div class="topbar">
   <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
-  <h1>CRM</h1><span class="script">every mama, remembered 💜</span>
+  <h1>CRM</h1><span class="script">every Momni, remembered 💜</span>
   <a class="back" href="admin.html">← Back to HQ</a>
 </div>
 
@@ -203,7 +203,7 @@ td .nm{font-weight:700}
         <table>
           <thead><tr>
             <th style="width:30px"><input type="checkbox" id="selall"></th>
-            <th>Mama</th><th>Reach her</th><th>Where</th><th>Tags</th><th>Joined 1.0</th><th>Last touch</th>
+            <th>Momni</th><th>Reach them</th><th>Where</th><th>Tags</th><th>Joined 1.0</th><th>Last touch</th>
           </tr></thead>
           <tbody id="rows"><tr><td colspan="7" class="muted" style="padding:30px;text-align:center">Loading the Circle…</td></tr></tbody>
         </table>
@@ -230,7 +230,7 @@ td .nm{font-weight:700}
     <h3 id="em-title">Email</h3>
     <label>Subject</label><input type="text" id="em-subject" placeholder="A note from Karmel at Momni">
     <label>Message</label><textarea id="em-body" placeholder="Hi {{first_name}},&#10;&#10;…"></textarea>
-    <p class="hint">Use <code>{{first_name}}</code> to personalize. Sent in Momni's warm branded template, signed — Karmel. Mamas marked do-not-email are skipped automatically.</p>
+    <p class="hint">Use <code>{{first_name}}</code> to personalize. Sent in Momni's warm branded template, signed — Karmel. Momnis marked do-not-email are skipped automatically.</p>
     <div class="devnote" id="em-devnote">📭 Email is in <strong>dev mode</strong> — messages are logged in HQ, not actually sent, until Resend is connected.</div>
     <div class="mrow">
       <button class="btn ghost" onclick="hide('emailmodal')">Cancel</button>
@@ -251,10 +251,10 @@ td .nm{font-weight:700}
       <div><label>City</label><input type="text" id="n-city"></div>
       <div><label>State</label><input type="text" id="n-state"></div>
     </div>
-    <label><input type="checkbox" id="n-host" style="width:auto"> She hosts (or wants to)</label>
+    <label><input type="checkbox" id="n-host" style="width:auto"> They host (or want to)</label>
     <div class="mrow">
       <button class="btn ghost" onclick="hide('newmodal')">Cancel</button>
-      <button class="btn primary" onclick="createContact()">Add her</button>
+      <button class="btn primary" onclick="createContact()">Add them</button>
     </div>
   </div>
 </div>
@@ -306,7 +306,7 @@ function qs(extra) { const f = Object.assign(filters(), extra || {}); return Obj
 async function loadStats() {
   const s = statsCache = await api('/api/admin/crm/stats');
   $('stats').innerHTML = [
-    ['Mamas in the CRM', s.total.toLocaleString()], ['Momni 1.0', s.legacy.toLocaleString()],
+    ['Momnis in the CRM', s.total.toLocaleString()], ['Momni 1.0', s.legacy.toLocaleString()],
     ['In the 2.0 app', s.members_2_0.toLocaleString(), 1], ['Reactivated 💜', s.reactivated.toLocaleString(), 1],
     ['Hosts', s.hosts.toLocaleString()], ['With phone', s.with_phone.toLocaleString()],
     ['With email', s.with_email.toLocaleString()], ['States', s.states], ['Touches · 30d', s.touches_30d],
@@ -353,7 +353,7 @@ function clearFilters(){ applyView({}); }
 async function load() {
   const d = await api('/api/admin/crm/contacts?' + qs({ page, per }));
   total = d.total; page = d.page;
-  $('pageinfo').textContent = total ? `${((page-1)*per+1).toLocaleString()}–${Math.min(page*per, total).toLocaleString()} of ${total.toLocaleString()}` : 'No mamas match';
+  $('pageinfo').textContent = total ? `${((page-1)*per+1).toLocaleString()}–${Math.min(page*per, total).toLocaleString()} of ${total.toLocaleString()}` : 'No Momnis match';
   $('prev').disabled = page <= 1; $('next').disabled = page * per >= total;
   $('rows').innerHTML = d.rows.map(r => {
     const name = esc((r.first_name + ' ' + r.last_name).trim()) || '<span class="muted">(no name)</span>';
@@ -368,7 +368,7 @@ async function load() {
       <td>${reach || '<span class="muted">—</span>'}</td>
       <td>${esc([r.city, r.state].filter(Boolean).join(', ')) || '<span class="muted">—</span>'}</td>
       <td>${tagshtml}</td><td class="muted">${fmtDate(r.joined_1_0) || '—'}</td><td class="muted">${ago(r.last_activity_at)}</td></tr>`;
-  }).join('') || '<tr><td colspan="7" class="muted" style="padding:30px;text-align:center">No mamas match these filters.</td></tr>';
+  }).join('') || '<tr><td colspan="7" class="muted" style="padding:30px;text-align:center">No Momnis match these filters.</td></tr>';
   document.querySelectorAll('tr.row').forEach(tr => tr.onclick = () => openDrawer(+tr.dataset.id));
   document.querySelectorAll('.rowsel').forEach(cb => cb.onchange = () => { cb.checked ? sel.add(+cb.dataset.id) : sel.delete(+cb.dataset.id); syncBulk(); });
   $('selall').checked = false;
@@ -401,10 +401,10 @@ function renderDrawer() {
   $('dhead').innerHTML = `
     <button class="x" onclick="closeDrawer()">✕</button>
     <div class="nm">${esc(name)}</div>
-    <div class="sub">${c.source === '1.0' ? 'Momni 1.0 mama' + (c.joined_1_0 ? ' · joined ' + fmtDate(c.joined_1_0) : '') : c.source === '2.0' ? 'Joined in 2.0' : 'Added by hand'}
+    <div class="sub">${c.source === '1.0' ? 'Momni 1.0 Momni' + (c.joined_1_0 ? ' · joined ' + fmtDate(c.joined_1_0) : '') : c.source === '2.0' ? 'Joined in 2.0' : 'Added by hand'}
       ${c.legacy_id ? ' · 1.0 id ' + c.legacy_id : ''}${c.member ? ' · <strong style="color:var(--teal)">in the app now</strong>' + (c.member.is_leader ? ' · Circle Leader' : '') : ''}</div>
     <div class="quick">
-      ${c.email && !c.do_not_email ? `<button class="em" style="font:inherit" onclick="openEmail([${c.id}])">✉ Email her</button>` : ''}
+      ${c.email && !c.do_not_email ? `<button class="em" style="font:inherit" onclick="openEmail([${c.id}])">✉ Email them</button>` : ''}
       ${c.phone && !c.do_not_text ? `<a href="sms:+1${c.phone}" onclick="logTouch('text')">💬 Text ${fmtPhone(c.phone)}</a>` : ''}
       ${c.phone ? `<a href="tel:+1${c.phone}" onclick="logTouch('call')">📞 Call</a>` : ''}
       <button onclick="logTouchPrompt()" style="background:var(--lavender);color:var(--ink)">＋ Log a touch</button>
@@ -429,16 +429,16 @@ function renderDrawer() {
         <span class="k">City</span><input id="d-city" value="${esc(c.city || '')}">
         <span class="k">State</span><input id="d-state" value="${esc(c.state || '')}">
         <span class="k">Stage</span><select id="d-stage">${['community','engaged','reactivated','core'].map(s => `<option ${c.stage === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
-        <span class="k">Host?</span><select id="d-host"><option value="1" ${c.is_host ? 'selected' : ''}>Yes — she hosts</option><option value="0" ${!c.is_host ? 'selected' : ''}>No</option></select>
+        <span class="k">Host?</span><select id="d-host"><option value="1" ${c.is_host ? 'selected' : ''}>Yes — they host</option><option value="0" ${!c.is_host ? 'selected' : ''}>No</option></select>
         <span class="k">Do not email</span><select id="d-dne"><option value="0" ${!c.do_not_email ? 'selected' : ''}>OK to email</option><option value="1" ${c.do_not_email ? 'selected' : ''}>Do NOT email</option></select>
         <span class="k">Do not text</span><select id="d-dnt"><option value="0" ${!c.do_not_text ? 'selected' : ''}>OK to text</option><option value="1" ${c.do_not_text ? 'selected' : ''}>Do NOT text</option></select>
       </div>
     </div>
 
-    ${c.host_bio ? `<div class="sec"><h4>Her 1.0 hosting listing${c.property_type ? ' · ' + esc(c.property_type) : ''}</h4><div class="bio">“${esc(c.host_bio)}”</div></div>` : ''}
+    ${c.host_bio ? `<div class="sec"><h4>Their 1.0 hosting listing${c.property_type ? ' · ' + esc(c.property_type) : ''}</h4><div class="bio">“${esc(c.host_bio)}”</div></div>` : ''}
 
     <div class="sec"><h4>Notes</h4>
-      <div class="composer"><textarea id="d-note" placeholder="What do you want to remember about her?"></textarea>
+      <div class="composer"><textarea id="d-note" placeholder="What do you want to remember about them?"></textarea>
         <div class="row"><label style="font-size:12px"><input type="checkbox" id="d-pin"> Pin to top</label>
         <button class="btn primary" style="margin-left:auto" onclick="addNote()">Add note</button></div></div>
       <div id="d-notes" style="margin-top:10px">${c.notes.map(noteHtml).join('') || '<span class="muted">No notes yet.</span>'}</div>
@@ -454,7 +454,7 @@ function renderDrawer() {
 }
 const noteHtml = n => `<div class="notebox${n.pinned ? ' pinned' : ''}"><div class="tools"><span onclick="pinNote(${n.id},${n.pinned ? 0 : 1})">${n.pinned ? 'unpin' : 'pin'}</span><span onclick="delNote(${n.id})">delete</span></div>${esc(n.body).replace(/\n/g,'<br>')}<div class="when">${esc(n.created_at)}${n.pinned ? ' · 📌 pinned' : ''}</div></div>`;
 const ACT_IC = { email: '✉', text: '💬', call: '📞', meeting: '🤝', other: '⭐' };
-const actHtml = a => `<div class="act"><div class="ic">${ACT_IC[a.kind] || '⭐'}</div><div><div><strong>${esc(a.kind)}</strong>${a.direction === 'in' ? ' (she reached out)' : ''}${a.subject ? ' — ' + esc(a.subject) : ''}</div>${a.body ? `<div>${esc(a.body).replace(/\n/g,'<br>')}</div>` : ''}<div class="when">${esc(a.created_at)}</div></div></div>`;
+const actHtml = a => `<div class="act"><div class="ic">${ACT_IC[a.kind] || '⭐'}</div><div><div><strong>${esc(a.kind)}</strong>${a.direction === 'in' ? ' (they reached out)' : ''}${a.subject ? ' — ' + esc(a.subject) : ''}</div>${a.body ? `<div>${esc(a.body).replace(/\n/g,'<br>')}</div>` : ''}<div class="when">${esc(a.created_at)}</div></div></div>`;
 
 async function saveDetails() {
   await api('/api/admin/crm/contacts/' + current.id, { method: 'PUT', body: JSON.stringify({
@@ -468,7 +468,7 @@ async function untag(tid) { await api(`/api/admin/crm/contacts/${current.id}/tag
 async function addNote() { const b = $('d-note').value.trim(); if (!b) return; await api(`/api/admin/crm/contacts/${current.id}/notes`, { method: 'POST', body: JSON.stringify({ body: b, pinned: $('d-pin').checked }) }); openDrawer(current.id); load(); }
 async function pinNote(id, p) { await api('/api/admin/crm/notes/' + id, { method: 'PUT', body: JSON.stringify({ pinned: !!p }) }); openDrawer(current.id); }
 async function delNote(id) { if (!confirm('Delete this note?')) return; await api('/api/admin/crm/notes/' + id, { method: 'DELETE' }); openDrawer(current.id); }
-async function delContact() { if (!confirm('Delete this contact and all her notes/activity? This cannot be undone.')) return; await api('/api/admin/crm/contacts/' + current.id, { method: 'DELETE' }); closeDrawer(); load(); loadStats(); toast('Contact deleted'); }
+async function delContact() { if (!confirm('Delete this contact and all their notes/activity? This cannot be undone.')) return; await api('/api/admin/crm/contacts/' + current.id, { method: 'DELETE' }); closeDrawer(); load(); loadStats(); toast('Contact deleted'); }
 async function logTouch(kind) { try { await api(`/api/admin/crm/contacts/${current.id}/activities`, { method: 'POST', body: JSON.stringify({ kind }) }); } catch (e) {} }
 async function logTouchPrompt() {
   const kind = prompt('What kind of touch? (call / text / email / meeting / other)', 'call'); if (!kind) return;
@@ -480,14 +480,14 @@ async function logTouchPrompt() {
 // ---- email ----
 function openEmail(ids) {
   emailTargets = ids || [];
-  if (!emailTargets.length) return toast('Pick at least one mama first');
-  $('em-title').textContent = emailTargets.length === 1 ? 'Email her' : `Email ${emailTargets.length} mamas`;
+  if (!emailTargets.length) return toast('Pick at least one Momni first');
+  $('em-title').textContent = emailTargets.length === 1 ? 'Email them' : `Email ${emailTargets.length} Momnis`;
   $('em-devnote').style.display = 'none';
   $('emailmodal').classList.add('show');
 }
 async function sendEmail(confirmed) {
   const subject = $('em-subject').value.trim(), body = $('em-body').value.trim();
-  if (!subject || !body) return toast('Subject and message, mama 💜');
+  if (!subject || !body) return toast('Subject and message, Momni 💜');
   $('em-send').disabled = true;
   try {
     const r = await api('/api/admin/crm/email', { method: 'POST', body: JSON.stringify({ ids: emailTargets, subject, body, confirm: !!confirmed }) });

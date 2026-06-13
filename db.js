@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS users (
   available_now INTEGER DEFAULT 0,
   hourly_note TEXT DEFAULT '',           -- e.g. "$8/hr — paid directly to me"; Momni never touches it
   shared_items TEXT DEFAULT '[]',        -- JSON array of member-shared items, e.g. {"type":"background_check","label":"Background check — purchased and shared by <name>"}
-  kids_note TEXT DEFAULT '',             -- her littles, free text ("18mo & 4yr")
+  kids_note TEXT DEFAULT '',             -- their littles, free text ("18mo & 4yr")
   neighborhood TEXT DEFAULT '',
   home_highlights TEXT DEFAULT '',       -- host only ("big backyard, no pets")
   availability TEXT DEFAULT '{}',        -- JSON { "Mon": ["am","pm"], ... }; blocks: am | pm | eve | overnight
@@ -84,8 +84,8 @@ CREATE TABLE IF NOT EXISTS users (
   links_balance INTEGER DEFAULT 2,       -- free tier: a couple of Links to start
   momni_plus INTEGER DEFAULT 0,
   circle_up INTEGER DEFAULT 0,           -- Circle Up membership ($1/mo billed $12/yr)
-  profile_boost INTEGER DEFAULT 0,       -- paid: bumps her up in search results
-  live_link TEXT,                        -- paid: a live link to her business/social
+  profile_boost INTEGER DEFAULT 0,       -- paid: bumps them up in search results
+  live_link TEXT,                        -- paid: a live link to their business/social
   live_link_label TEXT,
   is_admin INTEGER DEFAULT 0,
   gives_toggle INTEGER DEFAULT 0,
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS links (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS messages (      -- the thread between the two mamas on a Link
+CREATE TABLE IF NOT EXISTS messages (      -- the thread between the two Momnis on a Link
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   link_id INTEGER NOT NULL REFERENCES links(id),
   sender_id INTEGER NOT NULL REFERENCES users(id),
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS messages (      -- the thread between the two mamas o
   created_at TEXT DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS visits (        -- shared drop-off/pick-up timeline both mamas can see — coordination, never supervision
+CREATE TABLE IF NOT EXISTS visits (        -- shared drop-off/pick-up timeline both Momnis can see — coordination, never supervision
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   link_id INTEGER NOT NULL REFERENCES links(id),
   date TEXT NOT NULL,                      -- YYYY-MM-DD
@@ -440,7 +440,7 @@ try {
 } catch (e) { /* first boot ordering */ }
 
 // Keep the CRM in step with live 2.0 membership: every app account gets a contact card,
-// matched to her 1.0 card by email when one exists (that's a reactivated mama). Idempotent,
+// matched to their 1.0 card by email when one exists (that's a reactivated Momni). Idempotent,
 // cheap (indexed email lookups), safe to run on every boot.
 function syncCrmFromUsers(database) {
   const d = database || db;
@@ -471,7 +471,7 @@ function seed() {
   if (db.prepare('SELECT COUNT(*) c FROM circles').get().c === 0) {
     const insertCircleProd = db.prepare('INSERT INTO circles (name,city,lat,lng,meets,member_count) VALUES (?,?,?,?,?,?)');
     insertCircleProd.run('Orem Moms Circle','Orem',40.2989,-111.6985,'Tuesdays 10am · Orem City Park',0);
-    insertCircleProd.run('Provo Night Shift Mamas','Provo',40.2400,-111.6500,'First Saturdays · rotating homes',0);
+    insertCircleProd.run('Provo Night Shift Momnis','Provo',40.2400,-111.6500,'First Saturdays · rotating homes',0);
     insertCircleProd.run('BYU Married Housing Circle','Provo',40.2520,-111.6360,'Thursdays 4pm · Wymount playground',0);
   }
   if (db.prepare('SELECT COUNT(*) c FROM legacy_pins').get().c === 0) {
@@ -506,12 +506,12 @@ function seed() {
 
   // Demo hosts around Provo/Orem — sample data, clearly fictional
   const hosts = [
-    ['sarah@example.com','Sarah M.','Orem',40.2969,-111.6946,1,'Mama of 3, homeschool mornings, big backyard.','["available-now","night-out","recurring"]',1,'$8/hr — paid directly to me','[{"type":"background_check","label":"Background check — purchased and shared by Sarah"}]'],
-    ['jess@example.com','Jess R.','Provo',40.2338,-111.6585,1,'Night-owl mama, two littles, loves crafts.','["overnight","recurring"]',0,'$10/hr overnight — paid directly to me','[]'],
-    ['kristy@example.com','Kristy T.','Provo',40.2483,-111.6448,1,'Former preschool teacher, mama of 4.','["night-out","overnight"]',1,'$9/hr — paid directly to me','[{"type":"background_check","label":"Background check — purchased and shared by Kristy"}]'],
+    ['sarah@example.com','Sarah M.','Orem',40.2969,-111.6946,1,'Momni with 3 littles, homeschool mornings, big backyard.','["available-now","night-out","recurring"]',1,'$8/hr — paid directly to me','[{"type":"background_check","label":"Background check — purchased and shared by Sarah"}]'],
+    ['jess@example.com','Jess R.','Provo',40.2338,-111.6585,1,'Night-owl Momni, two littles, loves crafts.','["overnight","recurring"]',0,'$10/hr overnight — paid directly to me','[]'],
+    ['kristy@example.com','Kristy T.','Provo',40.2483,-111.6448,1,'Former preschool teacher, Momni with 4 littles.','["night-out","overnight"]',1,'$9/hr — paid directly to me','[{"type":"background_check","label":"Background check — purchased and shared by Kristy"}]'],
     ['amy@example.com','Amy L.','Orem',40.3128,-111.7186,1,'Infant-ready, quiet home near UVU.','["available-now","recurring"]',1,'$8/hr — paid directly to me','[]'],
     ['paula@example.com','Paula D.','Springville',40.1652,-111.6107,1,'Weekend specialist — kids love our chickens.','["overnight","night-out"]',0,'$85/night — paid directly to me','[]'],
-    ['maren@example.com','Maren H.','Lehi',40.3916,-111.8508,1,'Nurse mama who hosts other nurses’ littles.','["overnight","available-now"]',1,'$10/hr — paid directly to me','[]'],
+    ['maren@example.com','Maren H.','Lehi',40.3916,-111.8508,1,'Nurse Momni who hosts other nurses’ littles.','["overnight","available-now"]',1,'$10/hr — paid directly to me','[]'],
   ];
   for (const h of hosts) insertUser.run(h[0],hash,h[1],h[2],h[3],h[4],h[5],h[6],h[7],h[8],h[9],h[10]);
 
@@ -539,8 +539,8 @@ function seedDemoCircle(database) {
   if (database.prepare('SELECT COUNT(*) c FROM circle_events WHERE circle_id = ?').get(circle.id).c === 0) {
     const ev = database.prepare('INSERT INTO circle_events (circle_id,title,when_text,cadence,location,notes) VALUES (?,?,?,?,?,?)');
     ev.run(circle.id, 'Tuesday Park Playgroup', 'Tuesdays 10am', 'weekly', 'Orem City Park', 'Bring a snack to share. Littles welcome.');
-    ev.run(circle.id, 'Mamas Night Out', 'Last Friday, 7pm', 'monthly', 'Rotating — see chat', 'No kiddos — just us. Trade off hosting.');
-    ev.run(circle.id, 'Welcome Coffee for new mamas', 'Saturday 9am', 'once', 'The Daily Grind', 'Say hi to mamas who just joined the Circle.');
+    ev.run(circle.id, 'Momnis Night Out', 'Last Friday, 7pm', 'monthly', 'Rotating — see chat', 'No kiddos — just us. Trade off hosting.');
+    ev.run(circle.id, 'Welcome Coffee for new Momnis', 'Saturday 9am', 'once', 'The Daily Grind', 'Say hi to Momnis who just joined the Circle.');
   }
 }
 

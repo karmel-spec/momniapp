@@ -50,18 +50,18 @@ h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px}
   </div>
   <main>
     <h1>Circles</h1>
-    <p class="lede">Circles are where mamas meet each other long before anyone ever books. Playgroups, park days, real friendships first.</p>
+    <p class="lede">Circles are where Momnis meet each other long before anyone ever books. Playgroups, park days, real friendships first.</p>
 
     <div id="circles-list"><p style="font-size:14px;color:var(--muted)">Finding Circles near you…</p></div>
 
     <div class="start">
       <span class="script">Don't see your people?</span>
       <h2>Start a Circle</h2>
-      <p>It takes one mama saying "Tuesday, my park, bring snacks." That's it. That's the whole secret.</p>
+      <p>It takes one Momni saying "Tuesday, my park, bring snacks." That's it. That's the whole secret.</p>
       <a href="#" id="start-circle">Start a Circle</a>
     </div>
 
-    <p class="note">Circles are member-run gatherings. Momni helps mamas find each other — every Circle sets its own rhythm.</p>
+    <p class="note">Circles are member-run gatherings. Momni helps Momnis find each other — every Circle sets its own rhythm.</p>
   </main>
 
   <nav class="tabbar">
@@ -83,7 +83,7 @@ h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px}
   var box = document.getElementById('circles-list');
   fetch('/api/circles').then(function(r){ return r.json(); }).then(function(circles){
     if (!circles.length) {
-      box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No Circles yet — be the first mama to start one.</p>';
+      box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No Circles yet — be the first Momni to start one.</p>';
       return;
     }
     box.innerHTML = circles.map(function(c){
@@ -95,7 +95,7 @@ h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px}
       return '<div class="circle">' +
         '<span class="mark"><img src="assets/momni-icon-color.png" alt=""></span>' +
         '<div class="info"><h2>'+esc(c.name)+(c.is_leader?' <span style="font-size:11px;color:var(--purple);font-weight:700">· You lead</span>':'')+'</h2>' +
-        '<p><span data-count="'+c.id+'">'+c.member_count+'</span> mamas &middot; '+esc(c.meets)+' &middot; '+esc(c.city)+'</p></div>' +
+        '<p><span data-count="'+c.id+'">'+c.member_count+'</span> Momnis &middot; '+esc(c.meets)+' &middot; '+esc(c.city)+'</p></div>' +
         action+'</div>';
     }).join('');
     box.querySelectorAll('[data-join]').forEach(function(btn){
@@ -123,7 +123,7 @@ h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px}
 </script>
 <script>
 document.getElementById('start-circle').addEventListener('click',function(e){e.preventDefault();
-var name=prompt('What shall we call your Circle, mama?\n(e.g. "Lehi Park Mamas")');if(!name)return;
+var name=prompt('What shall we call your Circle, Momni?\n(e.g. "Lehi Park Momnis")');if(!name)return;
 var meets=prompt('When and where will you meet?\n(e.g. "Wednesdays 10am - Lehi City Park")')||'';
 fetch('/api/circles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,meets:meets})})
 .then(function(r){return r.json()}).then(function(d){if(d.ok){location.reload();}else{alert(d.error||'Something went wrong');}});});

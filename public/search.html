@@ -124,28 +124,28 @@ a{text-decoration:none;color:inherit}
       <div id="map"></div>
       <button id="themeToggle" title="Switch day/night map" aria-label="Switch day/night map">🌙</button>
       <div class="legend">
-        <div><span class="lit bulb" style="display:inline-block;position:relative;width:12px;height:12px;margin-right:6px;vertical-align:middle"><span class="halo"></span><span class="glass"></span><span class="base"></span></span><strong>Circling Up Now — her light is on</strong><br><span style="margin-left:18px;color:var(--muted)">Reactivated &amp; New Momnis for 2.0</span></div>
-        <div><span class="lit gbeacon" style="display:inline-block;position:relative;width:12px;height:12px;margin-right:6px;vertical-align:middle"><span class="halo"></span><span class="ring"></span><span class="ring2"></span><span class="core"></span></span><strong>Available Right Now</strong><br><span style="margin-left:18px;color:var(--muted)">Instant Booking — her beacon is on</span></div>
-        <div><span class="dot" style="background:var(--teal)"></span><strong>1.0 host mama</strong> &middot; <span class="dot" style="background:var(--purple);opacity:.6"></span><strong>1.0 guest mama</strong><br><span style="margin-left:17px;color:var(--muted)">Each 1.0 pin is anonymous until re-claimed</span></div>
+        <div><span class="lit bulb" style="display:inline-block;position:relative;width:12px;height:12px;margin-right:6px;vertical-align:middle"><span class="halo"></span><span class="glass"></span><span class="base"></span></span><strong>Circling Up Now — their light is on</strong><br><span style="margin-left:18px;color:var(--muted)">Reactivated &amp; New Momnis for 2.0</span></div>
+        <div><span class="lit gbeacon" style="display:inline-block;position:relative;width:12px;height:12px;margin-right:6px;vertical-align:middle"><span class="halo"></span><span class="ring"></span><span class="ring2"></span><span class="core"></span></span><strong>Available Right Now</strong><br><span style="margin-left:18px;color:var(--muted)">Instant Booking — their beacon is on</span></div>
+        <div><span class="dot" style="background:var(--teal)"></span><strong>1.0 host Momni</strong> &middot; <span class="dot" style="background:var(--purple);opacity:.6"></span><strong>1.0 guest Momni</strong><br><span style="margin-left:17px;color:var(--muted)">Each 1.0 pin is anonymous until re-claimed</span></div>
         <div><span class="dot" style="background:var(--purple)"></span>Circles</div>
       </div>
     </div>
 
     <div class="pin-banner">
       <span class="script">Your pin is still on the map. Come light it up.</span>
-      <div class="count">First mamas: <span id="ct-first">—</span> &middot; Lit up again: <span id="ct-lit">—</span></div>
+      <div class="count">First Momnis: <span id="ct-first">—</span> &middot; Lit up again: <span id="ct-lit">—</span></div>
     </div>
 
     <div class="results">
-      <h2>Mamas near you</h2>
-      <div id="host-cards"><p style="font-size:14px;color:var(--muted)">Finding mamas near you…</p></div>
+      <h2>Momnis near you</h2>
+      <div id="host-cards"><p style="font-size:14px;color:var(--muted)">Finding Momnis near you…</p></div>
     </div>
 
     <div class="disclosure">
       Momni is a community platform, not a childcare provider. Members make their
-      own care decisions and pay each other directly. Anything a mama shares on
-      her profile — including a background check she purchased herself — is hers:
-      shared by her, for you to weigh the way you'd weigh a friend's word. Momni
+      own care decisions and pay each other directly. Anything a Momni shares on
+      their profile — including a background check they purchased themselves — is theirs:
+      shared by them, for you to weigh the way you'd weigh a friend's word. Momni
       doesn't review or confirm what's shared, or whether it's current. You decide
       who you trust.
     </div>
@@ -341,7 +341,7 @@ fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
   data.legacy.forEach(function(p){
     var s = p.role === 'host' ? t.legacyHost : t.legacyGuest;
     var m = L.circleMarker([p.lat, p.lng],{renderer:cv,radius:p.role==='host'?3.2:2.5,color:s.color,fillColor:s.color,fillOpacity:s.op,weight:0})
-     .on('click',function(e){ legacyPopup.setLatLng(e.latlng).setContent('<div class="pop legacy"><strong>Momni 1.0 mama</strong>'+(p.role==='host'?' &mdash; she hosted':'')+' &mdash; anonymous until she reclaims her pin.<br>Share the reactivation link and new Momni link with moms you know.<br><a href="https://momni.com/share/" target="_blank" rel="noopener" class="req" style="margin-top:8px">Share &amp; invite moms ↗</a></div>').openOn(map); })
+     .on('click',function(e){ legacyPopup.setLatLng(e.latlng).setContent('<div class="pop legacy"><strong>Momni 1.0 Momni</strong>'+(p.role==='host'?' &mdash; they hosted':'')+' &mdash; anonymous until they reclaim their pin.<br>Share the reactivation link and new Momni link with parents you know.<br><a href="https://momni.com/share/" target="_blank" rel="noopener" class="req" style="margin-top:8px">Share &amp; invite parents ↗</a></div>').openOn(map); })
      .addTo(legacyLayer);
     legacyMarkers.push({marker: m, role: p.role});
   });
@@ -369,13 +369,13 @@ function loadHosts(){
       var box = document.getElementById('host-cards');
       hosts.forEach(function(h){ if (h.distance_mi != null) distById[h.id] = h.distance_mi; });
       if (!hosts.length) {
-        box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No mamas match those filters yet — try widening your search.</p>';
+        box.innerHTML = '<p style="font-size:14px;color:var(--muted)">No Momnis match those filters yet — try widening your search.</p>';
         return;
       }
       box.innerHTML = hosts.map(function(h){
         var initials = esc(h.name.split(/\s+/).map(function(w){ return w[0]; }).join('').slice(0,2).toUpperCase());
         var meta = [];
-        if (h.rating) meta.push('<span class="stars">'+h.rating+'&#9733;</span> &middot; '+h.review_count+' review'+(h.review_count===1?'':'s')+' from mamas');
+        if (h.rating) meta.push('<span class="stars">'+h.rating+'&#9733;</span> &middot; '+h.review_count+' review'+(h.review_count===1?'':'s')+' from Momnis');
         meta.push(esc(h.city));
         if (h.distance_mi != null) meta.push(esc(h.distance_mi)+' mi away');
         var avail = availSummary(h.availability);
@@ -400,7 +400,7 @@ function loadHosts(){
           (badges ? '<div class="pills" style="margin-top:8px">'+badges+'</div>' : '')+
           (avail ? '<div class="meta" style="margin-top:8px">'+esc(avail)+'</div>' : '')+
           (ctChips ? '<div class="pills">'+ctChips+'</div>' : '')+
-          (shared ? '<div class="pills-label">What she\'s chosen to share</div><div class="pills">'+shared+'</div>' : '')+
+          (shared ? '<div class="pills-label">What they\'ve chosen to share</div><div class="pills">'+shared+'</div>' : '')+
           (h.hourly_note ? '<div class="pills-label">'+esc(h.hourly_note)+'</div>' : '')+
           liveLink +
           '<a class="link-btn" style="margin-top:10px" href="booking.html?host_id='+h.id+'">Request a Link</a>'+
@@ -409,7 +409,7 @@ function loadHosts(){
     })
     .catch(function(){
       document.getElementById('host-cards').innerHTML =
-        '<p style="font-size:14px;color:var(--muted)">Couldn\'t load mamas right now — try again in a moment.</p>';
+        '<p style="font-size:14px;color:var(--muted)">Couldn\'t load Momnis right now — try again in a moment.</p>';
     });
 }
 
