@@ -29,6 +29,11 @@ try { db.exec('ALTER TABLE users ADD COLUMN age_affirmed_at TEXT'); } catch (e) 
 // migration: Terms/Privacy version accepted at signup (clickwrap evidence) + per-booking on links
 try { db.exec('ALTER TABLE users ADD COLUMN terms_version TEXT'); } catch (e) { /* exists */ }
 try { db.exec('ALTER TABLE links ADD COLUMN terms_version TEXT'); } catch (e) { /* exists or table not yet created */ }
+// migration: SMS notifications — optional mobile + opt-in flag
+try { db.exec('ALTER TABLE users ADD COLUMN phone TEXT'); } catch (e) { /* exists */ }
+try { db.exec('ALTER TABLE users ADD COLUMN sms_opt_in INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
+// migration: id-based read marker (replaces same-second-fragile timestamp watermark)
+try { db.exec('ALTER TABLE link_reads ADD COLUMN last_read_msg_id INTEGER DEFAULT 0'); } catch (e) { /* exists or table not yet created */ }
 // migration: Circle Up membership flag (set by the circle-up purchase; read by Sign in with Momni tier)
 try { db.exec('ALTER TABLE users ADD COLUMN circle_up INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
 // migration: paid profile add-ons — search-placement boost + a live business/social link
@@ -89,6 +94,8 @@ CREATE TABLE IF NOT EXISTS users (
   signup_ack_at TEXT,
   age_affirmed_at TEXT,                   -- when the member affirmed they're 18+ (eligibility / COPPA)
   terms_version TEXT,                     -- which Terms/Privacy version the member accepted at signup
+  phone TEXT,                             -- optional mobile, normalized to E.164, for SMS alerts
+  sms_opt_in INTEGER DEFAULT 0,           -- opted in to real-time text notifications
   legacy_1_0 INTEGER DEFAULT 0,
   links_balance INTEGER DEFAULT 2,       -- free tier: a couple of Links to start
   momni_plus INTEGER DEFAULT 0,
@@ -441,6 +448,30 @@ CREATE TABLE IF NOT EXISTS briefs (          -- HQ Brief Library: research, prop
 CREATE TABLE IF NOT EXISTS email_unsubscribes (
   email TEXT PRIMARY KEY,                 -- lowercased, trimmed
   source TEXT DEFAULT 'link',             -- footer-link | one-click | form | admin
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Per-member read marker on a Link's message thread, so we can show unread counts and
+-- send at most one "you have a new message" nudge per unread burst (until they read).
+CREATE TABLE IF NOT EXISTS link_reads (
+  link_id INTEGER NOT NULL REFERENCES links(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  last_read_msg_id INTEGER NOT NULL DEFAULT 0,   -- highest message id this member has seen; monotonic, so no same-second races
+  last_read_at TEXT,
+  PRIMARY KEY (link_id, user_id)
+);
+
+-- Sent-text history (mirrors the emails log) — one row per SMS attempt, dev-mode rows too.
+CREATE TABLE IF NOT EXISTS sms_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  to_phone TEXT,
+  to_user_id INTEGER,
+  kind TEXT,                              -- new_message | booking_confirmed | ...
+  body TEXT,
+  status TEXT,                            -- sent | dev-logged | failed | skipped-no-phone | skipped-opt-out
+  error TEXT,
+  related_type TEXT,
+  related_id TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 `);

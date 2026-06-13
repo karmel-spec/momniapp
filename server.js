@@ -18,6 +18,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const { db, seed, syncCrmFromUsers } = require('./db');
 const mailer = require('./mailer');
+const sms = require('./sms');
 const calendar = require('./calendar');
 
 seed(); // no-op if already seeded
@@ -391,7 +392,7 @@ app.get('/api/me', requireAuth, (req, res) => {
   const reviews = db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE subject_id = ?').get(u.id);
   res.json({ ...userPublic(u), email: u.email, links_balance: u.links_balance,
     momni_plus: !!u.momni_plus, circle_up: !!u.circle_up, gives_toggle: !!u.gives_toggle,
-    is_admin: !!u.is_admin,
+    is_admin: !!u.is_admin, phone: u.phone || '', sms_opt_in: !!u.sms_opt_in,
     rating: reviews.n ? Number(reviews.avg.toFixed(1)) : null, review_count: reviews.n });
 });
 
@@ -417,6 +418,9 @@ app.put('/api/me', requireAuth, (req, res) => {
   if ('care_types' in updates) updates.care_types = JSON.stringify(updates.care_types);
   if ('availability' in updates) updates.availability = JSON.stringify(updates.availability);
   for (const boolKey of ['is_host','available_now','gives_toggle']) if (boolKey in updates) updates[boolKey] = updates[boolKey] ? 1 : 0;
+  // Phone is normalized to E.164 for SMS; sms_opt_in is the consent flag for real-time texts.
+  if ('phone' in req.body) { const raw = String(req.body.phone || '').trim(); updates.phone = raw ? (sms.normalizePhone(raw) || raw.slice(0, 20)) : null; }
+  if ('sms_opt_in' in req.body) updates.sms_opt_in = req.body.sms_opt_in ? 1 : 0;
   const keys = Object.keys(updates);
   if (!keys.length) return res.json({ ok: true });
   db.prepare(`UPDATE users SET ${keys.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
@@ -577,15 +581,19 @@ app.get('/api/links', requireAuth, (req, res) => {
   const visitCountStmt = db.prepare(`SELECT COUNT(*) total,
     SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) done FROM visits WHERE link_id = ?`);
   const msgStmt = db.prepare('SELECT COUNT(*) n, MAX(created_at) last FROM messages WHERE link_id = ?');
+  const readStmt = db.prepare('SELECT last_read_msg_id FROM link_reads WHERE link_id = ? AND user_id = ?');
+  const unreadStmt = db.prepare('SELECT COUNT(*) n FROM messages WHERE link_id = ? AND sender_id != ? AND id > ?');
   const reviewStmt = db.prepare('SELECT author_id FROM reviews WHERE link_id = ?');
   res.json(rows.map(r => {
     const vc = visitCountStmt.get(r.id);
     const mc = msgStmt.get(r.id);
+    const lr = readStmt.get(r.id, me);
+    const unread = unreadStmt.get(r.id, me, lr ? lr.last_read_msg_id : 0).n;
     const reviewers = reviewStmt.all(r.id).map(x => x.author_id);
     return { ...r, details: JSON.parse(r.details), i_am_host: r.host_id === me,
       next_visit: nextVisitStmt.get(r.id) || null,
       visits_total: vc.total, visits_completed: vc.done || 0,
-      message_count: mc.n, last_message_at: mc.last,
+      message_count: mc.n, last_message_at: mc.last, unread,
       my_review: reviewers.includes(me),
       their_review: reviewers.some(id => id !== me) };
   }));
@@ -634,21 +642,59 @@ function linkForParticipant(req, res) {
   return link;
 }
 
+// Mark a member caught up on a Link's thread by the HIGHEST message id they've now seen. Message ids
+// are monotonic, so this is immune to the same-second collisions a datetime('now') watermark hits
+// (a reply landing in the same wall-clock second as a read would otherwise be lost forever).
+function markLinkRead(linkId, userId) {
+  const mx = db.prepare('SELECT COALESCE(MAX(id),0) mx FROM messages WHERE link_id = ?').get(linkId).mx;
+  db.prepare(`INSERT INTO link_reads (link_id,user_id,last_read_msg_id,last_read_at) VALUES (?,?,?,datetime('now'))
+    ON CONFLICT(link_id,user_id) DO UPDATE SET last_read_msg_id = excluded.last_read_msg_id, last_read_at = excluded.last_read_at`)
+    .run(linkId, userId, mx);
+}
+
+// Notify the OTHER participant of a new message — by email always, and by SMS if they opted in.
+// Only fire on the FIRST unread of a burst (until they open the thread), so a rapid back-and-forth
+// doesn't spam an inbox or a phone. Fire-and-forget; never blocks or breaks the send.
+function notifyNewMessage(link, senderId, body) {
+  try {
+    const recipientId = link.guest_id === senderId ? link.host_id : link.guest_id;
+    const lr = db.prepare('SELECT last_read_msg_id FROM link_reads WHERE link_id = ? AND user_id = ?').get(link.id, recipientId);
+    const sinceId = lr ? lr.last_read_msg_id : 0;
+    const unread = db.prepare('SELECT COUNT(*) n FROM messages WHERE link_id = ? AND sender_id = ? AND id > ?').get(link.id, senderId, sinceId).n;
+    if (unread !== 1) return; // they already have an unread nudge for this burst
+    const sender = db.prepare('SELECT name FROM users WHERE id = ?').get(senderId);
+    const recip = db.prepare('SELECT id,name,email,phone,sms_opt_in FROM users WHERE id = ?').get(recipientId);
+    if (!recip) return;
+    const fromName = sender ? sender.name : 'A Momni';
+    const preview = body.length > 140 ? body.slice(0, 140) + '…' : body;
+    mailer.send({ to: recip.email, to_user_id: recip.id, template: 'new_message',
+      vars: { from: fromName, care_type: link.care_type, preview }, related_type: 'link', related_id: link.id });
+    if (recip.phone && recip.sms_opt_in) {
+      sms.send({ to: recip.phone, to_user_id: recip.id, kind: 'new_message', opted_in: true,
+        body: `Momni: ${fromName} messaged you — "${preview}". Reply in the app: ${(process.env.APP_URL || 'https://app.momni.com')}/links.html`,
+        related_type: 'link', related_id: link.id });
+    }
+  } catch (e) { console.error('[notify] new message', e); }
+}
+
 app.get('/api/links/:id/messages', requireAuth, (req, res) => {
   const link = linkForParticipant(req, res);
   if (!link) return;
   const rows = db.prepare(`SELECT m.id, m.sender_id, u.name sender_name, m.body, m.created_at
     FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.link_id = ? ORDER BY m.created_at, m.id`).all(link.id);
+  markLinkRead(link.id, req.session.userId);   // opening the thread clears its unread for me
   res.json(rows.map(m => ({ ...m, mine: m.sender_id === req.session.userId })));
 });
 
 app.post('/api/links/:id/messages', requireAuth, (req, res) => {
   const link = linkForParticipant(req, res);
   if (!link) return;
+  const meId = req.session.userId;
   const body = String(req.body.body || '').trim().slice(0, 2000);
   if (!body) return res.status(400).json({ error: 'Say a little something first, Momni.' });
-  const info = db.prepare('INSERT INTO messages (link_id,sender_id,body) VALUES (?,?,?)')
-    .run(link.id, req.session.userId, body);
+  const info = db.prepare('INSERT INTO messages (link_id,sender_id,body) VALUES (?,?,?)').run(link.id, meId, body);
+  markLinkRead(link.id, meId);              // I've obviously seen the thread up to my own message
+  notifyNewMessage(link, meId, body);       // nudge the other party (email + opt-in SMS), burst-throttled
   res.json({ ok: true, id: info.lastInsertRowid });
 });
 
@@ -1443,6 +1489,11 @@ app.delete('/api/admin/oauth/clients/:id', requireAdmin, (req, res) => {
 app.get('/api/admin/emails', requireAdmin, (req, res) => {
   res.json(db.prepare(`SELECT id,to_email,to_user_id,template,subject,status,related_type,related_id,error,created_at
     FROM emails ORDER BY id DESC LIMIT 200`).all());
+});
+// Sent-text history (real-time SMS alerts) — dev-mode rows included so HQ sees what WOULD send.
+app.get('/api/admin/texts', requireAdmin, (req, res) => {
+  res.json({ live: sms.LIVE, rows: db.prepare(`SELECT id,to_phone,to_user_id,kind,body,status,error,related_type,related_id,created_at
+    FROM sms_log ORDER BY id DESC LIMIT 200`).all() });
 });
 // BETA OUTBOX — every live email is held here until Karmel approves it (see mailer.approvalRequired)
 app.get('/api/admin/emails/:id/view', requireAdmin, (req, res) => {

@@ -16,14 +16,17 @@ const gmaildraft = require('./gmaildraft');
 // Bulk templates always route to the HQ Outbox (Resend) — too many to draft in Gmail.
 // Everything else is "personal" and, when Gmail drafts are configured, lands in support@'s Drafts.
 const BULK_TEMPLATES = new Set(['reactivation', 'reactivation_2', 'reactivation_3',
-  'dormant_30', 'dormant_60', 'community_digest', 'trust_education', 'newsletter']);
+  'dormant_30', 'dormant_60', 'community_digest', 'trust_education', 'newsletter', 'circle_reminder']);
 
 // Transactional / relationship mail — exempt from the unsubscribe list (CAN-SPAM allows this).
 // A parent who opts out of marketing must STILL get a password reset or a booking they're in.
 // Everything NOT in this set is treated as marketing: it carries the one-click List-Unsubscribe
 // header and is suppressed for any address on the unsubscribe list.
+// NOTE: circle_reminder is intentionally NOT here — it's a leader-authored blast to every circle
+// member, so it must stay GATED (held for Karmel's approval), suppressed for opt-outs, and carry the
+// unsubscribe header. It lives in BULK_TEMPLATES above.
 const TRANSACTIONAL_TEMPLATES = new Set(['password_reset', 'booking_request', 'booking_confirmed',
-  'booking_reminder', 'review_request', 'download_ready', 'circle_reminder']);
+  'booking_reminder', 'review_request', 'download_ready', 'new_message']);
 
 const RESEND_KEY = process.env.RESEND_API_KEY;
 // From a branded, REPLYABLE Momni address — never a "no-reply" and never the resend.dev sandbox
@@ -175,6 +178,16 @@ const TEMPLATES = {
       `<p style="margin:20px 0">${btn(APP_URL + '/links.html', 'See the details')}</p>` +
       p(`<span style="font-size:14px;color:#6B6477">Pay your Momni directly — Venmo, cash, their choice. They keep every penny.</span>`),
       `${v.host || 'Your Momni'} confirmed your Link`),
+  }),
+  new_message: (v) => ({
+    subject: `${v.from || 'A Momni'} sent you a message on Momni`,
+    html: layout(
+      h1('You have a new message 💬') +
+      p(`<strong>${esc(v.from || 'A Momni')}</strong> just messaged you about your Link${v.care_type ? ` (${esc(v.care_type)} care)` : ''}.`) +
+      (v.preview ? `<p style="font-size:15px;background:#F5F0FE;border-radius:12px;padding:14px 16px;margin:0 0 16px">“${esc(v.preview)}”</p>` : '') +
+      `<p style="margin:20px 0">${btn(APP_URL + '/links.html', 'Open the conversation')}</p>` +
+      p('<span style="font-size:14px;color:#6B6477">Reply right in Momni to keep arranging the details, Momni to Momni.</span>'),
+      `${v.from || 'A Momni'} sent you a message`),
   }),
   newsletter: (v) => ({
     subject: v.subject || 'News from the Circle',
@@ -508,7 +521,10 @@ async function send({ to, to_user_id = null, template, vars = {}, related_type =
     'List-Unsubscribe': `<${unsubUrl(to)}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   };
-  if (LIVE && approvalRequired()) {
+  if (LIVE && approvalRequired() && !isTransactional) {
+    // Transactional/relationship mail (password reset, booking req/confirm, review request, a new
+    // message) is EXEMPT from the hold — it must reach the member in real time, not wait for approval.
+    // Only marketing/community mail is held. (Karmel's gate stays ON for everything else.)
     // HYBRID review flow: personal emails → a draft in support@'s Gmail (Karmel sends from her inbox);
     // bulk templates or an explicit prefer:'outbox' → the HQ Outbox (Resend), reviewed in the dashboard.
     const bulk = BULK_TEMPLATES.has(template) || prefer === 'outbox';

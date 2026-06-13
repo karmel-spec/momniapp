@@ -3,6 +3,16 @@
 // Mobile: a 🌐 button (in the topbar when present) opening a full site menu.
 // All pages: a condensed momni.com footer at the end of the content, above the tab bar.
 (function () {
+  // Lift the Tawk chat bubble above the 64px mobile tab bar so it never covers the Links/Me tabs.
+  // This file is deferred, so it runs after the inline Tawk_API stub is created but before Tawk's
+  // async widget finishes loading — the documented customStyle is read at init. (CSS fallback below.)
+  window.Tawk_API = window.Tawk_API || {};
+  window.Tawk_API.customStyle = {
+    visibility: {
+      desktop: { position: 'br', xOffset: 20, yOffset: 20 },
+      mobile:  { position: 'br', xOffset: 12, yOffset: 84 }
+    }
+  };
   var S = 'https://momni.com';
   var TOP = [
     ['Press', S + '/press/'], ['Partnerships', S + '/partnerships/'],
@@ -56,6 +66,9 @@
 .snv-foot a{display:block;color:rgba(255,255,255,.6);font-size:12.5px;text-decoration:none;margin-bottom:6px}\
 .snv-foot a:hover{color:#92E2C1}\
 .snv-foot .disc{max-width:900px;margin:18px auto 0;border-top:1px solid rgba(255,255,255,.15);padding-top:14px;font-size:11px;color:rgba(255,255,255,.45);line-height:1.6;text-align:center}\
+@media(max-width:600px){\
+ iframe[title='chat widget'],iframe[title='chat widget minimized']{bottom:84px!important}\
+}\
 ");
   document.head.appendChild(css);
 
@@ -77,7 +90,8 @@
   panel.addEventListener('click', function (e) { if (e.target === panel || e.target.classList.contains('x')) panel.classList.remove('open'); });
 
   // the 🌐 button — into the app topbar when present, floating otherwise
-  var btn = el('button', { class: 'snv-btn', 'aria-label': 'momni.com menu', title: 'momni.com menu' }, '🌐');
+  var btn = el('button', { class: 'snv-btn', 'aria-label': 'Menu', title: 'Menu' },
+    "<svg width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='#4A3880' stroke-width='2.2' stroke-linecap='round' aria-hidden='true'><line x1='3' y1='6' x2='21' y2='6'/><line x1='3' y1='12' x2='21' y2='12'/><line x1='3' y1='18' x2='21' y2='18'/></svg>");
   btn.addEventListener('click', function () { panel.classList.add('open'); });
   var topbar = document.querySelector('.topbar');
   if (topbar) topbar.appendChild(btn); else { btn.classList.add('floating'); document.body.appendChild(btn); }
@@ -90,4 +104,25 @@
     '<div class="disc">Momni is a community platform — Momnis make their own care decisions and pay each other directly.<br>momni.com &amp; app.momni.com are operated by Momni, Inc. The Momni Foundation (momnifoundation.org) is a separate 501(c)(3). One brand, two entities, separate finances.</div>');
   var host = document.querySelector('.content') || document.querySelector('.app') || document.body;
   host.appendChild(foot);
+
+  // Tawk chat bubble vs. the mobile tab bar: Tawk loads async and its launcher iframe is a title-less
+  // position:fixed element with a random id sitting at bottom:~20px — right on top of the Links/Me
+  // tabs at 375px. customStyle (set above) only applies if it loads before Tawk inits, which isn't
+  // guaranteed. So, on small viewports, lift every fixed Tawk iframe once, above the 64px tab bar.
+  function liftTawk() {
+    if (window.innerWidth > 600) return;
+    document.querySelectorAll('iframe').forEach(function (f) {
+      if (f.dataset.snvLifted || getComputedStyle(f).position !== 'fixed') return;
+      var b = parseInt(getComputedStyle(f).bottom, 10) || 0;
+      f.style.setProperty('bottom', (b + 72) + 'px', 'important');  // clear the 64px tabbar + margin
+      f.dataset.snvLifted = '1';
+    });
+  }
+  liftTawk();
+  if (window.MutationObserver) {
+    var t, obs = new MutationObserver(function () { clearTimeout(t); t = setTimeout(liftTawk, 120); });
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+  [800, 1800, 3500].forEach(function (ms) { setTimeout(liftTawk, ms); });  // backstop for slow async load
+  window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(liftTawk, 150); });
 })();

@@ -104,6 +104,22 @@ main{padding:6px 20px 24px}
       <p class="fine" id="about-msg" style="display:none;color:var(--teal-deep)"></p>
     </div>
 
+    <div class="card">
+      <h2>Text alerts</h2>
+      <div class="gives">
+        <div class="txt">
+          <h3>Text me about new messages</h3>
+          <p>Get a real-time text the moment a Momni messages you — the fastest way to arrange care. Carrier rates may apply; reply STOP anytime.</p>
+        </div>
+        <label class="toggle"><input type="checkbox" id="sms-toggle"><span class="slider"></span></label>
+      </div>
+      <div class="field" id="phone-field" style="display:none;margin-top:14px">
+        <label for="phone-input">Mobile number</label>
+        <input id="phone-input" type="tel" placeholder="(801) 555-1234" autocomplete="tel">
+        <p class="fine" id="phone-msg" style="display:none;color:var(--teal-deep)"></p>
+      </div>
+    </div>
+
     <div class="card gives">
       <div class="txt">
         <h3>I host (I'm a Momni)</h3>
@@ -356,6 +372,9 @@ main{padding:6px 20px 24px}
     document.getElementById('host-card').style.display = me.is_host ? 'block' : 'none';
     document.getElementById('now-toggle').checked = me.available_now;
     document.getElementById('gives-toggle').checked = me.gives_toggle;
+    document.getElementById('sms-toggle').checked = me.sms_opt_in;
+    document.getElementById('phone-field').style.display = me.sms_opt_in ? 'block' : 'none';
+    document.getElementById('phone-input').value = me.phone || '';
     if (me.momni_plus) {
       document.getElementById('links-num').textContent = '∞';
       document.getElementById('links-lbl').textContent = 'Momni+ — unlimited Links';
@@ -508,6 +527,21 @@ main{padding:6px 20px 24px}
   loadCalendar();
   document.getElementById('gives-toggle').addEventListener('change', function(){
     put({ gives_toggle: this.checked });
+  });
+  document.getElementById('sms-toggle').addEventListener('change', function(){
+    me.sms_opt_in = this.checked;
+    document.getElementById('phone-field').style.display = this.checked ? 'block' : 'none';
+    put({ sms_opt_in: this.checked });
+    if (this.checked && !(me.phone || '').trim()) document.getElementById('phone-input').focus();
+  });
+  document.getElementById('phone-input').addEventListener('change', function(){
+    me.phone = this.value.trim();
+    var msg = document.getElementById('phone-msg');
+    put({ phone: me.phone }).then(function(r){ return r.json(); }).then(function(d){
+      msg.style.display = 'block';
+      msg.style.color = (d && d.ok) ? 'var(--teal-deep)' : '#B0556A';
+      msg.textContent = (d && d.ok) ? 'Saved — we’ll text this number about new messages. 💜' : ((d && d.error) || 'Could not save.');
+    });
   });
 
   document.getElementById('plus-btn').addEventListener('click', function(e){

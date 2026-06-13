@@ -125,6 +125,10 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
         <p class="meta" style="margin-top:6px"><strong>Beta approval gate is ON.</strong> Personal &amp; onboarding emails become <strong>drafts in your support@momni.com Gmail</strong> — review and hit Send from your inbox. Bulk campaigns (a whole segment) hold in the Outbox below via Resend. Nothing sends on its own. <em>(Gmail drafts activate once the service account is set up — until then everything holds in the Outbox.)</em></p>
         <div id="emails" style="margin-top:10px"><p class="empty">Loading…</p></div>
       </div>
+      <div class="card"><h2>📱 Texts — real-time SMS log</h2>
+        <p class="meta" id="sms-status" style="margin-bottom:8px">Loading…</p>
+        <div id="texts"><p class="empty">Loading…</p></div>
+      </div>
       <div class="card"><h2>🔑 Sign in with Momni — connected apps</h2>
         <p class="meta" style="margin-bottom:8px">Register each Board (ChoreBoard, Motherboard…) so members can sign in with their Momni account. A confidential app's secret shows once — paste it straight into the app's config.</p>
         <input id="oc-name" placeholder="App name, e.g. ChoreBoard">
@@ -205,7 +209,7 @@ async function init(){
     document.getElementById('hq').style.display='block';
     const labels = {mamas:'Momnis in the Circle',hosts:'Hosting Momnis',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',gives:'Momni Gives Momnis',open_reports:'Open reports'};
     document.getElementById('stats').innerHTML = Object.entries(labels).map(([k,l])=>`<div class="stat"><div class="n">${o[k]}</div><div class="l">${l}</div></div>`).join('');
-    loadReports(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadOauthClients(); loadShop(); loadSiteConsole();
+    loadReports(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadTexts(); loadOauthClients(); loadShop(); loadSiteConsole();
   }catch(e){}
 }
 async function loadReports(){
@@ -296,6 +300,17 @@ async function approveEmail(id){
 async function discardEmail(id){
   const r = await api('/api/admin/emails/'+id+'/discard', {method:'POST'});
   if(!r.ok) alert(r.error||'Could not discard.'); loadEmails();
+}
+async function loadTexts(){
+  const d = await api('/api/admin/texts');
+  const rows = (d && d.rows) || [];
+  document.getElementById('sms-status').innerHTML = d && d.live
+    ? '<strong>Texting is LIVE</strong> via Twilio — real texts are sending to opted-in Momnis.'
+    : 'Texting is in <strong>dev mode</strong> — set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN &amp; TWILIO_FROM in Render to send for real. Rows below show what <em>would</em> send.';
+  document.getElementById('texts').innerHTML = rows.length ? rows.slice(0,40).map(t=>`
+    <div class="item"><span class="pill ${t.status==='sent'?'p-teal':'p-grey'}">${esc(t.status)}</span>
+    ${esc(t.kind||'sms')} → ${esc(t.to_phone||'—')}<div class="meta">${esc((t.body||'').slice(0,120))}${t.created_at?' · '+esc(t.created_at):''}</div></div>`).join('')
+    : '<p class="empty">No texts yet.</p>';
 }
 // ---- Shop: digital downloads ----
 function money(c){ return c<=0 ? 'Free' : '$'+(c/100).toFixed(2); }

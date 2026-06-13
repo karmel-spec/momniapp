@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Momni — Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2; --clay:#D9C0A3;
+  --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF; --line:#EEE9F9;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.55;min-height:100vh;display:flex;justify-content:center}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{width:100%;max-width:480px;min-height:100vh;background:var(--white);box-shadow:0 0 40px rgba(109,88,164,0.12);display:flex;flex-direction:column;padding-bottom:150px}
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.topbar .back{font-size:22px;color:var(--purple);font-weight:700}
+.topbar img{height:30px;display:block}
+main{padding:18px 20px 8px}
+.head{text-align:center;margin-bottom:8px}
+.avatar{width:88px;height:88px;border-radius:50%;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:34px;margin:4px auto 12px}
+.head h1{font-size:23px;font-weight:800;letter-spacing:-0.02em}
+.loc{font-size:14px;color:var(--muted);margin-top:3px}
+.pills{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:12px}
+.pill{font-size:12px;font-weight:600;border-radius:100px;padding:5px 12px}
+.pill.badge{background:#FCFBFE;border:1.5px solid var(--line)}
+.pill.now{background:#FFF3D6;color:#8A5A00;border:1.5px solid #F2D98B}
+.rating{font-size:15px;font-weight:700;margin-top:12px}
+.rating .star{color:#BA7517}
+.rating span{color:var(--muted);font-weight:500;font-size:14px}
+.sec{border-top:1px solid var(--line);padding:16px 0 4px;margin-top:8px}
+.sec h2{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.sec p{font-size:15px}
+.ct{display:flex;flex-wrap:wrap;gap:8px}
+.ct span{font-size:13px;font-weight:600;border:1.5px solid var(--line);border-radius:100px;padding:6px 13px}
+.rate{font-size:14px;color:var(--teal-deep);font-weight:600;margin-top:10px}
+.avail{display:flex;flex-direction:column;gap:4px}
+.avail .row{display:flex;gap:8px;font-size:14px}
+.avail .d{font-weight:700;width:42px;flex-shrink:0}
+.shared a{color:var(--teal-deep);font-weight:600}
+.fine{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+.review{border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:9px}
+.review .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.review .who{font-size:14px;font-weight:700}
+.review .rstars{color:#BA7517;font-size:13px}
+.review .body{font-size:14px;line-height:1.55}
+.review .date{font-size:11px;color:var(--muted);margin-top:6px}
+.cta-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid var(--line);padding:14px 20px;z-index:50}
+.cta-bar .req{display:block;text-align:center;background:var(--algae);color:#0B4A36;border-radius:100px;padding:14px;font-size:16px;font-weight:700}
+.cta-bar .note{font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5}
+.state{padding:48px 24px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="search.html" aria-label="Back to search">&#8592;</a>
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+  </div>
+  <main id="main"><p class="state">Loading this Momni…</p></main>
+  <div class="cta-bar" id="cta" style="display:none">
+    <a class="req" id="req-btn" href="#">Request a Link</a>
+    <p class="note">You'll meet first. Care is arranged mom to mom — Momni never touches payment.</p>
+  </div>
+</div>
+<script>
+(function(){
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  var CT = {'available-now':'Available Now','night-out':'Night Out','recurring':'Recurring','overnight':'Overnight'};
+  var BLK = {am:'Mornings',pm:'Afternoons',eve:'Evenings',overnight:'Overnight'};
+  var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var stars = function(n){ n = Math.round(n||0); return '★★★★★'.slice(0,n) + '☆☆☆☆☆'.slice(0,5-n); };
+
+  var id = new URLSearchParams(location.search).get('id');
+  if (!id) { document.getElementById('main').innerHTML = '<p class="state">No Momni selected. <a href="search.html" style="color:var(--teal-deep);font-weight:600">Back to search</a></p>'; return; }
+
+  fetch('/api/hosts/' + encodeURIComponent(id)).then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(h){
+      if (!h) { document.getElementById('main').innerHTML = '<p class="state">We couldn’t find that Momni. <a href="search.html" style="color:var(--teal-deep);font-weight:600">Back to search</a></p>'; return; }
+      render(h);
+    }).catch(function(){
+      document.getElementById('main').innerHTML = '<p class="state">Something went wrong — <a href="search.html" style="color:var(--teal-deep);font-weight:600">back to search</a>.</p>';
+    });
+
+  function render(h){
+    var first = (h.name || 'A Momni').split(' ')[0];
+    var revs = Array.isArray(h.reviews) ? h.reviews : [];
+    var avg = revs.length ? revs.reduce(function(s,r){ return s + (r.rating||0); }, 0) / revs.length : null;
+    var loc = [h.neighborhood, h.city].filter(Boolean).join(' · ');
+    var html = '<div class="head">' +
+      '<div class="avatar">' + esc((first[0]||'M').toUpperCase()) + '</div>' +
+      '<h1>' + esc(h.name || 'A Momni') + '</h1>' +
+      (loc ? '<div class="loc">📍 ' + esc(loc) + ' <span style="font-size:12px">· neighborhood level</span></div>' : '') +
+      '<div class="pills">' +
+        (h.available_now ? '<span class="pill now">💡 Available now</span>' : '') +
+        (h.badges||[]).map(function(b){ return '<span class="pill badge" title="'+esc(b.note||'')+'">'+esc(b.emoji||'')+' '+esc(b.label||'')+'</span>'; }).join('') +
+      '</div>' +
+      (avg != null ? '<div class="rating"><span class="star">'+stars(avg)+'</span> '+avg.toFixed(1)+' <span>from '+revs.length+' Momni'+(revs.length===1?'':'s')+'</span></div>' : '<div class="rating"><span>No reviews yet — be the first to connect.</span></div>') +
+    '</div>';
+
+    if (h.bio) html += sec('About', '<p>'+esc(h.bio)+'</p>');
+    if (h.kids_note) html += sec(first + '’s littles', '<p>'+esc(h.kids_note)+'</p>');
+    if ((h.care_types||[]).length || h.hourly_note) {
+      html += sec('Care offered',
+        '<div class="ct">' + (h.care_types||[]).map(function(c){ return '<span>'+esc(CT[c]||c)+'</span>'; }).join('') + '</div>' +
+        (h.hourly_note ? '<div class="rate">'+esc(h.hourly_note)+'</div>' : ''));
+    }
+    if (h.home_highlights) html += sec('Their home', '<p>'+esc(h.home_highlights)+'</p>');
+
+    var av = h.availability || {};
+    var avRows = DAYS.filter(function(d){ return (av[d]||[]).length; }).map(function(d){
+      return '<div class="row"><span class="d">'+d+'</span><span>'+(av[d].map(function(b){ return BLK[b]||b; }).join(', '))+'</span></div>';
+    });
+    if (avRows.length) html += sec('Usually open', '<div class="avail">'+avRows.join('')+'</div>');
+
+    var shared = (h.shared_items||[]).map(function(it){
+      var txt = esc(it.label) + (it.as_of ? ' · as of ' + esc(it.as_of) : '');
+      return (it.url && /^https:\/\//.test(it.url))
+        ? '<p class="shared"><a href="'+esc(it.url)+'" target="_blank" rel="noopener">'+txt+' ↗</a></p>'
+        : '<p class="shared">'+txt+'</p>';
+    });
+    if (h.live_link && /^https?:\/\//.test(h.live_link)) {
+      shared.push('<p class="shared"><a href="'+esc(h.live_link)+'" target="_blank" rel="noopener">'+esc(h.live_link_label || 'Their link')+' ↗</a></p>');
+    }
+    if (shared.length) {
+      html += sec('What ' + first + ' shares', shared.join('') +
+        '<p class="fine">These are ' + esc(first) + '’s own shared items. Momni doesn’t review or confirm what’s shared, or whether it’s current — you decide how to weigh it.</p>');
+    }
+
+    html += sec('Reviews from other Momnis', revs.length ? revs.map(function(r){
+      return '<div class="review"><div class="top"><span class="who">'+esc(r.author||'A Momni')+'</span><span class="rstars">'+stars(r.rating)+'</span></div>' +
+        (r.body ? '<div class="body">'+esc(r.body)+'</div>' : '') +
+        (r.created_at ? '<div class="date">'+esc(String(r.created_at).slice(0,10))+'</div>' : '') + '</div>';
+    }).join('') : '<p style="font-size:14px;color:var(--muted)">No reviews yet. After a visit, both Momnis review each other — that’s how the Circle builds trust.</p>');
+
+    html += '<div class="sec"><p class="fine">Momni is a community platform, not a childcare provider. Momni doesn’t vet, screen, or endorse anyone — you choose and evaluate your own care, just as you would a trusted friend.</p></div>';
+
+    document.getElementById('main').innerHTML = html;
+    document.getElementById('req-btn').setAttribute('href', 'booking.html?host_id=' + encodeURIComponent(h.id));
+    document.getElementById('req-btn').textContent = 'Request a Link with ' + first;
+    document.getElementById('cta').style.display = 'block';
+  }
+
+  function sec(title, inner){ return '<div class="sec"><h2>'+esc(title)+'</h2>'+inner+'</div>'; }
+})();
+</script>
+<script src="site-nav.js" defer></script>
+</body>
+</html>

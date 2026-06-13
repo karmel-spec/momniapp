@@ -273,7 +273,7 @@ function hostPopup(h){
   return '<div class="pop"><strong>'+esc(h.name)+'</strong><span class="dist">'+esc(h.city)+
     (d != null ? ' &middot; '+esc(d)+' mi away' : '')+
     (h.hourly_note ? ' &middot; '+esc(h.hourly_note) : '')+'</span>'+
-    '<a class="req" href="booking.html?host_id='+h.id+'">Request a Link</a></div>';
+    '<a class="req" href="host.html?id='+h.id+'">View profile</a></div>';
 }
 
 // Availability JSON {Mon:['am','pm'],...} -> "Mornings · Mon Tue Thu", longest block first
@@ -403,7 +403,7 @@ function loadHosts(){
           (shared ? '<div class="pills-label">What they\'ve chosen to share</div><div class="pills">'+shared+'</div>' : '')+
           (h.hourly_note ? '<div class="pills-label">'+esc(h.hourly_note)+'</div>' : '')+
           liveLink +
-          '<a class="link-btn" style="margin-top:10px" href="booking.html?host_id='+h.id+'">Request a Link</a>'+
+          '<a class="link-btn" style="margin-top:10px" href="host.html?id='+h.id+'">View profile</a>'+
           '</div>';
       }).join('');
     })
