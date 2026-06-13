@@ -31,9 +31,9 @@ function importContacts(db, rows) {
   const byLegacy = db.prepare('SELECT id FROM crm_contacts WHERE legacy_id = ?');
   const byEmail = db.prepare('SELECT id, legacy_id FROM crm_contacts WHERE email = ?');
   const ins = db.prepare(`INSERT INTO crm_contacts
-    (legacy_id, first_name, last_name, email, phone, city, state, postal_code,
+    (legacy_id, first_name, last_name, email, phone, city, state, postal_code, county,
      source, is_host, host_bio, property_type, joined_1_0)
-    VALUES (@legacy_id, @first_name, @last_name, @email, @phone, @city, @state, @postal_code,
+    VALUES (@legacy_id, @first_name, @last_name, @email, @phone, @city, @state, @postal_code, @county,
             '1.0', @is_host, @host_bio, @property_type, @joined_1_0)`);
   // fill blanks only — an import never clobbers what Karmel typed by hand
   const fill = db.prepare(`UPDATE crm_contacts SET
@@ -42,6 +42,7 @@ function importContacts(db, rows) {
       city        = COALESCE(city, @city),
       state       = COALESCE(state, @state),
       postal_code = COALESCE(postal_code, @postal_code),
+      county      = COALESCE(county, @county),
       is_host     = MAX(is_host, @is_host),
       host_bio    = COALESCE(host_bio, @host_bio),
       property_type = COALESCE(property_type, @property_type),
@@ -63,6 +64,7 @@ function importContacts(db, rows) {
         city: raw.city ? String(raw.city).slice(0, 80) : null,
         state: normalizeState(raw.state),
         postal_code: raw.postal_code ? String(raw.postal_code).slice(0, 10) : null,
+        county: raw.county ? String(raw.county).slice(0, 60) : null,
         is_host: raw.is_host ? 1 : 0,
         host_bio: raw.host_bio ? String(raw.host_bio).slice(0, 600) : null,
         property_type: raw.property_type ? String(raw.property_type).slice(0, 60) : null,

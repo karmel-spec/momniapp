@@ -1440,6 +1440,7 @@ function crmWhere(q) {
   if (q.role === 'host') where.push('c.is_host = 1');
   if (q.role === 'guest') where.push('c.is_guest = 1 AND c.is_host = 0');
   if (q.state) { where.push('c.state = ?'); params.push(String(q.state)); }
+  if (q.county) { where.push('c.county = ?'); params.push(String(q.county)); }
   if (q.city) { where.push('c.city LIKE ?'); params.push(`%${String(q.city)}%`); }
   if (q.stage && ['community','engaged','reactivated','core'].includes(q.stage)) { where.push('c.stage = ?'); params.push(q.stage); }
   if (q.has === 'phone') where.push("c.phone IS NOT NULL AND c.phone != ''");
@@ -1553,6 +1554,11 @@ app.delete('/api/admin/crm/contacts/:id', requireAdmin, (req, res) => {
 app.get('/api/admin/crm/tags', requireAdmin, (req, res) => {
   res.json(db.prepare(`SELECT t.*, (SELECT COUNT(*) FROM crm_contact_tags ct WHERE ct.tag_id = t.id) count
                        FROM crm_tags t ORDER BY t.name`).all());
+});
+// Distinct counties present in the CRM (for the geo filter dropdown), with contact counts.
+app.get('/api/admin/crm/counties', requireAdmin, (req, res) => {
+  res.json(db.prepare(`SELECT county, COUNT(*) count FROM crm_contacts
+    WHERE county IS NOT NULL AND county != '' GROUP BY county ORDER BY count DESC`).all());
 });
 app.post('/api/admin/crm/tags', requireAdmin, (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 40);

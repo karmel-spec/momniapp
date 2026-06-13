@@ -152,6 +152,7 @@ td .nm{font-weight:700}
 
       <h3>Location</h3>
       <select id="f-state"><option value="">All states</option></select>
+      <select id="f-county"><option value="">All counties</option></select>
       <input type="text" id="f-city" placeholder="City contains…">
 
       <h3>Stage</h3>
@@ -296,7 +297,7 @@ async function api(path, opts = {}) {
 function filters() {
   const f = { q: $('q').value.trim(), source: document.querySelector('input[name=source]:checked').value,
     role: document.querySelector('input[name=role]:checked').value, state: $('f-state').value,
-    city: $('f-city').value.trim(), stage: $('f-stage').value, has: $('f-has').value,
+    county: $('f-county').value, city: $('f-city').value.trim(), stage: $('f-stage').value, has: $('f-has').value,
     member: $('f-member').checked ? '1' : '', leader: $('f-leader').checked ? '1' : '',
     tag: (document.querySelector('#tagchips .chip.on') || {}).dataset?.id || '', sort: $('sort').value };
   return f;
@@ -317,6 +318,11 @@ async function loadStates() {
   // states come from the stats top list + a fixed US list fallback; cheap: derive from export endpoint? Use top_states + datalist of all
   const ALL = 'Alabama,Alaska,Arizona,Arkansas,California,Colorado,Connecticut,Delaware,District of Columbia,Florida,Georgia,Hawaii,Idaho,Illinois,Indiana,Iowa,Kansas,Kentucky,Louisiana,Maine,Maryland,Massachusetts,Michigan,Minnesota,Mississippi,Missouri,Montana,Nebraska,Nevada,New Hampshire,New Jersey,New Mexico,New York,North Carolina,North Dakota,Ohio,Oklahoma,Oregon,Pennsylvania,Rhode Island,South Carolina,South Dakota,Tennessee,Texas,Utah,Vermont,Virginia,Washington,West Virginia,Wisconsin,Wyoming'.split(',');
   $('f-state').innerHTML = '<option value="">All states</option>' + ALL.map(s => `<option>${s}</option>`).join('');
+  try {
+    const counties = await api('/api/admin/crm/counties');
+    if (counties && counties.length) $('f-county').innerHTML = '<option value="">All counties</option>' +
+      counties.map(c => `<option value="${c.county}">${c.county} (${c.count})</option>`).join('');
+  } catch (e) { /* no counties yet */ }
 }
 
 async function loadTags() {
@@ -528,7 +534,7 @@ async function delTag(id, name) { if (!confirm(`Delete the tag "${name}"? It wil
 
 // ---- wiring ----
 let deb; $('q').addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(() => { page = 1; load(); }, 280); });
-['f-state','f-stage','f-has','sort'].forEach(id => $(id).addEventListener('change', () => { page = 1; load(); }));
+['f-state','f-county','f-stage','f-has','sort'].forEach(id => $(id).addEventListener('change', () => { page = 1; load(); }));
 $('f-city').addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(() => { page = 1; load(); }, 350); });
 ['f-member','f-leader'].forEach(id => $(id).addEventListener('change', () => { page = 1; load(); }));
 document.querySelectorAll('input[name=source],input[name=role]').forEach(r => r.addEventListener('change', () => { page = 1; load(); }));

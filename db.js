@@ -11,6 +11,8 @@ db.pragma('foreign_keys = ON');
 try { db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
 // migration: store rendered email body so a held email can be approved & sent later (beta approval gate)
 try { db.exec('ALTER TABLE emails ADD COLUMN html TEXT'); } catch (e) { /* exists */ }
+// migration: CRM county (zip-derived) for geo-targeted outreach, e.g. the Utah County beta relaunch
+try { db.exec('ALTER TABLE crm_contacts ADD COLUMN county TEXT'); } catch (e) { /* exists or table not yet created */ }
 // migration: calendar provider fields (Nylas grant_id + primary calendar_id) — no-op if present/table-absent
 try { db.exec('ALTER TABLE calendar_connections ADD COLUMN grant_id TEXT'); } catch (e) { /* exists or table not yet created */ }
 try { db.exec('ALTER TABLE calendar_connections ADD COLUMN calendar_id TEXT'); } catch (e) { /* exists or table not yet created */ }
@@ -339,6 +341,7 @@ CREATE TABLE IF NOT EXISTS crm_contacts (
   email TEXT,
   phone TEXT,                             -- 10 digits, unformatted
   city TEXT, state TEXT, postal_code TEXT,
+  county TEXT,                            -- derived from zip (e.g. "Utah County, UT") for geo-targeted outreach
   source TEXT DEFAULT 'manual',           -- 1.0 | 2.0 | manual
   is_host INTEGER DEFAULT 0,
   is_guest INTEGER DEFAULT 0,
