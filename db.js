@@ -425,6 +425,16 @@ CREATE TABLE IF NOT EXISTS briefs (          -- HQ Brief Library: research, prop
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
+
+-- One canonical opt-out list for ALL email, keyed by address (lowercased) so it covers
+-- members, 1.0 CRM contacts, and people in neither table. The unconditional footer
+-- unsubscribe link and the one-click List-Unsubscribe header both write here, and
+-- mailer.send() checks it before every non-transactional send. CAN-SPAM compliance.
+CREATE TABLE IF NOT EXISTS email_unsubscribes (
+  email TEXT PRIMARY KEY,                 -- lowercased, trimmed
+  source TEXT DEFAULT 'link',             -- footer-link | one-click | form | admin
+  created_at TEXT DEFAULT (datetime('now'))
+);
 `);
 
 // Starter tag set — created once; Karmel can add/rename/recolor freely in the CRM.

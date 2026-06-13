@@ -9,6 +9,7 @@
 // Sacred rules live in the copy: warm/candid voice, "Momni" (gender-neutral, 2026-06-12); never vetted/verified/
 // screened/safe/guaranteed; Momni never touches care payments; entity separation disclosed.
 
+const crypto = require('crypto');
 const { db } = require('./db');
 const gmaildraft = require('./gmaildraft');
 
@@ -17,12 +18,66 @@ const gmaildraft = require('./gmaildraft');
 const BULK_TEMPLATES = new Set(['reactivation', 'reactivation_2', 'reactivation_3',
   'dormant_30', 'dormant_60', 'community_digest', 'trust_education', 'newsletter']);
 
+// Transactional / relationship mail — exempt from the unsubscribe list (CAN-SPAM allows this).
+// A parent who opts out of marketing must STILL get a password reset or a booking they're in.
+// Everything NOT in this set is treated as marketing: it carries the one-click List-Unsubscribe
+// header and is suppressed for any address on the unsubscribe list.
+const TRANSACTIONAL_TEMPLATES = new Set(['password_reset', 'booking_request', 'booking_confirmed',
+  'booking_reminder', 'review_request', 'download_ready', 'circle_reminder']);
+
 const RESEND_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Momni <onboarding@resend.dev>';
 // Replies land in a real, monitored inbox — hello@ is a display identity only.
 const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || 'support@momni.com';
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 const LIVE = !!RESEND_KEY;
+// CAN-SPAM also requires a valid physical postal address in every commercial email. Set
+// EMAIL_POSTAL_ADDRESS in Render (recommend a Provo/Orem PO box, NOT a home address). Until it's
+// set the line is omitted rather than inventing an address — pair this with the unsubscribe link.
+const EMAIL_POSTAL = (process.env.EMAIL_POSTAL_ADDRESS || '').trim();
+
+// ───────── Unsubscribe: signed, stateless, recipient-specific ─────────
+// The footer link and the List-Unsubscribe header carry a token = base64url(email).hmac so the
+// recipient unsubscribes in one click without typing anything, and nobody can forge an opt-out for
+// someone else. A dedicated UNSUB_SECRET keeps links valid even if the session secret rotates.
+const UNSUB_SECRET = process.env.UNSUB_SECRET || process.env.SESSION_SECRET || 'momni-dev-secret-change-in-prod';
+const UNSUB_FALLBACK = `${APP_URL}/unsubscribe`;                       // tokenless, still works (shows an email form)
+const normEmail = (e) => String(e == null ? '' : e).toLowerCase().trim();
+const unsubSig = (emailLower) => crypto.createHmac('sha256', UNSUB_SECRET).update(emailLower).digest('base64url');
+function unsubToken(email) {
+  const e = normEmail(email);
+  return Buffer.from(e).toString('base64url') + '.' + unsubSig(e);
+}
+function verifyUnsubToken(token) {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return null;
+  const i = token.indexOf('.');
+  let email;
+  try { email = Buffer.from(token.slice(0, i), 'base64url').toString('utf8'); } catch (e) { return null; }
+  if (!email) return null;
+  const a = Buffer.from(token.slice(i + 1));
+  const b = Buffer.from(unsubSig(email));
+  if (a.length !== b.length) return null;
+  return crypto.timingSafeEqual(a, b) ? email : null;
+}
+const unsubUrl = (email) => `${APP_URL}/unsubscribe?u=${encodeURIComponent(unsubToken(email))}`;
+
+function isUnsubscribed(email) {
+  try { return !!db.prepare('SELECT 1 FROM email_unsubscribes WHERE email = ? LIMIT 1').get(normEmail(email)); }
+  catch (e) { return false; }  // table missing / any doubt → don't block transactional mail
+}
+// Record an opt-out everywhere it needs to live: the canonical list + the CRM flag (so HQ counts stay honest).
+function recordUnsubscribe(email, source) {
+  const e = normEmail(email);
+  if (!e) return false;
+  try { db.prepare('INSERT OR IGNORE INTO email_unsubscribes (email, source) VALUES (?,?)').run(e, source || 'link'); }
+  catch (err) { console.error('[mailer] could not record unsubscribe', err); return false; }
+  try { db.prepare("UPDATE crm_contacts SET do_not_email = 1, updated_at = datetime('now') WHERE lower(email) = ?").run(e); }
+  catch (err) { /* crm row optional */ }
+  return true;
+}
+// Swap the tokenless footer href for this recipient's signed one. Done in send() so the single
+// footer in layout() personalizes for every template, current and future, with no per-template work.
+const personalizeFooter = (html, to) => html.split(`href="${UNSUB_FALLBACK}"`).join(`href="${unsubUrl(to)}"`);
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
@@ -42,7 +97,8 @@ function layout(inner, preheader) {
   <tr><td style="padding:18px 28px;background:#F5F0FE;font-size:12px;color:#6B6477;line-height:1.7">
     Momni is a community platform — Momnis make their own care decisions and pay each other directly.<br>
     Momni, Inc. and the Momni Foundation (501(c)(3)) are one brand with separate finances.<br>
-    <a href="${esc(APP_URL)}/me.html" style="color:#0D878F">Manage your preferences</a>
+    ${EMAIL_POSTAL ? esc(EMAIL_POSTAL) + '<br>' : ''}
+    <a href="${esc(APP_URL)}/me.html" style="color:#0D878F">Manage your preferences</a> &nbsp;·&nbsp; <a href="${esc(UNSUB_FALLBACK)}" style="color:#0D878F">Unsubscribe</a>
   </td></tr>
 </table></td></tr></table></body></html>`;
 }
@@ -423,7 +479,25 @@ async function send({ to, to_user_id = null, template, vars = {}, related_type =
   const t = TEMPLATES[template];
   if (!t) { console.error('[mailer] unknown template:', template); return { status: 'failed', error: 'unknown template' }; }
   if (!to) return { status: 'failed', error: 'no recipient' };
-  const { subject, html } = t(vars);
+  const { subject, html: rawHtml } = t(vars);
+  const isTransactional = TRANSACTIONAL_TEMPLATES.has(template);
+  // Honor the unsubscribe list for all marketing/community mail. Transactional/relationship mail
+  // (password reset, a booking you're in) is exempt — CAN-SPAM allows it and a parent must still get it.
+  if (!isTransactional && isUnsubscribed(to)) {
+    try {
+      db.prepare(`INSERT INTO emails (to_email,to_user_id,template,subject,status,related_type,related_id,error)
+        VALUES (?,?,?,?,'suppressed',?,?,'recipient on unsubscribe list')`)
+        .run(to, to_user_id, template, subject, related_type, related_id == null ? null : String(related_id));
+    } catch (e) { console.error('[mailer] could not log suppressed email', e); }
+    return { status: 'suppressed' };
+  }
+  // Personalize the single footer link in layout() to this recipient's signed unsubscribe URL.
+  const html = personalizeFooter(rawHtml, to);
+  // One-click List-Unsubscribe (Gmail/Yahoo bulk rules) — marketing mail only.
+  const listHeaders = isTransactional ? null : {
+    'List-Unsubscribe': `<${unsubUrl(to)}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
   if (LIVE && approvalRequired()) {
     // HYBRID review flow: personal emails → a draft in support@'s Gmail (Karmel sends from her inbox);
     // bulk templates or an explicit prefer:'outbox' → the HQ Outbox (Resend), reviewed in the dashboard.
@@ -451,7 +525,8 @@ async function send({ to, to_user_id = null, template, vars = {}, related_type =
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html, reply_to: EMAIL_REPLY_TO }),
+        body: JSON.stringify(Object.assign({ from: EMAIL_FROM, to: [to], subject, html, reply_to: EMAIL_REPLY_TO },
+          listHeaders ? { headers: listHeaders } : {})),
       });
       if (res.ok) status = 'sent';
       else { status = 'failed'; error = `Resend ${res.status}: ${(await res.text()).slice(0, 300)}`; }
@@ -481,12 +556,19 @@ async function deliverHeld(id) {
   const row = db.prepare("SELECT * FROM emails WHERE id = ? AND status = 'held'").get(id);
   if (!row) return { status: 'failed', error: 'Not found or not awaiting approval.' };
   if (!row.html) return { status: 'failed', error: 'No stored body for this email.' };
+  // The held body already carries this recipient's personalized footer link; re-add the
+  // one-click header for marketing mail (the stored HTML can't carry SMTP headers).
+  const listHeaders = TRANSACTIONAL_TEMPLATES.has(row.template) ? null : {
+    'List-Unsubscribe': `<${unsubUrl(row.to_email)}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
   let status = 'failed', error = null;
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: EMAIL_FROM, to: [row.to_email], subject: row.subject, html: row.html, reply_to: EMAIL_REPLY_TO }),
+      body: JSON.stringify(Object.assign({ from: EMAIL_FROM, to: [row.to_email], subject: row.subject, html: row.html, reply_to: EMAIL_REPLY_TO },
+        listHeaders ? { headers: listHeaders } : {})),
     });
     if (res.ok) status = 'sent';
     else error = `Resend ${res.status}: ${(await res.text()).slice(0, 300)}`;
@@ -495,4 +577,5 @@ async function deliverHeld(id) {
   return { status, error };
 }
 
-module.exports = { send, alreadySent, deliverHeld, LIVE, TEMPLATES, EMAIL_FROM };
+module.exports = { send, alreadySent, deliverHeld, LIVE, TEMPLATES, EMAIL_FROM,
+  unsubToken, verifyUnsubToken, unsubUrl, recordUnsubscribe, isUnsubscribed };

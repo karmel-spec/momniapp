@@ -226,6 +226,42 @@ app.post('/api/reset-password', authLimiter, (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- public email unsubscribe (CAN-SPAM opt-out + RFC 8058 one-click) ----------
+// Reachable WITHOUT an account so a 1.0 contact who never signed up can still opt out.
+// No rate limiter: provider one-click POSTs must always succeed, and the action is idempotent.
+const escHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function unsubPage(title, bodyHtml) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escHtml(title)} · Momni</title>
+<style>body{margin:0;font-family:'Albert Sans',Helvetica,Arial,sans-serif;background:#F5F0FE;color:#2B2233;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;line-height:1.6}
+.card{background:#fff;max-width:460px;width:100%;border-radius:18px;padding:30px 28px;box-shadow:0 10px 40px rgba(109,88,164,.12)}
+h1{font-family:'Montserrat',Helvetica,Arial,sans-serif;font-size:22px;margin:0 0 12px;color:#6D58A4}
+p{margin:0 0 12px}.muted{font-size:13px;color:#6B6477}
+input{width:100%;box-sizing:border-box;padding:11px 13px;border:1.5px solid #E5DEF4;border-radius:12px;font-size:15px;font-family:inherit;margin:8px 0 12px}
+button{background:#6D58A4;color:#fff;border:none;border-radius:100px;padding:11px 24px;font-weight:600;font-size:15px;cursor:pointer;font-family:inherit}
+a{color:#0D878F}</style></head>
+<body><div class="card"><div style="font-family:'Montserrat',Helvetica,Arial,sans-serif;font-weight:700;color:#6D58A4;font-size:20px;margin-bottom:14px">Momni</div>
+<h1>${escHtml(title)}</h1>${bodyHtml}</div></body></html>`;
+}
+app.get('/unsubscribe', (req, res) => {
+  const email = mailer.verifyUnsubToken(req.query.u);
+  if (email) {
+    mailer.recordUnsubscribe(email, 'footer-link');
+    return res.send(unsubPage('You’re unsubscribed', `<p><strong>${escHtml(email)}</strong> won’t receive marketing or community emails from Momni anymore.</p><p class="muted">You’ll still get essential messages tied to your account — like a password reset or a booking you’re part of. Changed your mind? <a href="${escHtml(process.env.APP_URL || '')}/me.html">Manage your preferences</a>.</p>`));
+  }
+  return res.send(unsubPage('Unsubscribe from Momni emails', `<form method="POST" action="/unsubscribe"><p>Enter your email and we’ll stop sending marketing and community emails.</p><input type="email" name="email" placeholder="you@example.com" required autocomplete="email"><button type="submit">Unsubscribe me</button></form>`));
+});
+app.post('/unsubscribe', (req, res) => {
+  const tokenEmail = mailer.verifyUnsubToken(req.query.u);     // RFC 8058 one-click (token in the List-Unsubscribe URL)
+  if (tokenEmail) {
+    mailer.recordUnsubscribe(tokenEmail, 'one-click');
+    return res.status(200).type('text/plain').send('Unsubscribed');
+  }
+  const email = String((req.body && req.body.email) || '').toLowerCase().trim();   // tokenless form submit
+  if (email && /.+@.+\..+/.test(email)) mailer.recordUnsubscribe(email, 'form');
+  return res.send(unsubPage('You’re unsubscribed', `<p>If <strong>${escHtml(email || 'that address')}</strong> was on our list, it won’t receive marketing or community emails from Momni anymore.</p>`));
+});
+
 // ---------- Google sign-in (OAuth 2.0 authorization-code flow) ----------
 // Configure at console.cloud.google.com → Credentials → OAuth client ID (Web).
 // Authorized redirect URI: {APP_URL}/auth/google/callback
@@ -1411,18 +1447,19 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
   if (recipients.length > MAX_BROADCAST) {
     return res.status(413).json({ error: `That's ${recipients.length} recipients — over the ${MAX_BROADCAST} per-send limit. Send in smaller batches.` });
   }
-  let sent = 0, held = 0, drafted = 0;
+  let sent = 0, held = 0, drafted = 0, suppressed = 0;
   for (const u of recipients) {
     const r = await mailer.send({ to: u.email, to_user_id: u.id, template, vars: Object.assign({ name: u.name }, vars || {}),
       prefer: segment ? 'outbox' : null }); // a whole segment routes to the Resend Outbox, not thousands of Gmail drafts
     if (r.status === 'gmail-draft') drafted++;
     else if (r.status === 'held') held++;
+    else if (r.status === 'suppressed') suppressed++;
     else if (r.status !== 'failed') sent++;
   }
   const mode = drafted ? `${drafted} draft(s) waiting in support@ Gmail — review &amp; send from your inbox`
     : held ? 'held — awaiting your approval in the Outbox'
     : (mailer.LIVE ? 'live' : 'dev (logged, not sent)');
-  res.json({ ok: true, recipients: recipients.length, sent, held, drafted, mode });
+  res.json({ ok: true, recipients: recipients.length, sent, held, drafted, suppressed, mode });
 });
 
 // ---------- CRM — Karmel's community/marketing/outreach backend (HQ-only) ----------
