@@ -128,8 +128,8 @@ main{padding:6px 18px 24px}
 
 <script>
 (function(){
-  var cat='', sort='top', detailId=null;
-  fetch('/api/me').then(function(r){ if(r.status===401){location='index.html';throw 0;} });
+  var cat='', sort='top', detailId=null, isAdmin=false;
+  fetch('/api/me').then(function(r){ if(r.status===401){location='index.html';throw 0;} return r.json(); }).then(function(d){ isAdmin=!!(d&&d.is_admin); });
 
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
   function catClass(c){ return 'cat-'+c; }
@@ -195,19 +195,41 @@ main{padding:6px 18px 24px}
         '<span class="cat '+catClass(p.category)+'">'+esc(p.category)+'</span>'+statusPill(p.status)+
         '<h2>'+esc(p.title)+'</h2>'+(p.body?'<p style="font-size:14.5px;color:#42394f;margin-bottom:8px">'+esc(p.body)+'</p>':'')+
         '<div class="meta" style="font-size:12.5px;color:var(--muted);margin-bottom:6px">by '+esc(p.author)+'</div>'+
-        '<button class="btn btn-ghost" data-vote="'+p.id+'" style="margin-bottom:14px">▲ '+p.votes+(p.mine?' · you upvoted':' · upvote')+'</button>'+
+        '<button class="btn btn-ghost" data-vote="'+p.id+'" style="margin-bottom:8px">▲ '+p.votes+(p.mine?' · you upvoted':' · upvote')+'</button>'+
+        '<div style="margin:0 0 12px"><a href="#" id="post-report" style="font-size:12px;color:var(--muted);text-decoration:underline">Report this post</a>'+
+          (isAdmin?' · <a href="#" id="post-del" style="font-size:12px;color:#B0556A;text-decoration:underline">Delete (HQ)</a>':'')+'</div>'+
         '<h3 style="font-size:14px;margin-bottom:4px">'+p.comments.length+' comment'+(p.comments.length===1?'':'s')+'</h3>'+
-        p.comments.map(function(c){return '<div class="cmt"><span class="who">'+esc(c.author)+'</span><div>'+esc(c.body)+'</div></div>';}).join('')+
+        p.comments.map(function(c){return '<div class="cmt"><span class="who">'+esc(c.author)+'</span><div>'+esc(c.body)+'</div>'+
+          '<div style="margin-top:3px"><a href="#" class="cm-report" data-cid="'+c.id+'" style="font-size:11px;color:var(--muted)">report</a>'+
+          (isAdmin?' · <a href="#" class="cm-del" data-cid="'+c.id+'" style="font-size:11px;color:#B0556A">delete</a>':'')+'</div></div>';}).join('')+
         '<label style="display:block;font-size:12.5px;font-weight:700;margin:14px 0 5px">Add a comment</label>'+
         '<textarea id="cm-body" style="width:100%;border:1.5px solid #E5DEF4;border-radius:12px;padding:11px;font:inherit;font-size:14px;min-height:64px"></textarea>'+
         '<div class="row"><button class="btn btn-ghost" id="d-close">Close</button><button class="btn btn-primary" id="cm-send">Comment</button></div>';
       ds.classList.add('open');
       document.getElementById('d-close').onclick=function(){ ds.classList.remove('open'); };
       document.querySelector('#detail-body [data-vote]').onclick=function(){ vote(p.id); };
+      document.getElementById('post-report').onclick=function(e){ e.preventDefault();
+        var reason=prompt('What’s the concern with this post?'); if(reason===null)return;
+        fetch('/api/reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject_type:'campfire_post',subject_id:p.id,reason:(reason||'reported').slice(0,80)})})
+          .then(function(r){return r.json();}).then(function(d){ alert(d.note||'Thank you — Karmel reviews every report. 💜'); });
+      };
+      var pd=document.getElementById('post-del'); if(pd) pd.onclick=function(e){ e.preventDefault();
+        if(!confirm('Delete this post and its comments? This cannot be undone.'))return;
+        fetch('/api/admin/campfire/'+p.id,{method:'DELETE'}).then(function(){ ds.classList.remove('open'); load(); });
+      };
+      document.getElementById('detail-body').querySelectorAll('.cm-report').forEach(function(a){ a.onclick=function(e){ e.preventDefault();
+        var reason=prompt('What’s the concern with this comment?'); if(reason===null)return;
+        fetch('/api/reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject_type:'campfire_comment',subject_id:a.dataset.cid,reason:(reason||'reported').slice(0,80)})})
+          .then(function(r){return r.json();}).then(function(d){ alert(d.note||'Thank you — reported. 💜'); });
+      };});
+      document.getElementById('detail-body').querySelectorAll('.cm-del').forEach(function(a){ a.onclick=function(e){ e.preventDefault();
+        if(!confirm('Delete this comment?'))return;
+        fetch('/api/admin/campfire/comments/'+a.dataset.cid,{method:'DELETE'}).then(function(){ openDetail(id); });
+      };});
       document.getElementById('cm-send').onclick=function(){
         var b=this; if(b.disabled)return; var body=document.getElementById('cm-body').value.trim(); if(!body)return; b.disabled=true;
         fetch('/api/campfire/'+id+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:body})})
-          .then(function(r){return r.json();}).then(function(){ openDetail(id); load(); }).catch(function(){ b.disabled=false; });
+          .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});}).then(function(x){ if(!x.ok){ b.disabled=false; alert((x.d&&x.d.error)||'Could not comment.'); return; } openDetail(id); load(); }).catch(function(){ b.disabled=false; });
       };
     });
   }

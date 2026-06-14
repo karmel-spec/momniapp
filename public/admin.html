@@ -49,6 +49,7 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
   <div class="grid">
     <div>
       <div class="card"><h2>🚩 Open reports</h2><div id="reports"><p class="empty">Loading…</p></div></div>
+      <div class="card"><h2>📊 Analytics — first-party</h2><div id="analytics"><p class="empty">Loading…</p></div></div>
       <div class="card"><h2>💡 Suggestions — awaiting Karmel</h2>
         <textarea id="sug-body" placeholder="Paste feedback from a developer@momni.com email…" style="width:100%;min-height:70px;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit;font-size:14px;margin-bottom:8px"></textarea>
         <input id="sug-by" placeholder="From (name or email, optional)">
@@ -215,7 +216,7 @@ async function init(){
     document.getElementById('hq').style.display='block';
     const labels = {mamas:'Momnis in the Circle',hosts:'Hosting Momnis',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',gives:'Momni Gives Momnis',open_reports:'Open reports'};
     document.getElementById('stats').innerHTML = Object.entries(labels).map(([k,l])=>`<div class="stat"><div class="n">${o[k]}</div><div class="l">${l}</div></div>`).join('');
-    loadReports(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadTexts(); loadOauthClients(); loadShop(); loadSiteConsole();
+    loadReports(); loadAnalytics(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadTexts(); loadOauthClients(); loadShop(); loadSiteConsole();
   }catch(e){}
 }
 async function loadReports(){
@@ -228,6 +229,17 @@ async function loadReports(){
     : '<p class="empty">No open reports. The Circle is calm. 💜</p>';
 }
 async function setReport(id,status){ await api('/api/admin/reports/'+id,{method:'PUT',body:JSON.stringify({status})}); loadReports(); init(); }
+async function loadAnalytics(){
+  const a = await api('/api/admin/analytics');
+  const f = a.funnel||{};
+  const max = Math.max(1, ...(a.last14||[]).map(d=>d.c));
+  const spark = (a.last14||[]).map(d=>`<span title="${esc(d.day)}: ${d.c}" style="display:inline-block;width:8px;height:${Math.max(3,Math.round(d.c/max*34))}px;background:#6D58A4;margin-right:2px;vertical-align:bottom;border-radius:1px"></span>`).join('');
+  document.getElementById('analytics').innerHTML =
+    `<div class="meta" style="margin-bottom:6px">${a.total} events · first-party, no third parties, no IPs</div>`+
+    `<div style="margin-bottom:8px;font-size:14px">Funnel: <b>${f.signups||0}</b> signups → <b>${f.link_requested||0}</b> Links requested → <b>${f.link_confirmed||0}</b> confirmed</div>`+
+    `<div style="margin-bottom:8px">Pageviews · last 14 days<br>${spark||'<i>none yet</i>'}</div>`+
+    `<div style="font-size:13px"><b>Top pages</b><br>${(a.top_paths||[]).map(p=>`${esc(p.path)} · ${p.c}`).join('<br>')||'<i>none yet</i>'}</div>`;
+}
 async function loadSuggestions(){
   const data = await api('/api/admin/suggestions');
   const pillFor = s => s==='approved'?'p-teal':s==='shipped'?'p-teal':s==='pending'?'p-grey':'p-red';

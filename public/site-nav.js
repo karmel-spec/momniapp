@@ -125,4 +125,11 @@
   }
   [800, 1800, 3500].forEach(function (ms) { setTimeout(liftTawk, ms); });  // backstop for slow async load
   window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(liftTawk, 150); });
+
+  // First-party pageview beacon — no third parties, no extra cookies. Fire-and-forget.
+  try {
+    var payload = JSON.stringify({ event: 'pageview', path: location.pathname });
+    if (navigator.sendBeacon) navigator.sendBeacon('/api/track', new Blob([payload], { type: 'application/json' }));
+    else fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+  } catch (e) {}
 })();

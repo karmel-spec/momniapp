@@ -147,10 +147,33 @@ main{padding:18px 20px 8px}
 
     html += '<div class="sec"><p class="fine">Momni is a community platform, not a childcare provider. Momni doesn’t vet, screen, or endorse anyone — you choose and evaluate your own care, just as you would a trusted friend.</p></div>';
 
+    html += '<div class="sec" style="text-align:center;border-top:1px solid var(--line);padding-top:14px">' +
+      '<a href="#" id="report-link" style="font-size:13px;color:var(--muted);text-decoration:underline">Report this profile</a>' +
+      ' &nbsp;·&nbsp; <a href="#" id="block-link" style="font-size:13px;color:#B0556A;text-decoration:underline">Block ' + esc(first) + '</a>' +
+      '<p class="fine" style="margin-top:8px">Every report reaches a real person at Momni.</p></div>';
+
     document.getElementById('main').innerHTML = html;
     document.getElementById('req-btn').setAttribute('href', 'booking.html?host_id=' + encodeURIComponent(h.id));
     document.getElementById('req-btn').textContent = 'Request a Link with ' + first;
     document.getElementById('cta').style.display = 'block';
+
+    function needAuth(d){ if (d && d.error && /sign in/i.test(d.error)) { alert('Please sign in to do that, Momni.'); location = 'index.html'; return true; } return false; }
+    document.getElementById('report-link').addEventListener('click', function(e){
+      e.preventDefault();
+      var reason = prompt('What’s the concern? (e.g. inappropriate content, spam, a safety worry)');
+      if (reason === null) return;
+      fetch('/api/reports', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ subject_type:'host', subject_id: h.id, reason: (reason||'reported').slice(0,80) }) })
+        .then(function(r){ return r.status===401 ? {error:'sign in'} : r.json(); })
+        .then(function(d){ if (needAuth(d)) return; alert(d.note || d.error || 'Thank you — Karmel reviews every report. 💜'); });
+    });
+    document.getElementById('block-link').addEventListener('click', function(e){
+      e.preventDefault();
+      if (!confirm('Block ' + first + '? They will not be able to Link with you or message you, and you will not see each other on Momni.')) return;
+      fetch('/api/blocks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: h.id }) })
+        .then(function(r){ return r.status===401 ? {error:'sign in'} : r.json().then(function(d){ return r.ok ? d : (d.error?{__err:d.error}:d); }); })
+        .then(function(d){ if (needAuth(d)) return; if (d && d.__err) { alert(d.__err); return; } alert((d && d.note) || 'Blocked.'); document.getElementById('cta').style.display='none'; });
+    });
   }
 
   function sec(title, inner){ return '<div class="sec"><h2>'+esc(title)+'</h2>'+inner+'</div>'; }

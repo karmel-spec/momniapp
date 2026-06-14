@@ -234,6 +234,7 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
       '<button class="actbtn" data-sendmsg="'+l.id+'">Send</button>' +
       '</div>' +
       '<div class="inline-msg" data-msgnote="'+l.id+'"></div>' +
+      '<div style="margin-top:4px"><a href="#" data-reportlink="'+l.id+'" style="font-size:12px;color:var(--muted);text-decoration:underline">Report a problem with this Momni</a></div>' +
       '<h4 style="margin-top:14px">Visits</h4>' +
       '<p class="vintro">Your shared visit timeline — drop-offs and pick-ups you both can see.</p>' +
       '<div data-visitlist="'+l.id+'"><p style="font-size:13px;color:var(--muted)">Loading the timeline…</p></div>' +
@@ -489,6 +490,14 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
     });
     box.querySelectorAll('[data-sendmsg]').forEach(function(btn){
       btn.addEventListener('click', function(){ sendMessage(Number(this.dataset.sendmsg)); });
+    });
+    box.querySelectorAll('[data-reportlink]').forEach(function(a){
+      a.addEventListener('click', function(e){ e.preventDefault();
+        var reason = prompt('What’s the concern? Karmel reviews every report.'); if (reason === null) return;
+        fetch('/api/reports', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ subject_type:'link', subject_id: Number(this.dataset.reportlink), reason: (reason||'reported').slice(0,80) }) })
+          .then(function(r){ return r.json(); }).then(function(d){ alert(d.note || 'Thank you — Karmel reviews every report. 💜'); });
+      });
     });
     box.querySelectorAll('[data-msginput]').forEach(function(inp){
       inp.addEventListener('keydown', function(e){

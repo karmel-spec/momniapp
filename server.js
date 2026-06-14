@@ -34,7 +34,7 @@ try { syncCrmFromUsers(); } catch (e) { console.error('CRM sync failed (non-fata
 const app = express();
 // JSON body parsing everywhere EXCEPT the Stripe webhook (raw body for signature checks)
 // and the big-payload admin uploads, which carry their own 30mb parser (uploadJson).
-const RAW_BODY_PATHS = ['/api/stripe/webhook', '/api/admin/crm/import', '/api/admin/shop/products'];
+const RAW_BODY_PATHS = ['/api/stripe/webhook', '/api/admin/crm/import', '/api/admin/shop/products', '/api/me/photo'];
 app.use((req, res, next) => RAW_BODY_PATHS.some(p => req.path.startsWith(p)) ? next() : express.json()(req, res, next));
 app.use(express.urlencoded({ extended: true }));
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -94,6 +94,27 @@ const ACKNOWLEDGMENT_TEXT = 'I understand Momni is a community platform, not a c
 // Bump when the Terms of Service / Privacy Policy materially change. Stamped, server-side, on every
 // acceptance (signup + each booking) so we can prove which version a member agreed to.
 const TERMS_VERSION = '2026-06-13';
+
+// ---------- safety + moderation + analytics helpers ----------
+// Basic word filter for member-posted text (Campfire posts/comments + Link messages). Rejects clear
+// profanity/slurs so the community stays kind; HQ can still delete anything that slips through.
+// Closed-form suffixes (NOT \w*) so it never flags innocent words like "shitake" or "class".
+const BANNED_RX = /\b(?:f+u+c+k+(?:s|ing|ed|er|ers)?|sh[i1]t(?:s|ty|ting|ter|head|heads)?|b[i1]tch(?:es|ing|y)?|c[u*]nts?|assh[o0]les?|bastards?|d[i1]ckheads?|wh[o0]res?|sluts?|f[a@]gg?(?:ot|ots|s)?|n[i1]gg(?:er|ers|a|as))\b/i;
+function clean(text){ return !BANNED_RX.test(String(text || '')); }       // true = OK to post
+
+// Block relationship — a block in EITHER direction hides both members and bars Links/messages both ways.
+function isBlocked(a, b){
+  return !!db.prepare('SELECT 1 FROM blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?) LIMIT 1').get(a, b, b, a);
+}
+function blockedSet(me){
+  if (!me) return new Set();
+  return new Set(db.prepare('SELECT blocked_id id FROM blocks WHERE blocker_id=? UNION SELECT blocker_id FROM blocks WHERE blocked_id=?').all(me, me).map(r => r.id));
+}
+// First-party analytics — fire-and-forget, no IPs, never throws.
+function track(event, userId, p, meta){
+  try { db.prepare("INSERT INTO analytics_events (event,user_id,path,meta,day) VALUES (?,?,?,?,date('now'))")
+    .run(String(event).slice(0, 40), userId || null, p ? String(p).slice(0, 200) : null, meta ? JSON.stringify(meta).slice(0, 300) : null); } catch (e) {}
+}
 
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Please sign in first, Momni.' });
@@ -171,6 +192,7 @@ app.post('/api/register', authLimiter, (req, res) => {
       VALUES (?,?,?,?,?,datetime('now'),datetime('now'),?)`)
       .run(email.toLowerCase().trim(), bcrypt.hashSync(password, 10), name.trim(), (city || '').trim(), ACKNOWLEDGMENT_TEXT, TERMS_VERSION);
     mailer.send({ to: email.toLowerCase().trim(), to_user_id: info.lastInsertRowid, template: 'welcome', vars: { name: name.trim() } });
+    track('signup', info.lastInsertRowid, '/index.html', { via: 'email' });
     // Regenerate the session on auth so a pre-login session id can't be fixated.
     req.session.regenerate((err) => {
       if (err) return res.status(500).json({ error: 'Could not start your session — please try again.' });
@@ -352,6 +374,7 @@ app.post('/api/register/google', (req, res) => {
       .run(email, placeholder, pending.name || email.split('@')[0], ACKNOWLEDGMENT_TEXT, TERMS_VERSION);
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(ins.lastInsertRowid);
     mailer.send({ to: email, to_user_id: user.id, template: 'welcome', vars: { name: user.name } });
+    track('signup', user.id, '/index.html', { via: 'google' });
   }
   const uid = user.id;
   req.session.regenerate((err) => {        // fresh session; drops the consumed pendingGoogle
@@ -383,6 +406,7 @@ app.delete('/api/me/calendar', requireAuth, (req, res) => { calendar.disconnect(
 app.get('/api/hosts/:id/freebusy', requireAuth, async (req, res) => {
   const { from, to } = req.query;
   if (!from || !to) return res.status(400).json({ error: 'from and to (ISO timestamps) are required.' });
+  if (isBlocked(req.session.userId, Number(req.params.id))) return res.status(404).json({ error: 'Not found' });
   const busy = await calendar.getBusy(Number(req.params.id), from, to);
   res.json({ connected: busy !== null, busy: busy || [] });
 });
@@ -398,8 +422,11 @@ app.get('/api/me', requireAuth, (req, res) => {
 });
 
 app.put('/api/me', requireAuth, (req, res) => {
+  // NOTE: photo_url + gallery are intentionally NOT here — they're managed only by the upload/delete
+  // endpoints (POST /api/me/photo, DELETE /api/me/gallery), which generate the URLs. Letting clients set
+  // them here would allow injecting another member's /uploads URL and deleting their file (IDOR).
   const allowed = ['name','city','bio','is_host','care_types','available_now','hourly_note','gives_toggle','lat','lng',
-    'kids_note','neighborhood','home_highlights','availability','photo_url','gallery'];
+    'kids_note','neighborhood','home_highlights','availability'];
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
   const updates = {};
   for (const k of allowed) if (k in req.body) updates[k] = req.body[k];
@@ -418,7 +445,6 @@ app.put('/api/me', requireAuth, (req, res) => {
   }
   if ('care_types' in updates) updates.care_types = JSON.stringify(updates.care_types);
   if ('availability' in updates) updates.availability = JSON.stringify(updates.availability);
-  if ('gallery' in updates) updates.gallery = JSON.stringify(updates.gallery);
   for (const boolKey of ['is_host','available_now','gives_toggle']) if (boolKey in updates) updates[boolKey] = updates[boolKey] ? 1 : 0;
   // Phone is normalized to E.164 for SMS; sms_opt_in is the consent flag for real-time texts.
   if ('phone' in req.body) { const raw = String(req.body.phone || '').trim(); updates.phone = raw ? (sms.normalizePhone(raw) || raw.slice(0, 20)) : null; }
@@ -496,6 +522,8 @@ function haversineMi(lat1, lng1, lat2, lng2) {
 app.get('/api/hosts', (req, res) => {
   const { care_type, available_now, lat, lng, radius_mi } = req.query;
   let rows = db.prepare('SELECT * FROM users WHERE is_host = 1').all();
+  const blk = blockedSet(req.session.userId);
+  if (blk.size) rows = rows.filter(r => !blk.has(r.id));   // hide blocked Momnis (both directions)
   if (care_type) rows = rows.filter(r => JSON.parse(r.care_types).includes(care_type));
   if (available_now === '1') rows = rows.filter(r => r.available_now);
   // Nearness: distance is computed from the SAME rounded coords we expose (userPublic), never the precise
@@ -532,6 +560,7 @@ app.get('/api/hosts', (req, res) => {
 app.get('/api/hosts/:id', (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ? AND is_host = 1').get(req.params.id);
   if (!u) return res.status(404).json({ error: 'Not found' });
+  if (req.session.userId && isBlocked(req.session.userId, u.id)) return res.status(404).json({ error: 'Not found' });
   const reviews = db.prepare(`SELECT r.rating, r.body, r.created_at, a.name author
     FROM reviews r JOIN users a ON a.id = r.author_id WHERE r.subject_id = ? ORDER BY r.created_at DESC`).all(u.id);
   res.json({ ...userPublic(u), reviews });
@@ -541,7 +570,9 @@ app.get('/api/map', (req, res) => {
   // momni.com's Movement Map reads this for live 2.0 lights — same-brand CORS only
   const origin = req.headers.origin || '';
   if (/^https:\/\/(www\.)?momni\.com$/.test(origin)) { res.set('Access-Control-Allow-Origin', origin); res.set('Vary', 'Origin'); }
-  const hosts = db.prepare('SELECT * FROM users WHERE is_host = 1 AND lat IS NOT NULL').all().map(userPublic);
+  let hosts = db.prepare('SELECT * FROM users WHERE is_host = 1 AND lat IS NOT NULL').all().map(userPublic);
+  const blk = blockedSet(req.session.userId);
+  if (blk.size) hosts = hosts.filter(h => !blk.has(h.id));   // hide blocked Momnis from the map
   const circles = db.prepare('SELECT * FROM circles').all();
   const legacy = db.prepare('SELECT city, lat, lng, count, role FROM legacy_pins').all(); // anonymized, real-town level only
   const litUp = db.prepare('SELECT COUNT(*) c FROM users WHERE legacy_1_0 = 1').get().c;
@@ -557,6 +588,7 @@ app.post('/api/links', requireAuth, (req, res) => {
   const host = db.prepare('SELECT * FROM users WHERE id = ? AND is_host = 1').get(host_id);
   if (!host) return res.status(404).json({ error: 'That Momni was not found.' });
   if (host.id === req.session.userId) return res.status(400).json({ error: 'You cannot Link with yourself, Momni.' });
+  if (isBlocked(req.session.userId, host.id)) return res.status(403).json({ error: 'You can’t request a Link with this Momni.' });
   const me = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
   if (!me.momni_plus && me.links_balance < 1) {
     return res.status(402).json({ error: 'You’re out of Links. Buy a bundle (10 for $10) or go Momni+ for unlimited.' });
@@ -569,6 +601,7 @@ app.post('/api/links', requireAuth, (req, res) => {
     .run(info.lastInsertRowid, me.id, firstMessage);
   if (!me.momni_plus) db.prepare('UPDATE users SET links_balance = links_balance - 1 WHERE id = ?').run(me.id);
   mailer.send({ to: host.email, to_user_id: host.id, template: 'booking_request', vars: { guest: me.name, care_type }, related_type: 'link', related_id: info.lastInsertRowid });
+  track('link_requested', me.id, '/booking.html', { care_type });
   res.json({ ok: true, link_id: info.lastInsertRowid, host_name: host.name });
 });
 
@@ -607,6 +640,7 @@ app.put('/api/links/:id', requireAuth, (req, res) => {
   if (!link) return res.status(404).json({ error: 'Not found' });
   const isHost = link.host_id === req.session.userId, isGuest = link.guest_id === req.session.userId;
   if (!isHost && !isGuest) return res.status(403).json({ error: 'Not your Link.' });
+  if (isBlocked(link.host_id, link.guest_id) && status !== 'cancelled') return res.status(403).json({ error: 'This Link isn’t available.' });
   const allowed = isHost ? ['confirmed','declined','completed'] : ['cancelled','completed'];
   if (!allowed.includes(status)) return res.status(400).json({ error: 'Not a change you can make on this Link.' });
   // A wrapped-up Link can't change again; re-sending the same status is a harmless no-op (don't re-fire emails/calendar).
@@ -614,6 +648,7 @@ app.put('/api/links/:id', requireAuth, (req, res) => {
   if (link.status === status) return res.json({ ok: true });
   db.prepare('UPDATE links SET status = ? WHERE id = ?').run(status, link.id);
   if (status === 'confirmed') {
+    track('link_confirmed', req.session.userId, '/links.html');
     generateVisitsForLink(link);
     const guest = db.prepare('SELECT id,name,email FROM users WHERE id = ?').get(link.guest_id);
     const host = db.prepare('SELECT id,name FROM users WHERE id = ?').get(link.host_id);
@@ -641,6 +676,9 @@ function linkForParticipant(req, res) {
     res.status(403).json({ error: 'Not your Link.' });
     return null;
   }
+  // A block (either direction) severs the thread — messages AND the visit timeline both flow through here.
+  const other = link.guest_id === req.session.userId ? link.host_id : link.guest_id;
+  if (isBlocked(req.session.userId, other)) { res.status(403).json({ error: 'This Link isn’t available.' }); return null; }
   return link;
 }
 
@@ -692,8 +730,11 @@ app.post('/api/links/:id/messages', requireAuth, (req, res) => {
   const link = linkForParticipant(req, res);
   if (!link) return;
   const meId = req.session.userId;
+  const other = link.guest_id === meId ? link.host_id : link.guest_id;
+  if (isBlocked(meId, other)) return res.status(403).json({ error: 'Messaging isn’t available for this Link.' });
   const body = String(req.body.body || '').trim().slice(0, 2000);
   if (!body) return res.status(400).json({ error: 'Say a little something first, Momni.' });
+  if (!clean(body)) return res.status(400).json({ error: 'Let’s keep messages kind, Momni 💜 Please reword that.' });
   const info = db.prepare('INSERT INTO messages (link_id,sender_id,body) VALUES (?,?,?)').run(link.id, meId, body);
   markLinkRead(link.id, meId);              // I've obviously seen the thread up to my own message
   notifyNewMessage(link, meId, body);       // nudge the other party (email + opt-in SMS), burst-throttled
@@ -804,6 +845,7 @@ app.post('/api/reviews', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Reviews come after a completed visit or Link.' });
   }
   const subject = me === link.guest_id ? link.host_id : link.guest_id;
+  if (isBlocked(me, subject)) return res.status(403).json({ error: 'You can’t review this Momni.' });
   const dup = db.prepare('SELECT id FROM reviews WHERE link_id = ? AND author_id = ?').get(link_id, me);
   if (dup) return res.status(409).json({ error: 'You already reviewed this Link.' });
   db.prepare('INSERT INTO reviews (link_id,author_id,subject_id,rating,body) VALUES (?,?,?,?,?)')
@@ -972,6 +1014,10 @@ const fsp = require('fs');
 const DATA_DIR = path.dirname(process.env.DB_PATH || path.join(__dirname, 'momni.db'));
 const DOWNLOADS_DIR = path.join(DATA_DIR, 'downloads');
 try { fsp.mkdirSync(DOWNLOADS_DIR, { recursive: true }); } catch (e) { /* exists */ }
+// Member-uploaded profile photos live on the persistent disk and are served publicly at /uploads.
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+try { fsp.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch (e) { /* exists */ }
+app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '7d', immutable: true }));
 const newToken = () => require('crypto').randomBytes(24).toString('hex');
 const ORDER_TTL_MS = 7 * 24 * 60 * 60 * 1000; // download link valid 7 days
 
@@ -1098,6 +1144,46 @@ app.delete('/api/admin/shop/products/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- Member profile photo upload (avatar or a home-gallery image) ----
+// Client crops/resizes to a square data URL; we store it on the persistent disk, served at /uploads.
+const photoLimiter = rateLimit({ windowMs: 60 * 1000, max: 20, message: 'Too many photo uploads — give it a minute, Momni.' });
+app.post('/api/me/photo', requireAuth, photoLimiter, uploadJson, (req, res) => {
+  const { data_base64, target } = req.body || {};
+  const m = /^data:image\/(png|jpe?g|webp);base64,/.exec(String(data_base64 || ''));
+  if (!m) return res.status(400).json({ error: 'Please choose an image — PNG, JPG, or WebP.' });
+  const ext = m[1].replace('jpeg', 'jpg');
+  const buf = Buffer.from(String(data_base64).split(',').pop(), 'base64');
+  if (buf.length > 6 * 1024 * 1024) return res.status(413).json({ error: 'That image is over 6 MB — please pick a smaller one.' });
+  const filename = newToken() + '.' + ext;
+  try { fsp.writeFileSync(path.join(UPLOADS_DIR, filename), buf); }
+  catch (e) { return res.status(500).json({ error: 'Could not save that photo — try again.' }); }
+  const url = '/uploads/' + filename;
+  if (target === 'gallery') {
+    const u = db.prepare('SELECT gallery FROM users WHERE id = ?').get(req.session.userId);
+    let g = []; try { g = JSON.parse(u.gallery || '[]'); } catch (e) {}
+    const prev = g.slice();
+    g.push(url); g = g.slice(-6);   // keep a tidy home gallery (max 6)
+    db.prepare('UPDATE users SET gallery = ? WHERE id = ?').run(JSON.stringify(g), req.session.userId);
+    prev.filter(x => g.indexOf(x) === -1 && x.indexOf('/uploads/') === 0)   // unlink any image dropped past the cap
+      .forEach(x => { try { fsp.unlinkSync(path.join(UPLOADS_DIR, path.basename(x))); } catch (e) {} });
+    return res.json({ ok: true, url, gallery: g });
+  }
+  const old = (db.prepare('SELECT photo_url FROM users WHERE id = ?').get(req.session.userId) || {}).photo_url;
+  db.prepare('UPDATE users SET photo_url = ? WHERE id = ?').run(url, req.session.userId);
+  if (old && old.indexOf('/uploads/') === 0) { try { fsp.unlinkSync(path.join(UPLOADS_DIR, path.basename(old))); } catch (e) {} }
+  res.json({ ok: true, url });
+});
+// Remove one gallery photo (by url).
+app.delete('/api/me/gallery', requireAuth, (req, res) => {
+  const url = String(req.body && req.body.url || '');
+  const u = db.prepare('SELECT gallery FROM users WHERE id = ?').get(req.session.userId);
+  let g = []; try { g = JSON.parse(u.gallery || '[]'); } catch (e) {}
+  g = g.filter(x => x !== url);
+  db.prepare('UPDATE users SET gallery = ? WHERE id = ?').run(JSON.stringify(g), req.session.userId);
+  if (url.indexOf('/uploads/') === 0) { try { fsp.unlinkSync(path.join(UPLOADS_DIR, path.basename(url))); } catch (e) {} }
+  res.json({ ok: true, gallery: g });
+});
+
 // Stripe webhook — fulfillment happens here, after real payment.
 // Configure the endpoint in the Stripe dashboard with STRIPE_WEBHOOK_SECRET.
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
@@ -1142,6 +1228,53 @@ app.post('/api/reports', requireAuth, (req, res) => {
   db.prepare('INSERT INTO reports (reporter_id,subject_type,subject_id,reason,details) VALUES (?,?,?,?,?)')
     .run(req.session.userId, subject_type, String(subject_id), reason, (details || '').slice(0, 2000));
   res.json({ ok: true, note: 'Thank you — Karmel reviews every report.' });
+});
+
+// ---------- blocks (a member can block another; bars Links + messages + hides both ways) ----------
+app.get('/api/blocks', requireAuth, (req, res) => {
+  res.json(db.prepare('SELECT u.id, u.name FROM blocks b JOIN users u ON u.id = b.blocked_id WHERE b.blocker_id = ? ORDER BY b.created_at DESC').all(req.session.userId));
+});
+app.post('/api/blocks', requireAuth, (req, res) => {
+  const uid = parseInt(req.body.user_id, 10);
+  if (!uid || uid === req.session.userId) return res.status(400).json({ error: 'Choose a different Momni to block.' });
+  if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(uid)) return res.status(404).json({ error: 'That Momni was not found.' });
+  const me = req.session.userId;
+  const cancelInflight = db.transaction(() => {
+    db.prepare('INSERT OR IGNORE INTO blocks (blocker_id, blocked_id) VALUES (?,?)').run(me, uid);
+    // Retroactive: cancel any open Links between the two so neither gets further visits/emails/calendar events.
+    const open = db.prepare(`SELECT id FROM links WHERE status IN ('requested','confirmed')
+      AND ((host_id=? AND guest_id=?) OR (host_id=? AND guest_id=?))`).all(me, uid, uid, me).map(r => r.id);
+    if (open.length) {
+      const inList = open.map(() => '?').join(',');
+      db.prepare(`UPDATE links SET status='cancelled' WHERE id IN (${inList})`).run(...open);
+      db.prepare(`UPDATE visits SET status='cancelled' WHERE status IN ('scheduled','checked_in') AND link_id IN (${inList})`).run(...open);
+    }
+  });
+  cancelInflight();
+  res.json({ ok: true, note: 'Blocked. They can no longer reach you on Momni.' });
+});
+app.delete('/api/blocks/:userId', requireAuth, (req, res) => {
+  const uid = parseInt(req.params.userId, 10);
+  if (!uid) return res.status(400).json({ error: 'Unknown Momni.' });
+  db.prepare('DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?').run(req.session.userId, uid);
+  res.json({ ok: true });
+});
+
+// ---------- analytics beacon (first-party, open; pageviews from logged-in or out) ----------
+// The public beacon only ever sends 'pageview' — the funnel events (signup, link_*, review) are
+// emitted server-side via track(), so we ignore anything else here (no client funnel pollution).
+const trackLimiter = rateLimit({ windowMs: 60 * 1000, max: 60 });
+app.post('/api/track', trackLimiter, (req, res) => {
+  try {
+    const b = req.body || {};
+    if (b.event === 'pageview') {
+      let ref = null; try { ref = new URL(req.get('referer') || '').host || null; } catch (e) {}
+      db.prepare("INSERT INTO analytics_events (event,path,user_id,ref,meta,day) VALUES (?,?,?,?,?,date('now'))")
+        .run(String(b.event).slice(0, 40), b.path ? String(b.path).slice(0, 200) : null,
+          req.session.userId || null, ref, b.meta ? JSON.stringify(b.meta).slice(0, 300) : null);
+    }
+  } catch (e) {}
+  res.json({ ok: true });
 });
 
 // ---------- in-app feedback (lands in Karmel's Suggestions queue) ----------
@@ -1194,6 +1327,20 @@ app.put('/api/admin/reports/:id', requireAdmin, (req, res) => {
   if (!['actioned','dismissed','reviewing'].includes(status)) return res.status(400).json({ error: 'bad status' });
   db.prepare('UPDATE reports SET status = ? WHERE id = ?').run(status, req.params.id);
   res.json({ ok: true });
+});
+// First-party analytics summary for HQ.
+app.get('/api/admin/analytics', requireAdmin, (req, res) => {
+  res.json({
+    total: db.prepare('SELECT COUNT(*) c FROM analytics_events').get().c,
+    by_event: db.prepare('SELECT event, COUNT(*) c FROM analytics_events GROUP BY event ORDER BY c DESC').all(),
+    last14: db.prepare("SELECT day, COUNT(*) c FROM analytics_events WHERE event='pageview' AND day >= date('now','-14 days') GROUP BY day ORDER BY day").all(),
+    top_paths: db.prepare("SELECT path, COUNT(*) c FROM analytics_events WHERE event='pageview' AND path IS NOT NULL GROUP BY path ORDER BY c DESC LIMIT 10").all(),
+    funnel: {
+      signups: db.prepare("SELECT COUNT(*) c FROM analytics_events WHERE event='signup'").get().c,
+      link_requested: db.prepare("SELECT COUNT(*) c FROM analytics_events WHERE event='link_requested'").get().c,
+      link_confirmed: db.prepare("SELECT COUNT(*) c FROM analytics_events WHERE event='link_confirmed'").get().c,
+    },
+  });
 });
 app.get('/api/admin/users', requireAdmin, (req, res) => {
   const search = `%${(req.query.q || '')}%`;
@@ -1264,6 +1411,7 @@ app.post('/api/campfire', requireAuth, postLimiter, (req, res) => {
   const { category, title, body } = req.body;
   const cat = CAMPFIRE_CATEGORIES.includes(category) ? category : 'idea';
   if (!title || !String(title).trim()) return res.status(400).json({ error: 'Give your idea a title, Momni.' });
+  if (!clean(title) || !clean(body)) return res.status(400).json({ error: 'Let’s keep the Campfire warm and kind, Momni 💜 Please reword that.' });
   const info = db.prepare('INSERT INTO campfire_posts (user_id, category, title, body) VALUES (?,?,?,?)')
     .run(req.session.userId, cat, String(title).trim().slice(0, 140), String(body || '').trim().slice(0, 4000));
   res.json({ ok: true, id: info.lastInsertRowid });
@@ -1298,6 +1446,7 @@ app.post('/api/campfire/:id/comments', requireAuth, postLimiter, (req, res) => {
   if (!post) return res.status(404).json({ error: 'That post is gone.' });
   const body = String(req.body.body || '').trim();
   if (!body) return res.status(400).json({ error: 'Say a little something first.' });
+  if (!clean(body)) return res.status(400).json({ error: 'Let’s keep the Campfire warm and kind, Momni 💜 Please reword that.' });
   db.prepare('INSERT INTO campfire_comments (post_id, user_id, body) VALUES (?,?,?)').run(post.id, req.session.userId, body.slice(0, 2000));
   res.json({ ok: true });
 });
@@ -1307,6 +1456,18 @@ app.put('/api/admin/campfire/:id', requireAdmin, (req, res) => {
   const status = ['open', 'planned', 'building', 'shipped', 'declined'].includes(req.body.status) ? req.body.status : null;
   if (!status) return res.status(400).json({ error: 'Unknown status.' });
   db.prepare('UPDATE campfire_posts SET status = ? WHERE id = ?').run(status, req.params.id);
+  res.json({ ok: true });
+});
+// HQ moderation: remove a post (and its votes + comments) or a single comment.
+app.delete('/api/admin/campfire/:id', requireAdmin, (req, res) => {
+  const id = req.params.id;
+  db.prepare('DELETE FROM campfire_votes WHERE post_id = ?').run(id);
+  db.prepare('DELETE FROM campfire_comments WHERE post_id = ?').run(id);
+  db.prepare('DELETE FROM campfire_posts WHERE id = ?').run(id);
+  res.json({ ok: true });
+});
+app.delete('/api/admin/campfire/comments/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM campfire_comments WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 

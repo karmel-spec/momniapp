@@ -9,3 +9,5 @@ mobile/.env
 
 # uploaded digital products (live on the persistent disk in prod)
 downloads/
+# member-uploaded profile photos (live on the persistent disk in prod)
+uploads/

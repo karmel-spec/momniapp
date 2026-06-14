@@ -80,6 +80,10 @@ main{padding:6px 20px 24px}
   <main>
     <div class="profile">
       <div class="avatar" id="avatar"></div>
+      <div style="margin:-4px 0 10px">
+        <button type="button" id="photo-btn" style="background:var(--teal-soft);color:var(--teal-deep);border:none;border-radius:100px;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">📷 Add / change photo</button>
+        <input type="file" id="photo-file" accept="image/*" style="display:none">
+      </div>
       <h1 id="me-name"></h1>
       <span class="badge" id="me-city"></span>
       <div id="me-badges" style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:10px"></div>
@@ -219,6 +223,8 @@ main{padding:6px 20px 24px}
       <a href="admin.html" id="hq-link" style="display:none;color:var(--purple);font-weight:700">🛡️ Momni HQ <span style="font-weight:500;color:var(--muted);font-size:13px">· founder dashboard</span></a>
       <a href="#" id="change-pw">Change password</a>
       <a href="#" id="send-feedback">💬 Send feedback in-app</a>
+      <a href="#" id="manage-blocks">🚫 Blocked Momnis</a>
+      <div id="blocks-list" style="display:none;padding:6px 2px 2px"></div>
       <a href="#" id="signout">Sign out</a>
     </div>
   </main>
@@ -596,6 +602,54 @@ main{padding:6px 20px 24px}
       body: JSON.stringify({ body: body.trim(), page: location.pathname }) })
       .then(function(r){ return r.json(); })
       .then(function(d){ alert(d.note || d.error || 'Something went wrong — try again.'); });
+  });
+
+  document.getElementById('photo-btn').addEventListener('click', function(){ document.getElementById('photo-file').click(); });
+  document.getElementById('photo-file').addEventListener('change', function(e){
+    var f = e.target.files[0]; if (!f) return;
+    var btn = document.getElementById('photo-btn'); btn.textContent = 'Uploading…';
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var im = new Image();
+      im.onload = function(){
+        var S = 512, c = document.createElement('canvas'); c.width = S; c.height = S;
+        var ctx = c.getContext('2d');
+        var scale = Math.max(S / im.width, S / im.height), w = im.width * scale, h = im.height * scale;
+        ctx.drawImage(im, (S - w) / 2, (S - h) / 2, w, h);           // center-crop to a square
+        var dataUrl = c.toDataURL('image/jpeg', 0.85);
+        fetch('/api/me/photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data_base64: dataUrl }) })
+          .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+          .then(function(x){
+            btn.textContent = '📷 Add / change photo';
+            if (x.ok && x.d.url) {
+              me.photo_url = x.d.url;
+              var av = document.getElementById('avatar');
+              av.style.backgroundImage = "url('" + x.d.url + "')"; av.style.backgroundSize = 'cover'; av.style.backgroundPosition = 'center'; av.textContent = '';
+            } else { alert((x.d && x.d.error) || 'That photo didn’t upload — try another.'); }
+          }).catch(function(){ btn.textContent = '📷 Add / change photo'; alert('Couldn’t reach Momni — try again.'); });
+      };
+      im.src = ev.target.result;
+    };
+    reader.readAsDataURL(f);
+  });
+
+  function renderBlocks(){
+    var box = document.getElementById('blocks-list');
+    fetch('/api/blocks').then(function(r){ return r.json(); }).then(function(list){
+      box.innerHTML = list.length ? list.map(function(u){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:14px"><span>'+esc(u.name)+'</span><a href="#" data-unblock="'+u.id+'" style="color:var(--teal-deep);font-weight:600">Unblock</a></div>';
+      }).join('') : '<p class="fine">You haven’t blocked anyone. 💜</p>';
+      box.querySelectorAll('[data-unblock]').forEach(function(a){
+        a.addEventListener('click', function(e){ e.preventDefault();
+          fetch('/api/blocks/'+this.dataset.unblock, { method:'DELETE' }).then(function(){ renderBlocks(); }); });
+      });
+    });
+  }
+  document.getElementById('manage-blocks').addEventListener('click', function(e){
+    e.preventDefault();
+    var box = document.getElementById('blocks-list');
+    if (box.style.display === 'block') { box.style.display = 'none'; return; }
+    box.style.display = 'block'; box.innerHTML = '<p class="fine">Loading…</p>'; renderBlocks();
   });
 
   document.getElementById('signout').addEventListener('click', function(e){

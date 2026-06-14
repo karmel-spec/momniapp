@@ -195,6 +195,24 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS blocks (        -- a member can block another; hides + prevents Links/messages both ways
+  blocker_id INTEGER NOT NULL REFERENCES users(id),
+  blocked_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (blocker_id, blocked_id)
+);
+
+CREATE TABLE IF NOT EXISTS analytics_events (   -- first-party, privacy-light: no IPs, no third parties
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event TEXT NOT NULL,                     -- pageview | signup | link_requested | link_confirmed | review
+  path TEXT,
+  user_id INTEGER,                         -- null when logged out
+  ref TEXT,                                -- referrer host only
+  meta TEXT,
+  day TEXT,                                -- YYYY-MM-DD, for cheap grouping
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS suggestions (   -- founder approval queue: feedback awaiting Karmel
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source TEXT DEFAULT 'email',              -- email (pasted by Karmel) | in-app
