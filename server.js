@@ -619,18 +619,25 @@ app.get('/api/links', requireAuth, (req, res) => {
   const readStmt = db.prepare('SELECT last_read_msg_id FROM link_reads WHERE link_id = ? AND user_id = ?');
   const unreadStmt = db.prepare('SELECT COUNT(*) n FROM messages WHERE link_id = ? AND sender_id != ? AND id > ?');
   const reviewStmt = db.prepare('SELECT author_id FROM reviews WHERE link_id = ?');
+  // Two-way trust: the OTHER Momni's overall rating so both sides see each other's track record.
+  const ratingStmt = db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE subject_id = ?');
   res.json(rows.map(r => {
     const vc = visitCountStmt.get(r.id);
     const mc = msgStmt.get(r.id);
     const lr = readStmt.get(r.id, me);
     const unread = unreadStmt.get(r.id, me, lr ? lr.last_read_msg_id : 0).n;
     const reviewers = reviewStmt.all(r.id).map(x => x.author_id);
-    return { ...r, details: JSON.parse(r.details), i_am_host: r.host_id === me,
+    const iAmHost = r.host_id === me;
+    const otherId = iAmHost ? r.guest_id : r.host_id;
+    const orat = ratingStmt.get(otherId);
+    return { ...r, details: JSON.parse(r.details), i_am_host: iAmHost,
       next_visit: nextVisitStmt.get(r.id) || null,
       visits_total: vc.total, visits_completed: vc.done || 0,
       message_count: mc.n, last_message_at: mc.last, unread,
       my_review: reviewers.includes(me),
-      their_review: reviewers.some(id => id !== me) };
+      their_review: reviewers.some(id => id !== me),
+      their_rating: orat.n ? Number(orat.avg.toFixed(1)) : null,
+      their_review_count: orat.n };
   }));
 });
 

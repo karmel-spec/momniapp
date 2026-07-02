@@ -259,8 +259,12 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:0.06em;text-transform:upper
     var who = l.i_am_host ? l.guest_name : l.host_name;
     var initials = esc(who.split(/\s+/).map(function(w){ return w[0]; }).join('').slice(0,2).toUpperCase());
     var statusCls = esc(l.status);
+    var theirStars = l.their_rating != null
+      ? ' &middot; <span title="Her reviews from other Momnis" style="color:#BA7517;font-weight:700">★ ' + l.their_rating.toFixed(1) + '</span> <span style="color:var(--muted)">(' + l.their_review_count + ')</span>'
+      : ' &middot; <span style="color:var(--muted)">no reviews yet</span>';
     var meta = (CT_LABELS[l.care_type] || esc(l.care_type)) +
       (l.details && l.details.start_date ? ' &middot; ' + esc(l.details.start_date) : '') +
+      theirStars +
       (l.i_am_host ? ' &middot; they requested you' : '');
     var actions = '';
     if (l.i_am_host && l.status === 'requested') {
