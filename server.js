@@ -60,9 +60,11 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 if (IS_PROD) app.set('trust proxy', 1); // Render/Netlify-style proxy → secure cookies work
 // Canonical host: send the raw onrender.com hostname (or any other alias) to APP_URL so sessions,
 // OAuth callbacks and bookmarks all live on one origin. /healthz stays answerable on any host.
+// Only the public *.onrender.com alias is redirected — Render's internal health checks arrive with
+// a bare host/IP and must always get a 200, never a 301 (a failed check rolls the deploy back).
 const CANON = IS_PROD && process.env.APP_URL ? new URL(process.env.APP_URL) : null;
 if (CANON) app.use((req, res, next) => {
-  if (req.path === '/healthz' || req.hostname === CANON.hostname) return next();
+  if (req.path === '/healthz' || !/\.onrender\.com$/i.test(req.hostname || '')) return next();
   res.redirect(301, `${CANON.origin}${req.originalUrl}`);
 });
 // Refuse to boot in production with the public default session secret (forgeable sessions otherwise).
