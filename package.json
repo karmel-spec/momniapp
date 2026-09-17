@@ -1,7 +1,7 @@
 {
   "name": "momni-app",
   "version": "2.0.0",
-  "description": "app.momni.com — Momni 2.0 web app (mom-to-mom caresharing)",
+  "description": "app.momni.com \u2014 Momni 2.0 web app (mom-to-mom caresharing)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,6 +12,10 @@
     "better-sqlite3": "^11.0.0",
     "express": "^4.19.0",
     "express-session": "^1.18.0",
+    "helmet": "^8.3.0",
     "stripe": "^22.2.0"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

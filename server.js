@@ -32,6 +32,25 @@ if (process.env.SEED_DEMO_FULL === '1') {
 try { syncCrmFromUsers(); } catch (e) { console.error('CRM sync failed (non-fatal):', e.message); }
 
 const app = express();
+const helmet = require('helmet');
+const nodeCrypto = require('crypto');
+
+// Security headers. CSP stays off for now: every page uses inline scripts plus Google Fonts, Tawk,
+// Leaflet from unpkg and map tiles — a real policy is a separate, tested change.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // momni.com reads /api/map and member photos
+}));
+
+// Express 4 doesn't hand rejected promises from async handlers to the error middleware; without
+// this, one thrown `await` becomes an unhandledRejection. Wrap every route handler once, here.
+for (const m of ['get', 'post', 'put', 'delete', 'patch']) {
+  const orig = app[m].bind(app);
+  app[m] = (route, ...handlers) => handlers.length ? orig(route, ...handlers.map(h => (typeof h === 'function' && h.length < 4)
+    ? (req, res, next) => { try { const r = h(req, res, next); if (r && typeof r.catch === 'function') r.catch(next); } catch (e) { next(e); } }
+    : h)) : orig(route);
+}
 // JSON body parsing everywhere EXCEPT the Stripe webhook (raw body for signature checks)
 // and the big-payload admin uploads, which carry their own 30mb parser (uploadJson).
 const RAW_BODY_PATHS = ['/api/stripe/webhook', '/api/admin/crm/import', '/api/admin/shop/products', '/api/me/photo'];
@@ -39,6 +58,13 @@ app.use((req, res, next) => RAW_BODY_PATHS.some(p => req.path.startsWith(p)) ? n
 app.use(express.urlencoded({ extended: true }));
 const IS_PROD = process.env.NODE_ENV === 'production';
 if (IS_PROD) app.set('trust proxy', 1); // Render/Netlify-style proxy → secure cookies work
+// Canonical host: send the raw onrender.com hostname (or any other alias) to APP_URL so sessions,
+// OAuth callbacks and bookmarks all live on one origin. /healthz stays answerable on any host.
+const CANON = IS_PROD && process.env.APP_URL ? new URL(process.env.APP_URL) : null;
+if (CANON) app.use((req, res, next) => {
+  if (req.path === '/healthz' || req.hostname === CANON.hostname) return next();
+  res.redirect(301, `${CANON.origin}${req.originalUrl}`);
+});
 // Refuse to boot in production with the public default session secret (forgeable sessions otherwise).
 if (IS_PROD && !process.env.SESSION_SECRET) throw new Error('SESSION_SECRET must be set in production.');
 // Admin = accounts whose email is in ADMIN_EMAILS. Registration of these addresses is BLOCKED (see /api/register),
@@ -298,18 +324,25 @@ const GOOGLE_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
 app.get('/auth/google', (req, res) => {
   if (!GOOGLE_ID) return res.redirect('/index.html?google=unconfigured');
+  // Anti-forgery `state`: bound to this browser's session, checked on the way back. Without it an
+  // attacker can finish the dance with their own Google account and log a victim into it.
+  const state = nodeCrypto.randomBytes(16).toString('hex');
+  req.session.oauthState = state;
   const params = new URLSearchParams({
     client_id: GOOGLE_ID,
     redirect_uri: `${process.env.APP_URL || 'http://localhost:3000'}/auth/google/callback`,
     response_type: 'code',
     scope: 'openid email profile',
     prompt: 'select_account',
+    state,
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 });
 
 app.get('/auth/google/callback', async (req, res) => {
   try {
+    const expected = req.session.oauthState; delete req.session.oauthState;
+    if (!expected || req.query.state !== expected) return res.redirect('/index.html?google=error');
     if (!req.query.code) return res.redirect('/index.html?google=denied');
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -387,10 +420,14 @@ app.post('/api/register/google', (req, res) => {
 // ---------- calendar sync (host connects the calendar she already uses; inert until Google creds + OAuth verification are set up) ----------
 app.get('/auth/calendar', requireAuth, (req, res) => {
   if (!calendar.isEnabled()) return res.redirect('/me.html?calendar=unconfigured');
-  res.redirect(calendar.connectUrl(req.session.userId));
+  const state = nodeCrypto.randomBytes(16).toString('hex');
+  req.session.calendarState = state;
+  res.redirect(calendar.connectUrl(state));
 });
 app.get('/auth/calendar/callback', async (req, res) => {
   if (!req.session.userId) return res.redirect('/index.html');
+  const expected = req.session.calendarState; delete req.session.calendarState;
+  if (!expected || req.query.state !== expected) return res.redirect('/me.html?calendar=error');
   if (!req.query.code) return res.redirect('/me.html?calendar=denied');
   try {
     const r = await calendar.handleCallback(req.query.code, req.session.userId);
@@ -2222,6 +2259,23 @@ app.get('/api/admin/briefs/:id/view', requireAdmin, (req, res) => {
 <div class="meta"><span>📚 Momni Brief Library · ${b.category} · filed ${b.created_at.slice(0,10)}</span><a href="/admin.html">← Back to HQ</a></div>
 <div class="doc">${b.html}</div></body></html>`);
 });
+
+// Liveness for Render: proves the process is up AND the database answers (a static file can't).
+app.get('/healthz', (req, res) => {
+  try { db.prepare('SELECT 1').get(); res.json({ ok: true }); }
+  catch (e) { res.status(503).json({ ok: false }); }
+});
+
+// Last-resort error handler: log it, answer cleanly, keep the process alive.
+app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+  const status = Number(err.status || err.statusCode) || 500;   // body-parser & co. set 4xx on bad input
+  if (status >= 500) console.error(`[${req.method} ${req.originalUrl}]`, err);
+  if (res.headersSent) return;
+  const msg = status >= 500 ? 'Something went sideways on our end — please try again, Momni.' : 'That request didn’t look right — please try again.';
+  if (req.path.startsWith('/api/')) return res.status(status).json({ error: msg });
+  res.status(status).send(msg);
+});
+process.on('unhandledRejection', (e) => console.error('unhandledRejection', e));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Momni 2.0 app running → http://localhost:${PORT}`));

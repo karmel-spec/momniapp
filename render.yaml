@@ -8,12 +8,14 @@ services:
     plan: starter            # ~$7/mo; the SQLite disk below needs a paid plan
     buildCommand: npm install
     startCommand: node server.js
-    healthCheckPath: /index.html
+    healthCheckPath: /healthz   # answers only when SQLite is readable
     disk:
       name: momni-data       # persistent disk so the SQLite database survives deploys
       mountPath: /var/data
       sizeGB: 1
     envVars:
+      - key: NODE_VERSION
+        value: "22"          # better-sqlite3 is a native module; an unpinned Node bump breaks the build
       - key: NODE_ENV
         value: production
       - key: DB_PATH

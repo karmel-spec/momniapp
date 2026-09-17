@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-09-17.** This predates the app going live and contains instructions that no longer work (e.g. "register as karmel@momni.com" — that address is blocked from self-registration by design). The current runbook is `DEPLOY.md` at the repo root.
+
 # Momni 2.0 — Public Beta Relaunch Checklist
 *Updated 2026-06-10. Everything Claude can automate is DONE. The remaining
 switches are account-gated (your identity, your money, your legal counsel) —

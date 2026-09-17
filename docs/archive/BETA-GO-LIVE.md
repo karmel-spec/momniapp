@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-09-17.** This predates the app going live and contains instructions that no longer work (e.g. "register as karmel@momni.com" — that address is blocked from self-registration by design). The current runbook is `DEPLOY.md` at the repo root.
+
 # Momni 2.0 — Beta Go-Live Runbook
 *The build is done and verified. These are the only 3 steps left — each needs a login only Karmel has. ~45 min total.*
 

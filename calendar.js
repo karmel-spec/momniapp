@@ -62,13 +62,13 @@ function upsert(userId, f) {
 }
 
 // ---- connect URL (begin OAuth) ----
-function connectUrl(userId) {
+function connectUrl(state) {
   if (PROVIDER === 'nylas') {
-    const params = new URLSearchParams({ client_id: NYLAS_CLIENT, redirect_uri: REDIRECT, response_type: 'code', access_type: 'offline', state: String(userId) });
+    const params = new URLSearchParams({ client_id: NYLAS_CLIENT, redirect_uri: REDIRECT, response_type: 'code', access_type: 'offline', state: String(state) });
     return `${NYLAS_BASE}/v3/connect/auth?${params}`;
   }
   if (PROVIDER === 'google') {
-    const params = new URLSearchParams({ client_id: GOOGLE_ID, redirect_uri: REDIRECT, response_type: 'code', scope: GOOGLE_SCOPES, access_type: 'offline', prompt: 'consent', state: String(userId) });
+    const params = new URLSearchParams({ client_id: GOOGLE_ID, redirect_uri: REDIRECT, response_type: 'code', scope: GOOGLE_SCOPES, access_type: 'offline', prompt: 'consent', state: String(state) });
     return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
   }
   return null;

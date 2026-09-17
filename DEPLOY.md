@@ -1,5 +1,15 @@
 # Momni 2.0 — Go-Live Runbook (app.momni.com on Render)
 
+> **Current state — 2026-09-17**
+> - **momni.com** — live on Netlify, auto-deploys from `karmel-spec/momni` `main`. Still behind the client-side password gate on most pages (including `/waitlist/`).
+> - **app.momni.com** — live on Render, auto-deploys from this repo's `main`. Google sign-in is on. Stripe, Resend, Twilio and Nylas are **off**: paid tiers are granted free as a beta perk, email/SMS are logged in HQ but not sent.
+> - **momnifoundation.org** — DNS still hijacked; the real site is at `momnifoundation-878.netlify.app`.
+> - **iOS app (`mobile/`)** — separate Supabase backend, not connected to the web app, not part of the beta.
+> - **Admin account** — exists only via `ADMIN_BOOTSTRAP_PASSWORD` (step 1). Registering `karmel@momni.com` through the app is blocked by design.
+> - **Every push to `main` takes app.momni.com down for 1–3 minutes.** A Render service with a persistent disk can't do zero-downtime deploys. Batch changes and deploy at quiet hours.
+> - `/healthz` is the health check — it answers `{ok:true}` only when the SQLite database is readable.
+> - Older runbooks (`BETA-GO-LIVE.md`, `RELAUNCH-CHECKLIST.md`) live in `docs/archive/` — they are out of date.
+
 Work through this top to bottom. Each step says what you'll need, where to click,
 and how to confirm it worked. Steps 1–3 get the app live; 4–7 turn on the
 integrations one switch at a time (the app runs fine with them off — features
