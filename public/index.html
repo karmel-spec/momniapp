@@ -106,6 +106,8 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
   </footer>
 </div>
 <script>
+// Where to land after sign-in: the page she was bounced from (set by rememberNext), else Home.
+function nextAfterSignIn(){ var n=null; try { n=sessionStorage.getItem('momni-next'); sessionStorage.removeItem('momni-next'); } catch(e){} return (n && /^[a-z-]+\.html(\?[\w=&-]*)?$/.test(n)) ? n : 'home.html'; }
 (function(){
   var signup = false;
   var form = document.getElementById('auth-form');
@@ -179,7 +181,7 @@ button.btn:disabled{background:#C9C2D6;cursor:not-allowed}
       body: JSON.stringify(body)
     }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
       .then(function(res){
-        if (res.ok) { location = 'home.html'; }
+        if (res.ok) { location = nextAfterSignIn(); }
         else { showErr(res.d.error || 'Something went wrong — try again.'); }
       })
       .catch(function(){ showErr('Couldn’t reach Momni — check your connection.'); });
@@ -209,19 +211,7 @@ if(q==='error')el.textContent='Google sign-in hit a snag \u2014 try email instea
     });
   </script>
 </div>
-<!--Start of Tawk.to Script-->
-<script type="text/javascript">
-var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-(function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6a2a1a1d6829161c2c3db588/1jqq7c0va';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
-})();
-</script>
-<!--End of Tawk.to Script-->
+<script src="momni-chat.js" defer></script>
 <script src="site-nav.js" defer></script>
 </body>
 </html>

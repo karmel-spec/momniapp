@@ -136,6 +136,10 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
         <p class="meta" id="sms-send-result" style="margin-bottom:10px"></p>
         <div id="texts"><p class="empty">Loading…</p></div>
       </div>
+      <div class="card"><h2>💬 Chat with Karmel — messages from the site</h2>
+        <p class="meta" id="support-status" style="margin-bottom:8px">Loading…</p>
+        <div id="support"><p class="empty">Loading…</p></div>
+      </div>
       <div class="card"><h2>🔑 Sign in with Momni — connected apps</h2>
         <p class="meta" style="margin-bottom:8px">Register each Board (ChoreBoard, Motherboard…) so members can sign in with their Momni account. A confidential app's secret shows once — paste it straight into the app's config.</p>
         <input id="oc-name" placeholder="App name, e.g. ChoreBoard">
@@ -216,7 +220,7 @@ async function init(){
     document.getElementById('hq').style.display='block';
     const labels = {mamas:'Momnis in the Circle',hosts:'Hosting Momnis',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',gives:'Momni Gives Momnis',open_reports:'Open reports'};
     document.getElementById('stats').innerHTML = Object.entries(labels).map(([k,l])=>`<div class="stat"><div class="n">${o[k]}</div><div class="l">${l}</div></div>`).join('');
-    loadReports(); loadAnalytics(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadTexts(); loadOauthClients(); loadShop(); loadSiteConsole();
+    loadReports(); loadAnalytics(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadTexts(); loadSupport(); loadOauthClients(); loadShop(); loadSiteConsole();
   }catch(e){}
 }
 async function loadReports(){
@@ -318,6 +322,23 @@ async function approveEmail(id){
 async function discardEmail(id){
   const r = await api('/api/admin/emails/'+id+'/discard', {method:'POST'});
   if(!r.ok) alert(r.error||'Could not discard.'); loadEmails();
+}
+async function loadSupport(){
+  const d = await api('/api/admin/support');
+  const rows = (d && d.rows) || [], to = d ? d.to : '';
+  document.getElementById('support-status').innerHTML = d && d.live
+    ? `<strong>Forwarding is LIVE</strong> — every chat message is texted to ${esc(to)} with the sender’s number.`
+    : `Forwarding is in <strong>dev mode</strong> — messages are saved here but <em>not</em> texted to ${esc(to)} until TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN &amp; TWILIO_FROM are set in Render.`;
+  document.getElementById('support').innerHTML = rows.length ? rows.slice(0,50).map(m=>`
+    <div class="item"><span class="pill ${m.status==='handled'?'p-grey':'p-teal'}">${esc(m.status)}</span>
+    <strong>${esc(m.name||'Visitor')}</strong> · <a href="sms:${esc(m.phone)}">${esc(m.phone)}</a>${m.email?' · '+esc(m.email):''}
+    <div class="meta" style="color:var(--ink)">${esc(m.body)}</div>
+    <div class="meta">${esc(m.created_at||'')}${m.page?' · '+esc(String(m.page).replace(/^https?:\/\//,'').slice(0,60)):''} · text: ${esc(m.forward_status||'—')}${m.status!=='handled'?` · <a href="#" onclick="markSupport(${m.id});return false">mark handled</a>`:''}</div></div>`).join('')
+    : '<p class="empty">No chat messages yet.</p>';
+}
+async function markSupport(id){
+  await fetch('/api/admin/support/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'handled'})});
+  loadSupport();
 }
 async function loadTexts(){
   const d = await api('/api/admin/texts');
@@ -499,18 +520,6 @@ async function saveStats(){
     });
   </script>
 </div>
-<!--Start of Tawk.to Script-->
-<script type="text/javascript">
-var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-(function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6a2a1a1d6829161c2c3db588/1jqq7c0va';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
-})();
-</script>
-<!--End of Tawk.to Script-->
+<script src="momni-chat.js" defer></script>
 </body>
 </html>

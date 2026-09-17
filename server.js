@@ -60,13 +60,8 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 if (IS_PROD) app.set('trust proxy', 1); // Render/Netlify-style proxy → secure cookies work
 // Canonical host: send the raw onrender.com hostname (or any other alias) to APP_URL so sessions,
 // OAuth callbacks and bookmarks all live on one origin. /healthz stays answerable on any host.
-// Only the public *.onrender.com alias is redirected — Render's internal health checks arrive with
-// a bare host/IP and must always get a 200, never a 301 (a failed check rolls the deploy back).
-const CANON = IS_PROD && process.env.APP_URL ? new URL(process.env.APP_URL) : null;
-if (CANON) app.use((req, res, next) => {
-  if (req.path === '/healthz' || !/\.onrender\.com$/i.test(req.hostname || '')) return next();
-  res.redirect(301, `${CANON.origin}${req.originalUrl}`);
-});
+// NOTE: a canonical-host redirect (onrender.com alias → app.momni.com) was tried here and failed
+// Render's health check twice, rolling the deploy back. Left out until the check's Host header is known.
 // Refuse to boot in production with the public default session secret (forgeable sessions otherwise).
 if (IS_PROD && !process.env.SESSION_SECRET) throw new Error('SESSION_SECRET must be set in production.');
 // Admin = accounts whose email is in ADMIN_EMAILS. Registration of these addresses is BLOCKED (see /api/register),
@@ -1732,6 +1727,48 @@ app.get('/api/admin/emails', requireAdmin, (req, res) => {
     FROM emails ORDER BY id DESC LIMIT 200`).all());
 });
 // Sent-text history (real-time SMS alerts) — dev-mode rows included so HQ sees what WOULD send.
+// ---------- Chat with Karmel — the site-wide chat bubble (momni.com + app) → a text to the founder ----------
+// Public, rate-limited, CORS-open to momni.com. Every message is saved for HQ and forwarded as an SMS
+// (with the visitor's number, so Karmel replies from her own phone). Dev mode logs instead of sending.
+db.exec(`CREATE TABLE IF NOT EXISTS support_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, email TEXT, body TEXT NOT NULL,
+  page TEXT, origin TEXT, user_id INTEGER, status TEXT DEFAULT 'new', forward_status TEXT,
+  created_at TEXT DEFAULT (datetime('now')))`);
+const SUPPORT_SMS_TO = process.env.SUPPORT_SMS_TO || '+18014279293';
+function supportCors(req, res) {
+  const o = req.get('Origin') || '';
+  if (/^https:\/\/(www\.)?momni\.com$/.test(o) || (!IS_PROD && /^http:\/\/localhost(:\d+)?$/.test(o))) {
+    res.set('Access-Control-Allow-Origin', o); res.set('Vary', 'Origin');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS'); res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Max-Age', '600');
+  }
+}
+app.options('/api/support', (req, res) => { supportCors(req, res); res.sendStatus(204); });
+const supportLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 8, message: 'That’s a lot of messages at once — give it a few minutes, Momni.' });
+app.post('/api/support', supportLimiter, async (req, res) => {
+  supportCors(req, res);
+  const { name, phone, email, message, page } = req.body || {};
+  const body = String(message || '').trim().slice(0, 1000);
+  if (!body) return res.status(400).json({ error: 'Type a message first.' });
+  const ph = sms.normalizePhone(phone);
+  if (!ph) return res.status(400).json({ error: 'Add a mobile number so Karmel can text you back.' });
+  const nm = String(name || '').trim().slice(0, 80);
+  const em = String(email || '').trim().slice(0, 120);
+  const pg = String(page || req.get('Referer') || '').slice(0, 200);
+  const info = db.prepare(`INSERT INTO support_messages (name,phone,email,body,page,origin,user_id) VALUES (?,?,?,?,?,?,?)`)
+    .run(nm || null, ph, em || null, body, pg || null, req.get('Origin') || null, req.session.userId || null);
+  const text = `Momni chat · ${nm || 'a visitor'} (${ph})${pg ? ' · ' + pg.replace(/^https?:\/\//, '').slice(0, 60) : ''}\n${body}\n— reply by texting them back`;
+  const r = await sms.send({ to: SUPPORT_SMS_TO, body: text, kind: 'chat-forward', related_type: 'support', related_id: info.lastInsertRowid });
+  db.prepare('UPDATE support_messages SET forward_status = ? WHERE id = ?').run(r.status, info.lastInsertRowid);
+  res.json({ ok: true, id: info.lastInsertRowid, delivered: r.status === 'sent' });
+});
+app.get('/api/admin/support', requireAdmin, (req, res) => res.json({ live: sms.LIVE, to: SUPPORT_SMS_TO,
+  rows: db.prepare('SELECT * FROM support_messages ORDER BY id DESC LIMIT 200').all() }));
+app.put('/api/admin/support/:id', requireAdmin, (req, res) => {
+  db.prepare('UPDATE support_messages SET status = ? WHERE id = ?').run(req.body && req.body.status === 'handled' ? 'handled' : 'new', req.params.id);
+  res.json({ ok: true });
+});
+
 app.get('/api/admin/texts', requireAdmin, (req, res) => {
   res.json({ live: sms.LIVE, rows: db.prepare(`SELECT id,to_phone,to_user_id,kind,body,status,error,related_type,related_id,created_at
     FROM sms_log ORDER BY id DESC LIMIT 200`).all() });

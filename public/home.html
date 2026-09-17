@@ -46,6 +46,11 @@ main{padding:6px 20px 24px}
 .tile-daycare h2{font-size:17px}
 .tile-daycare p{font-size:12.5px;color:rgba(255,255,255,0.85)}
 .tile-daycare .arrow{font-size:22px;font-weight:700}
+.tile-host[hidden]{display:none}
+.tile-host{background:var(--algae);color:var(--ink);display:flex;align-items:center;justify-content:space-between;gap:14px}
+.tile-host h2{font-size:17px;color:#0B4A36}
+.tile-host p{font-size:12.5px;color:#0B4A36;opacity:.85}
+.tile-host .arrow{font-size:22px;font-weight:700;color:#0B4A36}
 .section-title{font-size:15px;font-weight:800;font-family:'Montserrat',sans-serif;margin:24px 0 12px}
 .rebook{display:flex;gap:14px}
 .momni{flex:1;text-align:center;background:#FCFBFE;border:1.5px solid var(--line);border-radius:16px;padding:16px 10px}
@@ -93,6 +98,14 @@ main{padding:6px 20px 24px}
       <p>From one night to a whole stretch — Momnis who host overnight.</p>
     </a>
 
+    <a class="tile tile-host" id="tile-host" href="me.html?host=1" hidden>
+      <div>
+        <h2>Become a Momni</h2>
+        <p>Open your door, set your own rate, keep every penny. Hosting is free.</p>
+      </div>
+      <span class="arrow">›</span>
+    </a>
+
     <a class="tile tile-daycare" href="daycare.html">
       <div>
         <h2>Find a Daycare</h2>
@@ -129,12 +142,15 @@ main{padding:6px 20px 24px}
 </div>
 <script>
 (function(){
+  // Google sign-in lands here server-side; honor a page she was heading to before signing in.
+  try { var nx = sessionStorage.getItem('momni-next'); if (nx) { sessionStorage.removeItem('momni-next'); if (/^[a-z-]+\.html(\?[\w=&-]*)?$/.test(nx) && nx.indexOf('home.html') !== 0) { location.replace(nx); return; } } } catch(e){}
   fetch('/api/me').then(function(r){
     if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
     return r.json();
   }).then(function(me){
     var first = (me.name || '').split(' ')[0];
     document.getElementById('hello').textContent = 'Hi, ' + first + '!';
+    if (!me.is_host) document.getElementById('tile-host').hidden = false;
   }).catch(function(){});
 
   fetch('/api/hosts?available_now=1').then(function(r){ return r.json(); }).then(function(hosts){
@@ -197,19 +213,7 @@ main{padding:6px 20px 24px}
     });
   </script>
 </div>
-<!--Start of Tawk.to Script-->
-<script type="text/javascript">
-var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-(function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6a2a1a1d6829161c2c3db588/1jqq7c0va';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
-})();
-</script>
-<!--End of Tawk.to Script-->
+<script src="momni-chat.js" defer></script>
 <script src="site-nav.js" defer></script>
 </body>
 </html>

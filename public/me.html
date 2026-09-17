@@ -245,6 +245,7 @@ main{padding:6px 20px 24px}
   </nav>
 </div>
 <script>
+function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pathname.replace(/^.*\//,'') + location.search); } catch(e){} }
 (function(){
   function esc(s){
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
@@ -257,7 +258,7 @@ main{padding:6px 20px 24px}
   function put(body){
     return fetch('/api/me', { method: 'PUT',
       headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      .then(function(r){ if (r.status === 401) location = 'index.html'; return r; });
+      .then(function(r){ if (r.status === 401) rememberNext(), location = 'index.html'; return r; });
   }
 
   function renderCareTypes(){
@@ -378,6 +379,18 @@ main{padding:6px 20px 24px}
     if (hq) hq.style.display = me.is_admin ? 'block' : 'none';
     document.getElementById('host-toggle').checked = me.is_host;
     document.getElementById('host-card').style.display = me.is_host ? 'block' : 'none';
+    // Deep link from "Become a Momni" / "Start hosting": flip hosting on and land her on the setup card.
+    if (new URLSearchParams(location.search).get('host') === '1') {
+      var ht = document.getElementById('host-toggle');
+      if (!me.is_host) { ht.checked = true; ht.dispatchEvent(new Event('change')); }
+      history.replaceState(null, '', 'me.html');
+      setTimeout(function(){
+        var card = document.getElementById('host-card');
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        card.style.transition = 'box-shadow .4s'; card.style.boxShadow = '0 0 0 4px #92E2C1';
+        setTimeout(function(){ card.style.boxShadow = ''; }, 2200);
+      }, 150);
+    }
     document.getElementById('now-toggle').checked = me.available_now;
     document.getElementById('gives-toggle').checked = me.gives_toggle;
     document.getElementById('sms-toggle').checked = me.sms_opt_in;
@@ -436,7 +449,7 @@ main{padding:6px 20px 24px}
   buildAvailGrid();
 
   fetch('/api/me').then(function(r){
-    if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
+    if (r.status === 401) { rememberNext(), location = 'index.html'; throw new Error('unauth'); }
     return r.json();
   }).then(function(d){ me = d; render(); }).catch(function(){});
 
@@ -556,7 +569,7 @@ main{padding:6px 20px 24px}
     e.preventDefault();
     if (me && me.momni_plus) return;
     fetch('/api/purchase/momni-plus', { method: 'POST' }).then(function(r){
-      if (r.status === 401) { location = 'index.html'; return null; }
+      if (r.status === 401) { rememberNext(), location = 'index.html'; return null; }
       return r.json();
     }).then(function(d){
       if (d && d.ok) { me.momni_plus = true; render(); }
@@ -580,7 +593,7 @@ main{padding:6px 20px 24px}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     }).then(function(r){
-      if (r.status === 401) { location = 'index.html'; return null; }
+      if (r.status === 401) { rememberNext(), location = 'index.html'; return null; }
       return r.json();
     }).then(function(d){
       if (!d) return;
@@ -654,7 +667,7 @@ main{padding:6px 20px 24px}
 
   document.getElementById('signout').addEventListener('click', function(e){
     e.preventDefault();
-    fetch('/api/logout', { method: 'POST' }).then(function(){ location = 'index.html'; });
+    fetch('/api/logout', { method: 'POST' }).then(function(){ rememberNext(), location = 'index.html'; });
   });
 })();
 </script>
@@ -683,19 +696,7 @@ fetch('/api/me/password',{method:'PUT',headers:{'Content-Type':'application/json
     });
   </script>
 </div>
-<!--Start of Tawk.to Script-->
-<script type="text/javascript">
-var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-(function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6a2a1a1d6829161c2c3db588/1jqq7c0va';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
-})();
-</script>
-<!--End of Tawk.to Script-->
+<script src="momni-chat.js" defer></script>
 <script src="site-nav.js" defer></script>
 </body>
 </html>

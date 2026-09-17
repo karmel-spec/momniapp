@@ -64,6 +64,8 @@ a{text-decoration:none;color:inherit}
   </footer>
 </div>
 <script>
+// Where to land after sign-in: the page she was bounced from (set by rememberNext), else Home.
+function nextAfterSignIn(){ var n=null; try { n=sessionStorage.getItem('momni-next'); sessionStorage.removeItem('momni-next'); } catch(e){} return (n && /^[a-z-]+\.html(\?[\w=&-]*)?$/.test(n)) ? n : 'home.html'; }
 (function(){
   var ageBox = document.getElementById('join-age');
   var ackBox = document.getElementById('join-ack');
@@ -90,7 +92,7 @@ a{text-decoration:none;color:inherit}
       body: JSON.stringify({ age_affirmed: ageBox.checked, acknowledged: ackBox.checked })
     }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
       .then(function(res){
-        if (res.ok) { location = '/home.html'; }
+        if (res.ok) { location = nextAfterSignIn(); }
         else { showErr(res.d.error || 'Something went wrong — try again.'); sync(); }
       })
       .catch(function(){ showErr('Couldn’t reach Momni — check your connection.'); sync(); });

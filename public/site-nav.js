@@ -3,29 +3,21 @@
 // Mobile: a 🌐 button (in the topbar when present) opening a full site menu.
 // All pages: a condensed momni.com footer at the end of the content, above the tab bar.
 (function () {
-  // Lift the Tawk chat bubble above the 64px mobile tab bar so it never covers the Links/Me tabs.
-  // This file is deferred, so it runs after the inline Tawk_API stub is created but before Tawk's
-  // async widget finishes loading — the documented customStyle is read at init. (CSS fallback below.)
-  window.Tawk_API = window.Tawk_API || {};
-  window.Tawk_API.customStyle = {
-    visibility: {
-      desktop: { position: 'br', xOffset: 20, yOffset: 20 },
-      mobile:  { position: 'br', xOffset: 12, yOffset: 84 }
-    }
-  };
   var S = 'https://momni.com';
+  var APP = location.origin;            // links into the app itself (never prefixed with momni.com)
+  function href(path) { return /^https?:/.test(path) ? path : S + path; }
   var TOP = [
     ['Press', S + '/press/'], ['Partnerships', S + '/partnerships/'],
     ['Foundation', 'https://momnifoundation-878.netlify.app'],
     ['The Crisis', S + '/crisis/'], ['Volunteer', S + '/volunteer/']
   ];
   var MAIN = [
-    ['Find Care', S + '/find-care/'], ['Become a Momni', S + '/become-a-momni/'],
+    ['Find Care', S + '/find-care/'], ['Become a Momni', APP + '/me.html?host=1'],
     ['Circles', S + '/circles/'], ['Shop', S + '/shop/'], ['Map', S + '/map/'],
     ['Our Story', S + '/our-story/'], ['Stories', S + '/stories/'], ['Blog', S + '/blog/']
   ];
   var FOOT = [
-    ['Find care', [['Find Care', '/find-care/'], ['Become a Momni', '/become-a-momni/'], ['Circles', '/circles/'], ['Map', '/map/'], ['Apps', '/apps/']]],
+    ['Find care', [['Find Care', '/find-care/'], ['Become a Momni', APP + '/me.html?host=1'], ['Circles', '/circles/'], ['Map', '/map/'], ['Apps', '/apps/']]],
     ['Community', [['Team Momni', '/team/'], ['Volunteer', '/volunteer/'], ['Connect', '/connect/'], ['Share & invite', '/share/'], ['Partnerships', '/partnerships/']]],
     ['Stories', [['Stories', '/stories/'], ['Blog', '/blog/'], ['Newsletter', '/newsletter/'], ['Momni History', '/history/'], ['Podcast', '/podcast/'], ['FAQ', '/faq/']]],
     ['About', [['Our Story', '/our-story/'], ['Press', '/press/'], ['Shop', '/shop/'], ['Contact', '/contact/'], ['Transparency', '/transparency/'], ['Suggested Conduct', '/conduct/'], ['Terms', '/terms/'], ['Privacy', '/privacy/']]]
@@ -84,7 +76,7 @@
   var panel = el('div', { class: 'snv-panel', role: 'dialog', 'aria-label': 'momni.com menu' },
     '<div class="snv-sheet"><div class="hd"><img src="/assets/momni-logo-color-horizontal.png" alt="Momni"><button class="x" aria-label="Close">✕</button></div>' +
     FOOT.map(function (g) {
-      return '<h5>' + g[0] + '</h5>' + g[1].map(function (l) { return '<a href="' + S + l[1] + '">' + l[0] + '</a>'; }).join('');
+      return '<h5>' + g[0] + '</h5>' + g[1].map(function (l) { return '<a href="' + href(l[1]) + '">' + l[0] + '</a>'; }).join('');
     }).join('') + '</div>');
   document.body.appendChild(panel);
   panel.addEventListener('click', function (e) { if (e.target === panel || e.target.classList.contains('x')) panel.classList.remove('open'); });
@@ -99,32 +91,13 @@
   // condensed momni.com footer at end of content (above the fixed tab bar)
   var foot = el('div', { class: 'snv-foot' },
     '<div class="cols">' + FOOT.map(function (g) {
-      return '<div><h5>' + g[0] + '</h5>' + g[1].map(function (l) { return '<a href="' + S + l[1] + '">' + l[0] + '</a>'; }).join('') + '</div>';
+      return '<div><h5>' + g[0] + '</h5>' + g[1].map(function (l) { return '<a href="' + href(l[1]) + '">' + l[0] + '</a>'; }).join('') + '</div>';
     }).join('') + '</div>' +
     '<div class="disc">Momni is a community platform — Momnis make their own care decisions and pay each other directly.<br>momni.com &amp; app.momni.com are operated by Momni, Inc. The Momni Foundation (momnifoundation.org) is a separate 501(c)(3). One brand, two entities, separate finances.</div>');
   var host = document.querySelector('.content') || document.querySelector('.app') || document.body;
   host.appendChild(foot);
 
-  // Tawk chat bubble vs. the mobile tab bar: Tawk loads async and its launcher iframe is a title-less
-  // position:fixed element with a random id sitting at bottom:~20px — right on top of the Links/Me
-  // tabs at 375px. customStyle (set above) only applies if it loads before Tawk inits, which isn't
-  // guaranteed. So, on small viewports, lift every fixed Tawk iframe once, above the 64px tab bar.
-  function liftTawk() {
-    if (window.innerWidth > 600) return;
-    document.querySelectorAll('iframe').forEach(function (f) {
-      if (f.dataset.snvLifted || getComputedStyle(f).position !== 'fixed') return;
-      var b = parseInt(getComputedStyle(f).bottom, 10) || 0;
-      f.style.setProperty('bottom', (b + 72) + 'px', 'important');  // clear the 64px tabbar + margin
-      f.dataset.snvLifted = '1';
-    });
-  }
-  liftTawk();
-  if (window.MutationObserver) {
-    var t, obs = new MutationObserver(function () { clearTimeout(t); t = setTimeout(liftTawk, 120); });
-    obs.observe(document.body, { childList: true, subtree: true });
-  }
-  [800, 1800, 3500].forEach(function (ms) { setTimeout(liftTawk, ms); });  // backstop for slow async load
-  window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(liftTawk, 150); });
+  // The Momni chat bubble (momni-chat.js) positions itself above the tab bar on its own.
 
   // First-party pageview beacon — no third parties, no extra cookies. Fire-and-forget.
   try {
