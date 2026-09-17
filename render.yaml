@@ -14,8 +14,6 @@ services:
       mountPath: /var/data
       sizeGB: 1
     envVars:
-      - key: NODE_VERSION
-        value: "22"          # better-sqlite3 is a native module; an unpinned Node bump breaks the build
       - key: NODE_ENV
         value: production
       - key: DB_PATH
