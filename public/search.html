@@ -167,8 +167,14 @@ var map = L.map('map').setView([40.27, -111.68], 11);
 
 // Day/night map (Karmel's pick): daylight map 6am–7pm, softened night map after dark.
 // Night basemap is Esri's Dark Gray Canvas (charcoal, readable labels) lifted a touch brighter.
-var dayTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  {attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 19});
+// Daytime basemap is Esri's Light Gray Canvas (base + labels) — keyless, same provider as the night map.
+// (CARTO's free basemap started stamping "API KEY REQUIRED" on every tile.)
+var dayTiles = L.layerGroup([
+  L.tileLayer('https://server.arcgisonline.com/ArcGis/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    {attribution: 'Tiles © Esri', maxNativeZoom: 16, maxZoom: 19}),
+  L.tileLayer('https://server.arcgisonline.com/ArcGis/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+    {maxNativeZoom: 16, maxZoom: 19})
+]);
 var nightBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
   {attribution: 'Tiles © Esri', className: 'night-tiles', maxNativeZoom: 16, maxZoom: 19});
 var nightRef = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
