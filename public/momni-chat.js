@@ -39,7 +39,7 @@
   if (document.querySelector('.tabbar')) root.className = 'mc-tabs';
   root.innerHTML =
     '<div id="mc-panel" role="dialog" aria-label="Chat with ' + FOUNDER + '" aria-modal="false">' +
-      '<div id="mc-head"><img class="mc-av" src='' + ICON + '' alt=""><div><b>' + FOUNDER + '</b><span>Momni founder · replies from her phone</span></div>' +
+      '<div id="mc-head"><img class="mc-av" src="' + ICON + '" alt=""><div><b>Hello!</b><span>' + FOUNDER + ', Momni founder · replies from her phone</span></div>' +
       '<button id="mc-x" type="button" aria-label="Close chat">×</button></div>' +
       '<div id="mc-body"><p class="mc-intro">Hi, I’m ' + FOUNDER + '. Send me a note and I’ll text you back — usually within the hour.</p>' +
         '<form id="mc-form" novalidate>' +
@@ -51,7 +51,7 @@
         '</form></div>' +
       '<div id="mc-done"><div class="mc-big">💜</div><b>Sent!</b><p id="mc-done-p"></p></div>' +
     '</div>' +
-    '<button id="mc-btn" type="button" aria-haspopup="dialog" aria-expanded="false"><img class="mc-av" src='' + ICON + '' alt="">Chat with ' + FOUNDER + '</button>';
+    '<button id="mc-btn" type="button" aria-haspopup="dialog" aria-expanded="false"><img class="mc-av" src="' + ICON + '" alt="">Chat with ' + FOUNDER + '</button>';
   document.body.appendChild(root);
   var btn = root.querySelector('#mc-btn'), panel = root.querySelector('#mc-panel'), form = root.querySelector('#mc-form'),
       err = root.querySelector('#mc-err'), send = root.querySelector('#mc-send'), done = root.querySelector('#mc-done'), body = root.querySelector('#mc-body');
