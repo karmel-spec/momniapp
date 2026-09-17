@@ -41,7 +41,7 @@
     '<div id="mc-panel" role="dialog" aria-label="Chat with ' + FOUNDER + '" aria-modal="false">' +
       '<div id="mc-head"><img class="mc-av" src="' + ICON + '" alt=""><div><b>Hello!</b><span>Momni Volunteers ready to answer any questions!</span></div>' +
       '<button id="mc-x" type="button" aria-label="Close chat">×</button></div>' +
-      '<div id="mc-body"><p class="mc-intro">Hi, I’m ' + FOUNDER + '. Send me a note and I’ll text you back — usually within the hour.</p>' +
+      '<div id="mc-body"><p class="mc-intro">Send me a note and I’ll text you back — usually within the hour.</p>' +
         '<form id="mc-form" novalidate>' +
         '<label for="mc-name">Your name</label><input id="mc-name" autocomplete="name" maxlength="80">' +
         '<label for="mc-phone">Mobile number <span style="font-weight:400">(so I can text you back)</span></label><input id="mc-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(801) 555-1234" maxlength="24">' +
