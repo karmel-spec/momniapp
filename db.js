@@ -45,6 +45,8 @@ try { db.exec('ALTER TABLE users ADD COLUMN profile_boost INTEGER DEFAULT 0'); }
 try { db.exec('ALTER TABLE circles ADD COLUMN leader_id INTEGER'); } catch (e) { /* exists */ }
 try { db.exec('ALTER TABLE users ADD COLUMN live_link TEXT'); } catch (e) { /* exists */ }
 try { db.exec('ALTER TABLE users ADD COLUMN live_link_label TEXT'); } catch (e) { /* exists */ }
+try { db.exec('ALTER TABLE users ADD COLUMN intro_video TEXT'); } catch (e) { /* exists */ }      // "Meet the Momni" hello video (/uploads/…)
+try { db.exec('ALTER TABLE users ADD COLUMN is_example INTEGER DEFAULT 0'); } catch (e) { /* exists */ } // the sample host profile + its reviewers
 // migration: OAuth client_type + nullable secret_hash (public clients hold no secret). The
 // oauth_clients table is pre-launch with no registered clients, so rebuilding it is safe.
 try {

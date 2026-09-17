@@ -391,6 +391,7 @@ function loadHosts(){
         var badges = (h.badges || []).map(function(b){
           return '<span title="'+esc(b.note||'')+'" style="background:#FCFBFE;border:1.5px solid #EEE9F9;color:var(--ink)">'+b.emoji+' '+esc(b.label)+'</span>';
         }).join('');
+        if (h.is_example) badges = '<span style="background:var(--lavender);color:var(--purple-deep);border:1.5px solid #DDD3F3">✨ Example profile</span>' + badges;
         var liveLink = (h.live_link && /^https?:\/\//.test(h.live_link))
           ? '<a href="'+esc(h.live_link)+'" target="_blank" rel="noopener nofollow" class="link-btn" style="margin-top:8px;background:var(--purple)">'+esc(h.live_link_label || 'Visit my page')+' &#8599;</a>' : '';
         var shared = (h.shared_items || []).map(function(it){

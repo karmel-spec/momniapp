@@ -57,6 +57,13 @@ main{padding:18px 20px 8px}
 .cta-bar .req{display:block;text-align:center;background:var(--algae);color:#0B4A36;border-radius:100px;padding:14px;font-size:16px;font-weight:700}
 .cta-bar .note{font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5}
 .state{padding:48px 24px;text-align:center;color:var(--muted)}
+.example-banner{background:var(--lavender);border:1.5px solid #DDD3F3;border-radius:14px;padding:12px 14px;font-size:13.5px;line-height:1.5;color:var(--purple-deep);margin:0 0 14px}
+.example-banner b{font-weight:800}
+.intro-video{width:100%;aspect-ratio:9/12;max-height:420px;background:#111;border-radius:16px;overflow:hidden;display:block;object-fit:cover}
+.review .top{display:flex;align-items:center;gap:10px}
+.ravatar{width:34px;height:34px;border-radius:50%;background:var(--purple) center/cover no-repeat;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:13px;flex-shrink:0}
+.review .who small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.review .rstars{margin-left:auto}
 </style>
 </head>
 <body>
@@ -108,6 +115,10 @@ main{padding:18px 20px 8px}
       (avg != null ? '<div class="rating"><span class="star">'+stars(avg)+'</span> '+avg.toFixed(1)+' <span>from '+revs.length+' Momni'+(revs.length===1?'':'s')+'</span></div>' : '<div class="rating"><span>No reviews yet — be the first to connect.</span></div>') +
     '</div>';
 
+    if (h.is_example) html += '<div class="example-banner"><b>✨ Example profile.</b> This is what a complete Momni host profile looks like — every section filled in, a hello video, shared items, and reviews. Use it as your model; the people here aren’t real.</div>';
+    if (h.intro_video) html += sec('Meet ' + first,
+      '<video class="intro-video" controls playsinline preload="metadata"' + (h.photo_url ? ' poster="' + esc(h.photo_url) + '"' : '') + ' src="' + esc(h.intro_video) + '"></video>' +
+      '<p class="fine" style="margin-top:8px">A one-minute hello from ' + esc(first) + ' — who she is, her home, and how a day with her littles goes.</p>');
     if (h.bio) html += sec('About', '<p>'+esc(h.bio)+'</p>');
     if (h.kids_note) html += sec(first + '’s littles', '<p>'+esc(h.kids_note)+'</p>');
     if ((h.care_types||[]).length || h.hourly_note) {
@@ -140,7 +151,10 @@ main{padding:18px 20px 8px}
     }
 
     html += sec('Reviews from other Momnis', revs.length ? revs.map(function(r){
-      return '<div class="review"><div class="top"><span class="who">'+esc(r.author||'A Momni')+'</span><span class="rstars">'+stars(r.rating)+'</span></div>' +
+      var who = String(r.author || 'A Momni'), av = r.author_photo
+        ? '<span class="ravatar" style="background-image:url(\'' + esc(r.author_photo) + '\')"></span>'
+        : '<span class="ravatar">' + esc(who.charAt(0).toUpperCase()) + '</span>';
+      return '<div class="review"><div class="top">' + av + '<span class="who">'+esc(who)+(r.author_city ? '<small>'+esc(r.author_city)+'</small>' : '')+'</span><span class="rstars">'+stars(r.rating)+'</span></div>' +
         (r.body ? '<div class="body">'+esc(r.body)+'</div>' : '') +
         (r.created_at ? '<div class="date">'+esc(String(r.created_at).slice(0,10))+'</div>' : '') + '</div>';
     }).join('') : '<p style="font-size:14px;color:var(--muted)">No reviews yet. After a visit, both Momnis review each other — that’s how the Circle builds trust.</p>');
@@ -153,8 +167,14 @@ main{padding:18px 20px 8px}
       '<p class="fine" style="margin-top:8px">Every report reaches a real person at Momni.</p></div>';
 
     document.getElementById('main').innerHTML = html;
-    document.getElementById('req-btn').setAttribute('href', 'booking.html?host_id=' + encodeURIComponent(h.id));
-    document.getElementById('req-btn').textContent = 'Request a Link with ' + first;
+    if (h.is_example) {
+      document.getElementById('req-btn').setAttribute('href', 'search.html');
+      document.getElementById('req-btn').textContent = 'Find real Momnis near you';
+      document.querySelector('#cta .note').textContent = 'This is an example profile — Whitney isn’t a real host.';
+    } else {
+      document.getElementById('req-btn').setAttribute('href', 'booking.html?host_id=' + encodeURIComponent(h.id));
+      document.getElementById('req-btn').textContent = 'Request a Link with ' + first;
+    }
     document.getElementById('cta').style.display = 'block';
 
     function needAuth(d){ if (d && d.error && /sign in/i.test(d.error)) { alert('Please sign in to do that, Momni.'); location = 'index.html'; return true; } return false; }

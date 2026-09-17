@@ -53,7 +53,7 @@ for (const m of ['get', 'post', 'put', 'delete', 'patch']) {
 }
 // JSON body parsing everywhere EXCEPT the Stripe webhook (raw body for signature checks)
 // and the big-payload admin uploads, which carry their own 30mb parser (uploadJson).
-const RAW_BODY_PATHS = ['/api/stripe/webhook', '/api/admin/crm/import', '/api/admin/shop/products', '/api/me/photo'];
+const RAW_BODY_PATHS = ['/api/stripe/webhook', '/api/admin/crm/import', '/api/admin/shop/products', '/api/me/photo', '/api/me/video'];
 app.use((req, res, next) => RAW_BODY_PATHS.some(p => req.path.startsWith(p)) ? next() : express.json()(req, res, next));
 app.use(express.urlencoded({ extended: true }));
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -156,6 +156,7 @@ const userPublic = (u) => ({
   shared_items: JSON.parse(u.shared_items || '[]'), legacy_1_0: !!u.legacy_1_0,
   live_link: u.live_link || null, live_link_label: u.live_link_label || null,
   photo_url: u.photo_url || null, gallery: JSON.parse(u.gallery || '[]'),
+  intro_video: u.intro_video || null, is_example: !!u.is_example,
   boosted: !!u.profile_boost, badges: badgesFor(u)
 });
 
@@ -595,7 +596,7 @@ app.get('/api/hosts/:id', (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ? AND is_host = 1').get(req.params.id);
   if (!u) return res.status(404).json({ error: 'Not found' });
   if (req.session.userId && isBlocked(req.session.userId, u.id)) return res.status(404).json({ error: 'Not found' });
-  const reviews = db.prepare(`SELECT r.rating, r.body, r.created_at, a.name author
+  const reviews = db.prepare(`SELECT r.rating, r.body, r.created_at, a.name author, a.photo_url author_photo, a.city author_city
     FROM reviews r JOIN users a ON a.id = r.author_id WHERE r.subject_id = ? ORDER BY r.created_at DESC`).all(u.id);
   res.json({ ...userPublic(u), reviews });
 });
@@ -1214,6 +1215,28 @@ app.post('/api/me/photo', requireAuth, photoLimiter, uploadJson, (req, res) => {
   if (old && old.indexOf('/uploads/') === 0) { try { fsp.unlinkSync(path.join(UPLOADS_DIR, path.basename(old))); } catch (e) {} }
   res.json({ ok: true, url });
 });
+// ---- "Meet the Momni" hello video: about a minute, ≤ 80 MB, MP4/WebM/MOV. Raw body straight to the persistent disk. ----
+const videoLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 6, message: 'That’s a lot of video uploads — give it an hour, Momni.' });
+const VIDEO_TYPES = { 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' };
+app.post('/api/me/video', requireAuth, videoLimiter, express.raw({ type: Object.keys(VIDEO_TYPES), limit: '80mb' }), (req, res) => {
+  const ext = VIDEO_TYPES[(req.get('Content-Type') || '').split(';')[0].trim().toLowerCase()];
+  if (!ext || !Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Please choose a video — MP4, WebM, or MOV, about a minute long.' });
+  const filename = newToken() + '.' + ext;
+  try { fsp.writeFileSync(path.join(UPLOADS_DIR, filename), req.body); }
+  catch (e) { return res.status(500).json({ error: 'Could not save that video — try again.' }); }
+  const url = '/uploads/' + filename;
+  const old = (db.prepare('SELECT intro_video FROM users WHERE id = ?').get(req.session.userId) || {}).intro_video;
+  db.prepare('UPDATE users SET intro_video = ? WHERE id = ?').run(url, req.session.userId);
+  if (old && old.indexOf('/uploads/') === 0) { try { fsp.unlinkSync(path.join(UPLOADS_DIR, path.basename(old))); } catch (e) {} }
+  res.json({ ok: true, url });
+});
+app.delete('/api/me/video', requireAuth, (req, res) => {
+  const old = (db.prepare('SELECT intro_video FROM users WHERE id = ?').get(req.session.userId) || {}).intro_video;
+  db.prepare('UPDATE users SET intro_video = NULL WHERE id = ?').run(req.session.userId);
+  if (old && old.indexOf('/uploads/') === 0) { try { fsp.unlinkSync(path.join(UPLOADS_DIR, path.basename(old))); } catch (e) {} }
+  res.json({ ok: true });
+});
+
 // Remove one gallery photo (by url).
 app.delete('/api/me/gallery', requireAuth, (req, res) => {
   const url = String(req.body && req.body.url || '');
@@ -1831,6 +1854,76 @@ function seedDeluxeSarah() {
 }
 // Local-dev only: the deluxe demo host never gets seeded into a real database.
 if (!IS_PROD) app.post('/api/admin/seed-demo-sarah', requireAdmin, (req, res) => res.json({ ok: true, ...seedDeluxeSarah() }));
+
+// ---------- The example host: a 100%-complete profile new hosts can model theirs on ----------
+// Whitney J. of Orem plus six reviewer accounts. All flagged is_example; none can sign in (random password),
+// they're excluded from the CRM (@momni.com addresses), and the profile page shows an "example" banner instead
+// of a Request-a-Link button. Idempotent: runs at boot and on demand from HQ; re-running refreshes the content.
+// Images: drop AI-generated photos into public/assets/example/ (host.jpg, family-1..3.jpg, home-1..3.jpg,
+// reviewer-1..6.jpg, intro.mp4) and the seed prefers them over the illustrated placeholders / stock shots.
+function ensureExampleHost() {
+  const ex = (name, fallback) => fsp.existsSync(path.join(__dirname, 'public', 'assets', 'example', name)) ? '/assets/example/' + name : fallback;
+  const placeholderHash = bcrypt.hashSync(require('crypto').randomBytes(24).toString('hex'), 10);
+  const upsertUser = db.prepare(`INSERT INTO users (email,password_hash,name,city,lat,lng,is_host,is_example,photo_url,created_at)
+    VALUES (@email,@hash,@name,@city,@lat,@lng,@is_host,1,@photo,@created)
+    ON CONFLICT(email) DO UPDATE SET name=excluded.name, city=excluded.city, lat=excluded.lat, lng=excluded.lng, is_host=excluded.is_host, is_example=1, photo_url=excluded.photo_url`);
+  const hostEmail = 'example-host@momni.com';
+  upsertUser.run({ email: hostEmail, hash: placeholderHash, name: 'Whitney J.', city: 'Orem, UT', lat: 40.3045, lng: -111.6863, is_host: 1,
+    photo: ex('host.jpg', '/assets/example/host.svg'), created: '2026-03-16 09:00:00' });
+  const host = db.prepare('SELECT id FROM users WHERE email = ?').get(hostEmail);
+  const gallery = [
+    ex('family-1.jpg', '/assets/photos/mama-lifting-toddler-sky.jpg'), ex('home-1.jpg', '/assets/photos/baking-with-kids.jpg'),
+    ex('family-2.jpg', '/assets/photos/girl-hula-hoop.jpg'),         ex('home-2.jpg', '/assets/photos/laughing-baby-on-rug.jpg'),
+    ex('family-3.jpg', '/assets/photos/girl-red-balloon-beach.jpg'), ex('home-3.jpg', '/assets/photos/boy-flexing-red-shirt.jpg'),
+  ];
+  db.prepare(`UPDATE users SET bio=?, kids_note=?, neighborhood=?, home_highlights=?, care_types=?, available_now=0, hourly_note=?, availability=?,
+      shared_items=?, live_link=?, live_link_label=?, gallery=?, intro_video=?, momni_plus=1, circle_up=1, profile_boost=1, gives_toggle=1, legacy_1_0=1,
+      signup_ack_text=?, signup_ack_at=COALESCE(signup_ack_at, datetime('now')), age_affirmed_at=COALESCE(age_affirmed_at, datetime('now')), terms_version=?
+    WHERE id = ?`).run(
+    "Mama of three, former kindergarten aide, and the house on the street where every kid ends up by 4pm. We keep it simple: outside as much as possible, real snacks, quiet time that’s actually quiet, and a photo text so you never have to wonder. I host because a Circle is how I survived my first baby — I’d like to be that for someone else.",
+    "Three of our own — Hazel (6, reads to everyone), Beck (4, resident dinosaur expert), and Millie (14 months, professional snuggler).",
+    "Cherry Hill, Orem",
+    "Fenced backyard with a playhouse and sandbox, a mudroom for boots, no pets, an allergy-aware kitchen, a nap room with blackout curtains and a sound machine, and a whole wall of picture books.",
+    JSON.stringify(['available-now', 'night-out', 'recurring', 'overnight']),
+    "$12/hr — paid directly to me, every penny. Siblings welcome; let’s chat about a family rate.",
+    JSON.stringify({ Mon: ['am', 'pm'], Tue: ['am', 'pm', 'eve'], Wed: ['am', 'pm'], Thu: ['am', 'pm', 'eve'], Fri: ['am', 'pm', 'eve', 'overnight'], Sat: ['am', 'pm', 'overnight'], Sun: ['pm'] }),
+    JSON.stringify([
+      { type: 'background_check', label: 'Background check — purchased & shared by Whitney', url: 'https://personal.checkr.com', as_of: '2026-07-15', added_at: '2026-07-15T16:00:00Z' },
+      { type: 'cpr', label: 'Infant & child CPR certified · May 2026', added_at: '2026-05-20T16:00:00Z' },
+    ]),
+    'https://momni.com/stories/', 'Our Circle story',
+    JSON.stringify(gallery), ex('intro.mp4', null),
+    ACKNOWLEDGMENT_TEXT, TERMS_VERSION, host.id);
+
+  const reviewers = [
+    ['Brittany S.', 'Orem, UT',           5, '2026-09-02 19:10:00', 'Whitney sent a photo of my two building a blanket fort within twenty minutes of drop-off. Came home to full, happy, sandy kids. She’s our Tuesday now.'],
+    ['Kayla T.',    'Provo, UT',          5, '2026-08-24 08:30:00', 'First overnight away from our 18-month-old and I barely worried — Whitney texted at bedtime and again at 6am. The nap room is real, and it works.'],
+    ['Megan W.',    'Lindon, UT',         5, '2026-08-11 21:05:00', 'Took my three on a snow day with an hour’s notice. Calm, organized, completely unflappable. The kids ask when they get to go back to “Miss Whitney’s.”'],
+    ['Alisha P.',   'Vineyard, UT',       4, '2026-07-30 17:40:00', 'Warm, communicative, and the backyard is a dream. My only complaint: her Saturday slots fill up fast, so book early.'],
+    ['Courtney L.', 'Orem, UT',           5, '2026-07-18 12:15:00', 'We’re a military family new to Utah County and Whitney was the first person who made it feel like home. She remembers every kid’s name and every allergy.'],
+    ['Rachel D.',   'Pleasant Grove, UT', 5, '2026-07-05 22:00:00', 'Date night, finally. Pickup was calm, the house was tidy, and the girls had painted “thank you” cards for us. That’s Whitney.'],
+  ];
+  const insLink = db.prepare(`INSERT INTO links (guest_id,host_id,care_type,details,status,acknowledgment_text,acknowledged_at,created_at) VALUES (?,?,?,?,'completed',?,?,?)`);
+  const insRev = db.prepare(`INSERT INTO reviews (link_id,author_id,subject_id,rating,body,created_at) VALUES (?,?,?,?,?,?)`);
+  db.transaction(() => {
+    // wipe and rebuild her reviews so re-running refreshes the copy
+    const oldLinks = db.prepare('SELECT id FROM links WHERE host_id = ? AND details LIKE ?').all(host.id, '%"seed":"example-host"%').map(r => r.id);
+    if (oldLinks.length) { const q = oldLinks.map(() => '?').join(','); db.prepare(`DELETE FROM reviews WHERE link_id IN (${q})`).run(...oldLinks); db.prepare(`DELETE FROM links WHERE id IN (${q})`).run(...oldLinks); }
+    reviewers.forEach(([name, city, rating, at, body], i) => {
+      const email = `example-reviewer-${i + 1}@momni.com`;
+      upsertUser.run({ email, hash: placeholderHash, name, city, lat: null, lng: null, is_host: 0, photo: ex(`reviewer-${i + 1}.jpg`, `/assets/example/reviewer-${i + 1}.svg`), created: '2026-04-01 09:00:00' });
+      const g = db.prepare('SELECT id FROM users WHERE email = ?').get(email).id;
+      const care = ['recurring', 'overnight', 'available-now', 'night-out', 'recurring', 'night-out'][i];
+      const link = insLink.run(g, host.id, care, JSON.stringify({ seed: 'example-host' }), ACKNOWLEDGMENT_TEXT, at, at);
+      insRev.run(link.lastInsertRowid, g, host.id, rating, body, at);
+    });
+  })();
+  return { id: host.id, reviews: reviewers.length };
+}
+let EXAMPLE_HOST_ID = null;
+try { EXAMPLE_HOST_ID = ensureExampleHost().id; } catch (e) { console.error('Example host seed failed (non-fatal):', e.message); }
+app.get('/api/example-host', (req, res) => res.json({ id: EXAMPLE_HOST_ID }));
+app.post('/api/admin/seed-example-host', requireAdmin, (req, res) => { const r = ensureExampleHost(); EXAMPLE_HOST_ID = r.id; res.json({ ok: true, ...r }); });
 // BETA OUTBOX — every live email is held here until Karmel approves it (see mailer.approvalRequired)
 app.get('/api/admin/emails/:id/view', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT html, subject FROM emails WHERE id = ?').get(req.params.id);
@@ -2310,7 +2403,9 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   const status = Number(err.status || err.statusCode) || 500;   // body-parser & co. set 4xx on bad input
   if (status >= 500) console.error(`[${req.method} ${req.originalUrl}]`, err);
   if (res.headersSent) return;
-  const msg = status >= 500 ? 'Something went sideways on our end — please try again, Momni.' : 'That request didn’t look right — please try again.';
+  const msg = status >= 500 ? 'Something went sideways on our end — please try again, Momni.'
+    : err.type === 'entity.too.large' ? 'That file is too large — videos need to be under 80 MB (about a minute from your phone).'
+    : 'That request didn’t look right — please try again.';
   if (req.path.startsWith('/api/')) return res.status(status).json({ error: msg });
   res.status(status).send(msg);
 });

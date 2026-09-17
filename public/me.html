@@ -133,6 +133,16 @@ main{padding:6px 20px 24px}
     </div>
 
     <div class="card" id="host-card" style="display:none">
+      <p class="fine" style="margin:-4px 0 14px"><a id="example-link" href="#" style="color:var(--teal-deep);font-weight:600;text-decoration:underline">See a complete example profile →</a> — every section filled in, so you can see what Momnis will see.</p>
+      <h2>Meet-the-Momni video</h2>
+      <p class="fine" style="margin-bottom:10px">A one-minute hello: who you are, your home, how a day goes. Phone video is perfect. MP4 or MOV, under 80 MB.</p>
+      <div id="video-wrap" style="display:none;margin-bottom:10px"><video id="video-preview" controls playsinline preload="metadata" style="width:100%;max-height:360px;border-radius:14px;background:#111"></video></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px">
+        <button type="button" class="save-btn" id="video-btn">🎥 Add / replace my video</button>
+        <button type="button" id="video-remove" style="display:none;background:none;border:1.5px solid var(--line);border-radius:100px;padding:9px 16px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted)">Remove</button>
+        <span class="fine" id="video-status"></span>
+        <input type="file" id="video-file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm" style="display:none">
+      </div>
       <h2>Care I offer</h2>
       <div id="care-types" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
       <div class="field">
@@ -379,6 +389,7 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
     if (hq) hq.style.display = me.is_admin ? 'block' : 'none';
     document.getElementById('host-toggle').checked = me.is_host;
     document.getElementById('host-card').style.display = me.is_host ? 'block' : 'none';
+    showVideo(me.intro_video);
     // Deep link from "Become a Momni" / "Start hosting": flip hosting on and land her on the setup card.
     if (new URLSearchParams(location.search).get('host') === '1') {
       var ht = document.getElementById('host-toggle');
@@ -617,6 +628,49 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
       .then(function(d){ alert(d.note || d.error || 'Something went wrong — try again.'); });
   });
 
+  // ---- Meet-the-Momni video ----
+  function showVideo(url){
+    var wrap = document.getElementById('video-wrap'), v = document.getElementById('video-preview');
+    if (url) { v.src = url; wrap.style.display = 'block'; document.getElementById('video-remove').style.display = 'inline-block'; }
+    else { v.removeAttribute('src'); wrap.style.display = 'none'; document.getElementById('video-remove').style.display = 'none'; }
+  }
+  fetch('/api/example-host').then(function(r){ return r.json(); }).then(function(d){
+    var a = document.getElementById('example-link'); if (d && d.id) a.href = 'host.html?id=' + d.id; else a.parentNode.style.display = 'none';
+  }).catch(function(){});
+  document.getElementById('video-btn').addEventListener('click', function(){ document.getElementById('video-file').click(); });
+  document.getElementById('video-remove').addEventListener('click', function(){
+    if (!confirm('Remove your hello video?')) return;
+    fetch('/api/me/video', { method: 'DELETE' }).then(function(){ me.intro_video = null; showVideo(null); });
+  });
+  document.getElementById('video-file').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    var status = document.getElementById('video-status'), btn = document.getElementById('video-btn');
+    var type = f.type || ({ mov: 'video/quicktime', mp4: 'video/mp4', webm: 'video/webm' }[(f.name.split('.').pop() || '').toLowerCase()] || '');
+    if (!/^video\/(mp4|quicktime|webm)$/.test(type)) { status.textContent = 'Please choose an MP4, MOV, or WebM video.'; return; }
+    if (f.size > 80 * 1024 * 1024) { status.textContent = 'That video is over 80 MB — trim it to about a minute and try again.'; return; }
+    var probe = document.createElement('video'); probe.preload = 'metadata';
+    probe.onloadedmetadata = function(){
+      URL.revokeObjectURL(probe.src);
+      if (probe.duration > 75) { status.textContent = 'Keep it to about a minute — this one is ' + Math.round(probe.duration) + ' seconds.'; return; }
+      upload();
+    };
+    probe.onerror = function(){ upload(); };   // can’t read metadata (some MOVs) — let the server have it
+    probe.src = URL.createObjectURL(f);
+    function upload(){
+      btn.disabled = true; status.textContent = 'Uploading… 0%';
+      var xhr = new XMLHttpRequest(); xhr.open('POST', '/api/me/video');
+      xhr.setRequestHeader('Content-Type', type);
+      xhr.upload.onprogress = function(ev){ if (ev.lengthComputable) status.textContent = 'Uploading… ' + Math.round(ev.loaded / ev.total * 100) + '%'; };
+      xhr.onload = function(){
+        btn.disabled = false; var d = {}; try { d = JSON.parse(xhr.responseText); } catch (err) {}
+        if (xhr.status === 200 && d.url) { me.intro_video = d.url; showVideo(d.url); status.textContent = 'Your hello video is on your profile. 💜'; }
+        else status.textContent = d.error || 'That video didn’t upload — try again.';
+      };
+      xhr.onerror = function(){ btn.disabled = false; status.textContent = 'Couldn’t reach Momni — try again.'; };
+      xhr.send(f);
+    }
+    e.target.value = '';
+  });
   document.getElementById('photo-btn').addEventListener('click', function(){ document.getElementById('photo-file').click(); });
   document.getElementById('photo-file').addEventListener('change', function(e){
     var f = e.target.files[0]; if (!f) return;
