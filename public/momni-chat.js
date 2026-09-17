@@ -3,8 +3,9 @@
    texted to the founder's phone with the visitor's number, so she replies from her own phone. */
 (function(){
   if (window.__momniChat) return; window.__momniChat = true;
+  // API base: data-api on the script tag (momni.com serves its own copy of this file), else the script's origin.
   var me = document.currentScript, base = '';
-  try { base = new URL(me.src, location.href).origin; } catch(e){}
+  try { base = (me && me.getAttribute('data-api')) || new URL(me.src, location.href).origin; } catch(e){}
   var FOUNDER_TEL = '+18014279293', FOUNDER = 'Karmel';
   var css = "\
 #mc-root{position:fixed;right:16px;bottom:18px;z-index:2147483000;font-family:'Albert Sans',Helvetica,Arial,sans-serif;color:#2B2233}\
