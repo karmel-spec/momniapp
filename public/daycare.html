@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Find a Daycare — Momni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2; --clay:#D9C0A3;
+  --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF; --line:#EEE9F9;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.5;min-height:100vh;display:flex;justify-content:center}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{width:100%;max-width:480px;min-height:100vh;background:var(--white);box-shadow:0 0 40px rgba(109,88,164,0.12);display:flex;flex-direction:column;padding-bottom:76px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px}
+.topbar img{height:34px;display:block}
+.topbar .hello{font-family:'Caveat',cursive;font-size:22px;color:var(--teal)}
+main{padding:6px 20px 24px}
+.tile{display:block;border-radius:18px;padding:20px;margin-bottom:14px;transition:transform .15s}
+.tile:hover{transform:translateY(-2px)}
+.tile h2{font-size:19px;font-weight:800;letter-spacing:-0.01em;margin-bottom:4px}
+.tile p{font-size:14px}
+.tile-now{background:var(--teal);color:white}
+.tile-now p{color:rgba(255,255,255,0.9)}
+.live{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;font-weight:600;color:var(--algae)}
+.pulse{width:10px;height:10px;border-radius:50%;background:var(--algae);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(146,226,193,.7)}70%{box-shadow:0 0 0 10px rgba(146,226,193,0)}100%{box-shadow:0 0 0 0 rgba(146,226,193,0)}}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.row2 .tile{margin-bottom:0}
+.tile-date{background:var(--lavender)}
+.tile-date h2{color:var(--purple-deep)}
+.tile-reg{background:var(--teal-soft)}
+.tile-reg h2{color:var(--teal-deep)}
+.tile-date p,.tile-reg p{color:var(--muted)}
+.tile-over{background:#FBF6EE;border:1.5px solid var(--clay)}
+.tile-over p{color:var(--muted)}
+.chips{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.chip{font-size:13px;font-weight:600;padding:6px 14px;border-radius:100px;background:white;border:1.5px solid var(--clay);color:var(--ink)}
+.tile-daycare{background:var(--purple);color:white;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.tile-daycare h2{font-size:17px}
+.tile-daycare p{font-size:12.5px;color:rgba(255,255,255,0.85)}
+.tile-daycare .arrow{font-size:22px;font-weight:700}
+.section-title{font-size:15px;font-weight:800;font-family:'Montserrat',sans-serif;margin:24px 0 12px}
+.rebook{display:flex;gap:14px}
+.momni{flex:1;text-align:center;background:#FCFBFE;border:1.5px solid var(--line);border-radius:16px;padding:16px 10px}
+.avatar{width:54px;height:54px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:700;font-size:20px;color:white}
+.a1{background:var(--purple)}.a2{background:var(--teal)}.a3{background:var(--clay);color:var(--ink)}
+.momni .name{font-size:14px;font-weight:600;margin-bottom:8px}
+.rebook-btn{display:inline-block;font-size:13px;font-weight:600;color:var(--teal);border:1.5px solid var(--teal);border-radius:100px;padding:4px 16px;transition:all .15s}
+.rebook-btn:hover{background:var(--teal);color:white}
+.circle-card{background:var(--lavender);border-radius:16px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.circle-card h3{font-size:15px;font-weight:700;color:var(--purple-deep);margin-bottom:2px}
+.circle-card p{font-size:13.5px;color:var(--muted)}
+.circle-card .script{font-size:20px;color:var(--purple);white-space:nowrap}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;border-top:1px solid var(--line);display:flex;z-index:50}
+.tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.tab .ico{display:block;font-size:20px;line-height:1.2}
+.tab.active{color:var(--purple)}
+
+/* ---- Find a Daycare ---- */
+.dc-hero{background:var(--purple);color:white;border-radius:18px;padding:22px 20px;margin-bottom:16px}
+.dc-hero h1{font-size:22px;font-weight:800;letter-spacing:-0.01em;margin-bottom:6px}
+.dc-hero p{font-size:14px;color:rgba(255,255,255,0.88)}
+.dc-card{background:var(--lavender);border-radius:16px;padding:18px;margin-bottom:14px}
+.dc-card h2{font-size:15px;font-weight:800;color:var(--purple-deep);margin-bottom:10px}
+.dc-card label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.dc-card select{width:100%;font:inherit;font-size:15px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:white;color:var(--ink)}
+.dc-card select:focus-visible{outline:3px solid var(--algae);outline-offset:1px}
+.dc-btn{display:block;text-align:center;margin-top:12px;background:var(--teal);color:white;font-weight:700;font-size:15px;padding:13px 16px;border-radius:100px;transition:background .15s}
+.dc-btn:hover{background:var(--teal-deep)}
+.dc-btn[aria-disabled="true"]{background:#B9B3C9;pointer-events:none}
+.dc-note{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.5}
+.dc-alt{display:flex;justify-content:space-between;align-items:center;gap:12px;background:white;border:1.5px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.dc-alt strong{display:block;font-size:14px;margin-bottom:2px}
+.dc-alt span{font-size:12.5px;color:var(--muted)}
+.dc-alt .arrow{font-size:20px;font-weight:700;color:var(--teal)}
+.dc-disclaimer{background:#FBF6EE;border:1.5px solid var(--clay);border-radius:14px;padding:14px 16px;font-size:13px;color:var(--ink);line-height:1.55}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+    <span class="hello" id="hello"></span>
+  </div>
+  <main>
+    <div class="dc-hero">
+      <h1>Find a Daycare</h1>
+      <p>Momni doesn't vet or endorse anyone — but every state keeps a public list of licensed child care providers. We'll take you straight to yours.</p>
+    </div>
+
+    <div class="dc-card">
+      <h2>Which state are you in?</h2>
+      <label for="dc-state">State</label>
+      <select id="dc-state">
+        <option value="">Choose a state…</option>
+        <option value="Alabama">Alabama</option>
+        <option value="Alaska">Alaska</option>
+        <option value="Arizona">Arizona</option>
+        <option value="Arkansas">Arkansas</option>
+        <option value="California">California</option>
+        <option value="Colorado">Colorado</option>
+        <option value="Connecticut">Connecticut</option>
+        <option value="Delaware">Delaware</option>
+        <option value="District of Columbia">District of Columbia</option>
+        <option value="Florida">Florida</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Hawaii">Hawaii</option>
+        <option value="Idaho">Idaho</option>
+        <option value="Illinois">Illinois</option>
+        <option value="Indiana">Indiana</option>
+        <option value="Iowa">Iowa</option>
+        <option value="Kansas">Kansas</option>
+        <option value="Kentucky">Kentucky</option>
+        <option value="Louisiana">Louisiana</option>
+        <option value="Maine">Maine</option>
+        <option value="Maryland">Maryland</option>
+        <option value="Massachusetts">Massachusetts</option>
+        <option value="Michigan">Michigan</option>
+        <option value="Minnesota">Minnesota</option>
+        <option value="Mississippi">Mississippi</option>
+        <option value="Missouri">Missouri</option>
+        <option value="Montana">Montana</option>
+        <option value="Nebraska">Nebraska</option>
+        <option value="Nevada">Nevada</option>
+        <option value="New Hampshire">New Hampshire</option>
+        <option value="New Jersey">New Jersey</option>
+        <option value="New Mexico">New Mexico</option>
+        <option value="New York">New York</option>
+        <option value="North Carolina">North Carolina</option>
+        <option value="North Dakota">North Dakota</option>
+        <option value="Ohio">Ohio</option>
+        <option value="Oklahoma">Oklahoma</option>
+        <option value="Oregon">Oregon</option>
+        <option value="Pennsylvania">Pennsylvania</option>
+        <option value="Rhode Island">Rhode Island</option>
+        <option value="South Carolina">South Carolina</option>
+        <option value="South Dakota">South Dakota</option>
+        <option value="Tennessee">Tennessee</option>
+        <option value="Texas">Texas</option>
+        <option value="Utah">Utah</option>
+        <option value="Vermont">Vermont</option>
+        <option value="Virginia">Virginia</option>
+        <option value="Washington">Washington</option>
+        <option value="West Virginia">West Virginia</option>
+        <option value="Wisconsin">Wisconsin</option>
+        <option value="Wyoming">Wyoming</option>
+      </select>
+      <a class="dc-btn" id="dc-go" href="#" target="_blank" rel="noopener" aria-disabled="true">Open licensed provider search</a>
+      <p class="dc-note" id="dc-note">Pick a state to continue.</p>
+    </div>
+
+    <a class="dc-alt" href="https://www.childcareaware.org/resources/ccrr-search-form/" target="_blank" rel="noopener">
+      <div><strong>Talk to a local referral agency</strong><span>Child Care Aware · search by ZIP for free, human help finding care</span></div>
+      <span class="arrow">›</span>
+    </a>
+
+    <div class="dc-disclaimer">
+      These links go to government and nonprofit sites outside Momni. Licensing means a provider met their state's minimum standards — it isn't a recommendation from us. Check references, visit in person, and trust your gut, Momni.
+    </div>
+  </main>
+
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><span class="ico">🏠</span>Home</a>
+    <a class="tab" href="search.html"><span class="ico">🔍</span>Search</a>
+    <a class="tab" href="campfire.html"><span class="ico">🔥</span>Campfire</a>
+    <a class="tab" href="circles.html"><span class="ico">💜</span>Circles</a>
+    <a class="tab" href="links.html"><span class="ico">🔗</span>Links</a>
+    <a class="tab" href="me.html"><span class="ico">👤</span>Me</a>
+  </nav>
+</div>
+<script>
+(function(){
+  var ABBR = {"AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "DC": "District of Columbia", "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland", "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming"};
+  var DIRECT = { 'Utah': 'https://childcarelicensing.utah.gov/' }; // states where we know the exact search page
+  var sel = document.getElementById('dc-state'), go = document.getElementById('dc-go'), note = document.getElementById('dc-note');
+
+  function slug(name){ return name.toLowerCase().replace(/[^a-z]+/g, '-'); }
+  function update(){
+    var st = sel.value;
+    if (!st) { go.href = '#'; go.setAttribute('aria-disabled', 'true'); note.textContent = 'Pick a state to continue.'; return; }
+    go.href = DIRECT[st] || ('https://childcare.gov/state-resources/' + slug(st));
+    go.removeAttribute('aria-disabled');
+    note.textContent = DIRECT[st]
+      ? 'Opens ' + st + "'s licensed provider search in a new tab."
+      : 'Opens ChildCare.gov (U.S. Dept. of Health & Human Services) for ' + st + ' — it links to the state licensing search.';
+  }
+  sel.addEventListener('change', update);
+
+  // Guess the state from the profile city ("Orem, UT", "Orem UT", "Miami, Florida"); fall back to the picker.
+  function guessState(city){
+    var c = String(city || '').trim();
+    var m = /[,\s]([A-Za-z]{2})\.?$/.exec(c);
+    if (m && ABBR[m[1].toUpperCase()]) return ABBR[m[1].toUpperCase()];
+    var lower = c.toLowerCase();
+    for (var k in ABBR) if (lower.indexOf(ABBR[k].toLowerCase()) !== -1) return ABBR[k];
+    return '';
+  }
+  fetch('/api/me').then(function(r){
+    if (r.status === 401) { location = 'index.html'; throw new Error('unauth'); }
+    return r.json();
+  }).then(function(me){
+    var st = guessState(me.city);
+    if (st) { sel.value = st; update(); }
+  }).catch(function(){});
+  update();
+})();
+</script>
+<!-- momni-beta-feedback -->
+<div id="momni-beta-feedback">
+  <style>
+    #momni-beta-feedback{position:fixed;top:84px;right:16px;z-index:60;font-family:'Albert Sans',sans-serif;}
+    #momni-beta-feedback .mbf-btn{display:inline-block;background:#6D58A4;color:#fff;border:none;border-radius:100px;padding:8px 16px;font-family:'Albert Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(43,34,51,.12);}
+    #momni-beta-feedback .mbf-tip{display:none;position:absolute;top:calc(100% + 8px);right:0;max-width:260px;width:max-content;background:#fff;border:1.5px solid #E5E0F0;border-radius:14px;padding:12px 14px;font-size:13px;color:#2B2233;line-height:1.45;box-shadow:0 6px 18px rgba(43,34,51,.10);}
+    #momni-beta-feedback:hover .mbf-tip,#momni-beta-feedback .mbf-btn:focus + .mbf-tip{display:block;}
+  </style>
+  <button type="button" class="mbf-btn" aria-describedby="mbf-tip">💬 Beta feedback</button>
+  <div class="mbf-tip" id="mbf-tip" role="tooltip">This is our 2.0 re-launch beta... please share what you love, what you might recommend changing. The Momni community and technology is being refined by each of YOU prior to the official launch. Your feedback is invaluable!! 💜</div>
+  <script>
+    document.querySelector('#momni-beta-feedback .mbf-btn').addEventListener('click',function(){
+      window.location.href='mailto:developer@momni.com?subject=Beta%20feedback%20—%20Momni&body=What%20I%20was%20doing%3A%0A%0AWhat%20I%20loved%3A%0A%0AWhat%20bugged%20me%3A%0A%0AWhat%20I%27d%20change%3A%0A%0A(page%3A%20'+encodeURIComponent(location.href)+')';
+    });
+  </script>
+</div>
+<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6a2a1a1d6829161c2c3db588/1jqq7c0va';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
+<script src="site-nav.js" defer></script>
+</body>
+</html>
