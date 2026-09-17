@@ -46,7 +46,7 @@
         '<label for="mc-name">Your name</label><input id="mc-name" autocomplete="name" maxlength="80">' +
         '<label for="mc-phone">Mobile number <span style="font-weight:400">(so I can text you back)</span></label><input id="mc-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(801) 555-1234" maxlength="24">' +
         '<label for="mc-msg">Your message</label><textarea id="mc-msg" maxlength="1000"></textarea>' +
-        '<button id="mc-send" type="submit">Send to ' + FOUNDER + '</button><div id="mc-err" role="alert"></div>' +
+        '<button id="mc-send" type="submit">Send to Momni Volunteer</button><div id="mc-err" role="alert"></div>' +
         '<p id="mc-fine">By sending, you’re okay with a text back at this number (standard rates apply). We never share it. Prefer to text directly? <a href="sms:' + FOUNDER_TEL + '">Open Messages</a>.</p>' +
         '</form></div>' +
       '<div id="mc-done"><div class="mc-big">💜</div><b>Sent!</b><p id="mc-done-p"></p></div>' +
@@ -78,6 +78,6 @@
       msgEl.value = '';
     })
     .catch(function(e){ err.textContent = e.message || 'Could not send — try again.'; })
-    .then(function(){ send.disabled = false; send.textContent = 'Send to ' + FOUNDER; });
+    .then(function(){ send.disabled = false; send.textContent = 'Send to Momni Volunteer'; });
   });
 })();
