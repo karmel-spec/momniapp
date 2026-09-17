@@ -11,3 +11,9 @@ mobile/.env
 downloads/
 # member-uploaded profile photos (live on the persistent disk in prod)
 uploads/
+
+# Expo local state and Supabase CLI temp files — never commit
+mobile/.expo/
+supabase/supabase/.temp/
+# macOS folder icon files
+Icon\r

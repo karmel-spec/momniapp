@@ -577,7 +577,7 @@ app.get('/api/map', (req, res) => {
   const legacy = db.prepare('SELECT city, lat, lng, count, role FROM legacy_pins').all(); // anonymized, real-town level only
   const litUp = db.prepare('SELECT COUNT(*) c FROM users WHERE legacy_1_0 = 1').get().c;
   const firstMamas = legacy.reduce((s, p) => s + p.count, 0);
-  res.json({ hosts, circles, legacy, counters: { first_mamas: firstMamas, lit_up: litUp + 287 } });
+  res.json({ hosts, circles, legacy, counters: { first_mamas: firstMamas, lit_up: litUp } });
 });
 
 // ---------- links (a $1 Link per booking — the ONLY thing Momni ever charges for care) ----------
@@ -998,7 +998,7 @@ async function checkoutOrGrant(req, res, productKey) {
   const product = PRODUCTS[productKey];
   if (!stripe) { // dev mode
     product.fulfill(req.session.userId);
-    return res.json({ ok: true, note: `DEV MODE: ${product.name} granted without charge (set STRIPE_SECRET_KEY in production).` });
+    return res.json({ ok: true, note: `${product.name} is on us during the beta — no charge.` });
   }
   const sess = await stripe.checkout.sessions.create({
     mode: product.mode,
@@ -1753,7 +1753,8 @@ function seedDeluxeSarah() {
   const rv = db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE subject_id = ?').get(id);
   return { id, reviewers: guests.length, reviews: rv.n, rating: rv.n ? Number(rv.avg.toFixed(2)) : null };
 }
-app.post('/api/admin/seed-demo-sarah', requireAdmin, (req, res) => res.json({ ok: true, ...seedDeluxeSarah() }));
+// Local-dev only: the deluxe demo host never gets seeded into a real database.
+if (!IS_PROD) app.post('/api/admin/seed-demo-sarah', requireAdmin, (req, res) => res.json({ ok: true, ...seedDeluxeSarah() }));
 // BETA OUTBOX — every live email is held here until Karmel approves it (see mailer.approvalRequired)
 app.get('/api/admin/emails/:id/view', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT html, subject FROM emails WHERE id = ?').get(req.params.id);

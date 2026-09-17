@@ -23,7 +23,7 @@ Right now the app only runs on localhost. This puts it at app.momni.com.
 
 ## STEP 2 — Rescue momnifoundation.org from the hijacker (~15 min)
 The domain's DNS is controlled by an old Cloudflare account now serving gambling spam.
-1. **Dashlane:** find the **Cloudflare** entry (login support@momni.com, the old password was `Ilovecats123!@#` — try it; if changed, use Dashlane's current value).
+1. **Dashlane:** find the **Cloudflare** entry (login support@momni.com — the password is in Dashlane; the previous one was compromised and must be rotated).
 2. Sign in at **dash.cloudflare.com** → select momnifoundation.org → **DNS**.
 3. Either: delete the spam A/CNAME records and point to Netlify, OR (cleaner) at the registrar (GoDaddy — it IS registered there, likely a different GoDaddy account; call 480-505-8877 with the Foundation EIN letter from Drive if you can't find the login) change nameservers to:
    `dns1.p05.nsone.net` · `dns2.p05.nsone.net` · `dns3.p05.nsone.net` · `dns4.p05.nsone.net`

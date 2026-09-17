@@ -101,21 +101,21 @@ main{padding:6px 20px 24px}
       <span class="arrow">›</span>
     </a>
 
-    <h2 class="section-title">Your Momnis</h2>
-    <div class="rebook">
-      <div class="momni"><span class="avatar a1">S</span><div class="name">Sarah</div><a class="rebook-btn" href="search.html">Rebook</a></div>
-      <div class="momni"><span class="avatar a2">J</span><div class="name">Jess</div><a class="rebook-btn" href="search.html">Rebook</a></div>
-      <div class="momni"><span class="avatar a3">K</span><div class="name">Kristy</div><a class="rebook-btn" href="search.html">Rebook</a></div>
+    <div id="my-momnis" hidden>
+      <h2 class="section-title">Your Momnis</h2>
+      <div class="rebook" id="my-momnis-list"></div>
     </div>
 
-    <h2 class="section-title">Your Circle this week</h2>
-    <a class="circle-card" href="circles.html">
-      <div>
-        <h3>Orem Moms Circle</h3>
-        <p>Tuesday playgroup · 10am · Orem Park</p>
-      </div>
-      <span class="script">See you there!</span>
-    </a>
+    <div id="my-circle" hidden>
+      <h2 class="section-title">Your Circle this week</h2>
+      <a class="circle-card" id="my-circle-card" href="circles.html">
+        <div>
+          <h3 id="my-circle-name"></h3>
+          <p id="my-circle-meets"></p>
+        </div>
+        <span class="script" id="my-circle-script">See you there!</span>
+      </a>
+    </div>
   </main>
 
   <nav class="tabbar">
@@ -144,6 +144,40 @@ main{padding:6px 20px 24px}
   }).catch(function(){
     document.getElementById('live-count').textContent = 'Momnis near you right now';
   });
+
+  // Your Momnis — the people you've actually Linked with (confirmed or completed), newest first.
+  fetch('/api/links').then(function(r){ return r.json(); }).then(function(links){
+    var seen = {}, people = [];
+    (links || []).forEach(function(l){
+      if (l.status !== 'confirmed' && l.status !== 'completed') return;
+      var otherId = l.i_am_host ? l.guest_id : l.host_id;
+      if (seen[otherId]) return; seen[otherId] = true;
+      people.push({ id: otherId, name: l.i_am_host ? l.guest_name : l.host_name, isHost: !l.i_am_host });
+    });
+    if (!people.length) return;
+    var list = document.getElementById('my-momnis-list');
+    people.slice(0, 3).forEach(function(p, i){
+      var first = (p.name || '').split(' ')[0] || 'Momni';
+      var card = document.createElement('div'); card.className = 'momni';
+      var av = document.createElement('span'); av.className = 'avatar a' + (i % 3 + 1); av.textContent = first.charAt(0).toUpperCase();
+      var nm = document.createElement('div'); nm.className = 'name'; nm.textContent = first;
+      var btn = document.createElement('a'); btn.className = 'rebook-btn';
+      btn.href = p.isHost ? 'host.html?id=' + p.id : 'links.html';
+      btn.textContent = p.isHost ? 'Rebook' : 'Links';
+      card.appendChild(av); card.appendChild(nm); card.appendChild(btn); list.appendChild(card);
+    });
+    document.getElementById('my-momnis').hidden = false;
+  }).catch(function(){});
+
+  // Your Circle — the first Circle you belong to; nothing shown until you've joined one.
+  fetch('/api/circles').then(function(r){ return r.json(); }).then(function(circles){
+    var mine = (circles || []).filter(function(c){ return c.is_member || c.is_leader; })[0];
+    if (!mine) return;
+    document.getElementById('my-circle-name').textContent = mine.name;
+    document.getElementById('my-circle-meets').textContent = mine.meets || (mine.city ? mine.city : '');
+    document.getElementById('my-circle-card').href = 'circle-dashboard.html?id=' + mine.id;
+    document.getElementById('my-circle').hidden = false;
+  }).catch(function(){});
 })();
 </script>
 
