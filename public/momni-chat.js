@@ -38,20 +38,20 @@
   var root = document.createElement('div'); root.id = 'mc-root';
   if (document.querySelector('.tabbar')) root.className = 'mc-tabs';
   root.innerHTML =
-    '<div id="mc-panel" role="dialog" aria-label="Chat with ' + FOUNDER + '" aria-modal="false">' +
+    '<div id="mc-panel" role="dialog" aria-label="Chat with a Momni Volunteer" aria-modal="false">' +
       '<div id="mc-head"><img class="mc-av" src="' + ICON + '" alt=""><div><b>Hello!</b><span>Momni Volunteers ready to answer any questions!</span></div>' +
       '<button id="mc-x" type="button" aria-label="Close chat">×</button></div>' +
       '<div id="mc-body"><p class="mc-intro">Send me a note and I’ll text you back — usually within the hour.</p>' +
         '<form id="mc-form" novalidate>' +
         '<label for="mc-name">Your name</label><input id="mc-name" autocomplete="name" maxlength="80">' +
-        '<label for="mc-phone">Mobile number <span style="font-weight:400">(so I can text you back)</span></label><input id="mc-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(801) 555-1234" maxlength="24">' +
+        '<label for="mc-phone">Mobile number <span style="font-weight:400">(so we can text you back)</span></label><input id="mc-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(801) 555-1234" maxlength="24">' +
         '<label for="mc-msg">Your message</label><textarea id="mc-msg" maxlength="1000"></textarea>' +
         '<button id="mc-send" type="submit">Send to Momni Volunteer</button><div id="mc-err" role="alert"></div>' +
         '<p id="mc-fine">By sending, you’re okay with a text back at this number (standard rates apply). We never share it. Prefer to text directly? <a href="sms:' + FOUNDER_TEL + '">Open Messages</a>.</p>' +
         '</form></div>' +
       '<div id="mc-done"><div class="mc-big">💜</div><b>Sent!</b><p id="mc-done-p"></p></div>' +
     '</div>' +
-    '<button id="mc-btn" type="button" aria-haspopup="dialog" aria-expanded="false"><img class="mc-av" src="' + ICON + '" alt="">Chat with ' + FOUNDER + '</button>';
+    '<button id="mc-btn" type="button" aria-haspopup="dialog" aria-expanded="false"><img class="mc-av" src="' + ICON + '" alt="">Chat with a Momni Volunteer</button>';
   document.body.appendChild(root);
   var btn = root.querySelector('#mc-btn'), panel = root.querySelector('#mc-panel'), form = root.querySelector('#mc-form'),
       err = root.querySelector('#mc-err'), send = root.querySelector('#mc-send'), done = root.querySelector('#mc-done'), body = root.querySelector('#mc-body');
@@ -65,7 +65,7 @@
     e.preventDefault(); err.textContent = '';
     var digits = phoneEl.value.replace(/\D/g, '');
     if (!msgEl.value.trim()) { err.textContent = 'Type a message first.'; msgEl.focus(); return; }
-    if (digits.length < 10) { err.textContent = 'Add a mobile number so ' + FOUNDER + ' can text you back.'; phoneEl.focus(); return; }
+    if (digits.length < 10) { err.textContent = 'Add a mobile number so we can text you back.'; phoneEl.focus(); return; }
     send.disabled = true; send.textContent = 'Sending…';
     try { localStorage.setItem('mc-name', nameEl.value); localStorage.setItem('mc-phone', phoneEl.value); } catch(e){}
     fetch(base + '/api/support', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -74,7 +74,7 @@
     .then(function(x){
       if (!x.ok) throw new Error((x.j && x.j.error) || 'Could not send — try again.');
       body.style.display = 'none'; done.style.display = 'block';
-      root.querySelector('#mc-done-p').textContent = FOUNDER + ' will text you back at ' + phoneEl.value.trim() + '.';
+      root.querySelector('#mc-done-p').textContent = 'A Momni Volunteer will text you back at ' + phoneEl.value.trim() + '.';
       msgEl.value = '';
     })
     .catch(function(e){ err.textContent = e.message || 'Could not send — try again.'; })
