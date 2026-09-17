@@ -53,8 +53,20 @@ a{text-decoration:none;color:inherit}
 .meet{background:var(--teal-soft);border-radius:16px;padding:16px 18px}
 .meet .script{font-size:22px;color:var(--teal-deep);display:block;margin-bottom:4px}
 .meet p{font-size:14px}
-.meet-opts{display:flex;gap:8px;margin-top:12px}
-.meet-opts a{flex:1;text-align:center;border:1.5px solid var(--teal);color:var(--teal-deep);border-radius:100px;padding:8px;font-size:13px;font-weight:600;background:#fff}
+.meet-opts{display:grid;gap:8px;margin-top:14px}
+.meet-opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1.5px solid #CDEBE3;border-radius:14px;padding:11px 14px;font-family:inherit;cursor:pointer;color:var(--ink);transition:border-color .15s,background .15s}
+.meet-opt:hover{border-color:var(--teal)}
+.meet-opt:focus-visible{outline:3px solid #92E2C1;outline-offset:1px}
+.meet-opt .ico{width:38px;height:38px;border-radius:11px;background:var(--teal-soft);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.meet-opt .txt{flex:1;min-width:0}
+.meet-opt .lbl{display:block;font-size:14.5px;font-weight:700;color:var(--teal-deep);line-height:1.25}
+.meet-opt .sub{display:block;font-size:12.5px;color:#6B6477;line-height:1.35;margin-top:2px}
+.meet-opt .chev{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--teal);font-weight:700;font-size:16px;flex-shrink:0;transition:background .15s,color .15s}
+.meet-opt[aria-pressed="true"]{border-color:var(--teal);background:var(--teal-soft)}
+.meet-opt[aria-pressed="true"] .ico{background:#fff}
+.meet-opt[aria-pressed="true"] .chev{background:var(--teal);color:#fff;font-size:13px}
+.meet-opt.book .ico{background:#F5F0FE}
+.meet-opt.book .lbl{color:var(--purple-deep,#4A3880)}
 
 /* Clickwrap */
 .clickwrap{background:var(--lavender);border:2px solid var(--purple);border-radius:16px;padding:16px 18px;display:flex;gap:12px;align-items:flex-start}
@@ -132,12 +144,22 @@ a{text-decoration:none;color:inherit}
         <p>Before your first Link, we encourage a quick video hello or a park
         meetup with the kids. It's how you'd get to know any new friend — and
         it's how the Circle works.</p>
-        <div class="meet-opts">
-          <a href="#" data-suggest="Let’s do a quick video hello before our first Link!">Suggest a video hello</a>
-          <a href="#" data-suggest="Want to meet at the park first so the kids can play?">Suggest a park meetup</a>
-          <a href="#" data-suggest="Could we arrange a quick visit to your home before our first Link?">Request to visit the home</a>
-          <a href="#" data-suggest="I have a quick question before we book: ">Text a question</a>
-          <a href="#" data-suggest="We’re ready to book! (Recurring / we already know each other / your reviews say it all 💜)">Ready to Book</a>
+        <div class="meet-opts" role="group" aria-label="How would you like to meet first?">
+          <button type="button" class="meet-opt" aria-pressed="false" data-suggest="Let’s do a quick video hello before our first Link!">
+            <span class="ico" aria-hidden="true">📹</span><span class="txt"><span class="lbl">Video hello</span><span class="sub">Ten minutes on FaceTime — faces, kids, questions</span></span><span class="chev" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="meet-opt" aria-pressed="false" data-suggest="Want to meet at the park first so the kids can play?">
+            <span class="ico" aria-hidden="true">🌳</span><span class="txt"><span class="lbl">Park meetup</span><span class="sub">Neutral ground, kids play, you talk</span></span><span class="chev" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="meet-opt" aria-pressed="false" data-suggest="Could we arrange a quick visit to your home before our first Link?">
+            <span class="ico" aria-hidden="true">🏡</span><span class="txt"><span class="lbl">Visit the home</span><span class="sub">See the space your kids will be in</span></span><span class="chev" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="meet-opt" aria-pressed="false" data-suggest="I have a quick question before we book: ">
+            <span class="ico" aria-hidden="true">💬</span><span class="txt"><span class="lbl">Ask a question first</span><span class="sub">Not ready to pick — just start a conversation</span></span><span class="chev" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="meet-opt book" aria-pressed="false" data-suggest="We’re ready to book! (Recurring / we already know each other / your reviews say it all 💜)">
+            <span class="ico" aria-hidden="true">💜</span><span class="txt"><span class="lbl">We’re ready to book</span><span class="sub">Recurring, already friends, or the reviews say it all</span></span><span class="chev" aria-hidden="true">›</span>
+          </button>
         </div>
       </div>
     </div>
@@ -388,8 +410,19 @@ function toggleRecurring(){
 })();
 </script>
 <script>
-document.querySelectorAll('[data-suggest]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();
-var d=document.querySelector('textarea, input[name=details], #details');if(d){d.value=(d.value?d.value+' ':'')+a.dataset.suggest;d.focus();}});});
+// Meet-first options: one at a time. Picking another swaps the suggested line instead of stacking them.
+(function(){
+  var opts = document.querySelectorAll('.meet-opt[data-suggest]'), last = '';
+  opts.forEach(function(b){ b.addEventListener('click', function(e){
+    e.preventDefault();
+    var d = document.querySelector('textarea, input[name=details], #details'); if (!d) return;
+    var v = d.value;
+    if (last && v.indexOf(last) !== -1) v = v.replace(last, '').replace(/^\s+|\s+$/g, '');
+    d.value = (v ? v + ' ' : '') + b.dataset.suggest; last = b.dataset.suggest;
+    opts.forEach(function(o){ o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); o.querySelector('.chev').textContent = o === b ? '✓' : '›'; });
+    d.focus();
+  }); });
+})();
 </script>
 
 <!-- momni-beta-feedback -->
