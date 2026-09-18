@@ -83,6 +83,7 @@ a{text-decoration:none;color:inherit}
 .card .stars{color:var(--purple);font-weight:600}
 .pills{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px}
 .pills span{background:var(--lavender);color:var(--purple-deep);border-radius:100px;font-size:12px;font-weight:600;padding:4px 11px}
+.rate-only{font-family:'Montserrat',sans-serif;font-weight:800;font-size:15px;color:var(--teal-deep);margin-top:10px}
 .pills-label{font-size:12px;color:var(--muted);margin-top:10px}
 .link-btn{display:block;text-align:center;background:var(--teal);color:#fff;border-radius:100px;padding:11px;font-size:14px;font-weight:600}
 .link-btn:hover{background:var(--teal-deep)}
@@ -287,6 +288,7 @@ var DAY_ORDER = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 var BLOCK_LABELS = {am:'Mornings', pm:'Afternoons', eve:'Evenings', overnight:'Overnights'};
 var BLOCK_ORDER = ['am','pm','eve','overnight'];
 
+function rateOnly(note){ var m = /\$\s?\d+(?:\.\d{2})?(?:\s?(?:\/|per)\s?[a-z]+)?/i.exec(note || ''); return m ? m[0].replace(/\s+/g,'') : ''; }
 function availSummary(avail){
   if (!avail) return '';
   var byBlock = {};
@@ -387,7 +389,6 @@ function loadHosts(){
         if (h.rating) meta.push('<span class="stars">'+h.rating+'&#9733;</span> &middot; '+h.review_count+' review'+(h.review_count===1?'':'s')+' from Momnis');
         meta.push(esc(h.city));
         if (h.distance_mi != null) meta.push(esc(h.distance_mi)+' mi away');
-        var avail = availSummary(h.availability);
         var ctChips = (h.care_types || []).map(function(ct){
           return '<span>'+esc(CT_LABELS[ct] || ct)+'</span>';
         }).join('');
@@ -408,10 +409,9 @@ function loadHosts(){
           '<div class="row"><div class="avatar">'+initials+'</div><div>'+
           '<h3>'+esc(h.name)+'</h3><div class="meta">'+meta.join(' &middot; ')+'</div></div></div>'+
           (badges ? '<div class="pills" style="margin-top:8px">'+badges+'</div>' : '')+
-          (avail ? '<div class="meta" style="margin-top:8px">'+esc(avail)+'</div>' : '')+
           (ctChips ? '<div class="pills">'+ctChips+'</div>' : '')+
-          (shared ? '<div class="pills-label">What they\'ve chosen to share</div><div class="pills">'+shared+'</div>' : '')+
-          (h.hourly_note ? '<div class="pills-label">'+esc(h.hourly_note)+'</div>' : '')+
+          (shared ? '<div class="pills" style="margin-top:8px">'+shared+'</div>' : '')+
+          (rateOnly(h.hourly_note) ? '<div class="rate-only">'+esc(rateOnly(h.hourly_note))+'</div>' : '')+
           liveLink +
           '<a class="link-btn" style="margin-top:10px" href="host.html?id='+h.id+'">View profile</a>'+
           '</div>';
