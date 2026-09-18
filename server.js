@@ -669,11 +669,13 @@ app.get('/api/hosts', (req, res) => {
     review_count: ratings[r.id] ? ratings[r.id].n : 0 })));
 });
 
+// A host's profile is public; a non-host member's (a guest who left a review, say) is visible to signed-in Momnis only.
 app.get('/api/hosts/:id', (req, res) => {
-  const u = db.prepare('SELECT * FROM users WHERE id = ? AND is_host = 1').get(req.params.id);
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!u) return res.status(404).json({ error: 'Not found' });
+  if (!u.is_host && !req.session.userId) return res.status(401).json({ error: 'Please sign in to see other Momnis’ profiles.' });
   if (req.session.userId && isBlocked(req.session.userId, u.id)) return res.status(404).json({ error: 'Not found' });
-  const reviews = db.prepare(`SELECT r.rating, r.body, r.created_at, a.name author, a.photo_url author_photo, a.city author_city
+  const reviews = db.prepare(`SELECT r.rating, r.body, r.created_at, a.id author_id, a.name author, a.photo_url author_photo, a.city author_city
     FROM reviews r JOIN users a ON a.id = r.author_id WHERE r.subject_id = ? ORDER BY r.created_at DESC`).all(u.id);
   res.json({ ...userPublic(u), reviews });
 });
