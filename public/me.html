@@ -108,6 +108,16 @@ main{padding:6px 20px 24px}
       <span class="badge" id="me-city"></span>
       <div id="me-badges" style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:10px"></div>
       <p class="fine" id="completeness"></p>
+      <div class="field" style="margin-top:14px">
+        <label>Family photo — the big one at the top of your profile</label>
+        <div id="family-photo-wrap" style="display:none;margin-bottom:8px"><img id="family-photo-img" alt="" style="width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:14px;display:block"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button type="button" id="family-photo-btn" style="background:var(--teal-soft);color:var(--teal-deep);border:none;border-radius:100px;padding:8px 16px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">👨‍👩‍👧 Add / change family photo</button>
+          <button type="button" id="family-photo-remove" style="display:none;background:none;border:1.5px solid var(--line);border-radius:100px;padding:7px 14px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted)">Remove</button>
+          <input type="file" id="family-photo-file" accept="image/*" style="display:none">
+        </div>
+        <p class="fine" style="margin-top:6px">Wide works best. Your profile photo sits on top of it, bottom-left.</p>
+      </div>
     </div>
 
     <div class="card">
@@ -461,6 +471,7 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
     littles = Array.isArray(me.littles_edit) ? me.littles_edit : []; renderLittles();
     renderPay();
     showHomePhoto(me.home_photo);
+    showFamilyPhoto(me.family_photo);
     document.getElementById('hood-input').value = me.neighborhood || '';
     document.getElementById('hourly-note').value = me.hourly_note || '';
     document.getElementById('home-highlights').value = me.home_highlights || '';
@@ -671,6 +682,37 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
       body: JSON.stringify({ body: body.trim(), page: location.pathname }) })
       .then(function(r){ return r.json(); })
       .then(function(d){ alert(d.note || d.error || 'Something went wrong — try again.'); });
+  });
+
+  // ---- Family (cover) photo ----
+  function showFamilyPhoto(url){
+    var w = document.getElementById('family-photo-wrap');
+    if (url) { document.getElementById('family-photo-img').src = url; w.style.display = 'block'; document.getElementById('family-photo-remove').style.display = 'inline-block'; }
+    else { w.style.display = 'none'; document.getElementById('family-photo-remove').style.display = 'none'; }
+  }
+  document.getElementById('family-photo-btn').addEventListener('click', function(){ document.getElementById('family-photo-file').click(); });
+  document.getElementById('family-photo-remove').addEventListener('click', function(){
+    fetch('/api/me/family-photo', { method: 'DELETE' }).then(function(){ me.family_photo = null; showFamilyPhoto(null); });
+  });
+  document.getElementById('family-photo-file').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    var btn = document.getElementById('family-photo-btn'); btn.textContent = 'Uploading…';
+    var rd = new FileReader();
+    rd.onload = function(){
+      var im = new Image();
+      im.onload = function(){
+        var W = 1400, H = 875, c = document.createElement('canvas'); c.width = W; c.height = H; var ctx = c.getContext('2d');
+        var r = Math.max(W / im.width, H / im.height), w = im.width * r, h = im.height * r;
+        ctx.drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
+        fetch('/api/me/photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data_base64: c.toDataURL('image/jpeg', 0.85), target: 'family' }) })
+          .then(function(r){ return r.json(); }).then(function(d){
+            btn.textContent = '👨‍👩‍👧 Add / change family photo';
+            if (d && d.url) { me.family_photo = d.url; showFamilyPhoto(d.url); } else alert((d && d.error) || 'That photo didn’t upload — try another.');
+          }).catch(function(){ btn.textContent = '👨‍👩‍👧 Add / change family photo'; });
+      };
+      im.src = rd.result;
+    };
+    rd.readAsDataURL(f); e.target.value = '';
   });
 
   // ---- Home photo ----

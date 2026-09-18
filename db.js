@@ -49,6 +49,7 @@ try { db.exec('ALTER TABLE users ADD COLUMN intro_video TEXT'); } catch (e) { /*
 try { db.exec("ALTER TABLE users ADD COLUMN littles TEXT DEFAULT '[]'"); } catch (e) { /* exists */ }        // [{name,sex,birthdate,photo_url}] — birthdate never leaves the server
 try { db.exec("ALTER TABLE users ADD COLUMN payment_methods TEXT DEFAULT '[]'"); } catch (e) { /* exists */ }
 try { db.exec('ALTER TABLE users ADD COLUMN home_photo TEXT'); } catch (e) { /* exists */ }   // one photo for the "Our home" section
+try { db.exec('ALTER TABLE users ADD COLUMN family_photo TEXT'); } catch (e) { /* exists */ } // the wide family photo at the top of the profile
       // "Meet the Momni" hello video (/uploads/…)
 try { db.exec('ALTER TABLE users ADD COLUMN is_example INTEGER DEFAULT 0'); } catch (e) { /* exists */ } // the sample host profile + its reviewers
 // migration: OAuth client_type + nullable secret_hash (public clients hold no secret). The

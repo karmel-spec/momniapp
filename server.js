@@ -169,7 +169,7 @@ const userPublic = (u) => ({
   shared_items: JSON.parse(u.shared_items || '[]'), legacy_1_0: !!u.legacy_1_0,
   live_link: u.live_link || null, live_link_label: u.live_link_label || null,
   photo_url: u.photo_url || null, gallery: JSON.parse(u.gallery || '[]'),
-  intro_video: u.intro_video || null, is_example: !!u.is_example, littles: publicLittles(u), home_photo: u.home_photo || null,
+  intro_video: u.intro_video || null, is_example: !!u.is_example, littles: publicLittles(u), home_photo: u.home_photo || null, family_photo: u.family_photo || null,
   payment_methods: (() => { try { return JSON.parse(u.payment_methods || '[]').filter(m => PAYMENT_METHODS.includes(m)); } catch (e) { return []; } })(),
   boosted: !!u.profile_boost, badges: badgesFor(u)
 });
@@ -1238,6 +1238,12 @@ app.post('/api/me/photo', requireAuth, photoLimiter, uploadJson, (req, res) => {
   catch (e) { return res.status(500).json({ error: 'Could not save that photo — try again.' }); }
   const url = '/uploads/' + filename;
   if (target === 'little') return res.json({ ok: true, url });   // attached to a little via PUT /api/me { littles }
+  if (target === 'family') {
+    const oldFam = (db.prepare('SELECT family_photo FROM users WHERE id = ?').get(req.session.userId) || {}).family_photo;
+    db.prepare('UPDATE users SET family_photo = ? WHERE id = ?').run(url, req.session.userId);
+    if (oldFam && oldFam.indexOf('/uploads/') === 0) { try { fsp.unlinkSync(path.join(UPLOADS_DIR, path.basename(oldFam))); } catch (e) {} }
+    return res.json({ ok: true, url });
+  }
   if (target === 'home') {
     const oldHome = (db.prepare('SELECT home_photo FROM users WHERE id = ?').get(req.session.userId) || {}).home_photo;
     db.prepare('UPDATE users SET home_photo = ? WHERE id = ?').run(url, req.session.userId);
@@ -1281,6 +1287,12 @@ app.delete('/api/me/video', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete('/api/me/family-photo', requireAuth, (req, res) => {
+  const oldFam = (db.prepare('SELECT family_photo FROM users WHERE id = ?').get(req.session.userId) || {}).family_photo;
+  db.prepare('UPDATE users SET family_photo = NULL WHERE id = ?').run(req.session.userId);
+  if (oldFam && oldFam.indexOf('/uploads/') === 0) { try { fsp.unlinkSync(path.join(UPLOADS_DIR, path.basename(oldFam))); } catch (e) {} }
+  res.json({ ok: true });
+});
 app.delete('/api/me/home-photo', requireAuth, (req, res) => {
   const oldHome = (db.prepare('SELECT home_photo FROM users WHERE id = ?').get(req.session.userId) || {}).home_photo;
   db.prepare('UPDATE users SET home_photo = NULL WHERE id = ?').run(req.session.userId);
@@ -1927,7 +1939,7 @@ function ensureExampleHost() {
     ex('family-3.jpg', '/assets/photos/girl-red-balloon-beach.jpg'), ex('home-3.jpg', '/assets/photos/boy-flexing-red-shirt.jpg'),
   ];
   db.prepare(`UPDATE users SET bio=?, kids_note=?, neighborhood=?, home_highlights=?, care_types=?, available_now=0, hourly_note=?, availability=?,
-      shared_items=?, live_link=?, live_link_label=?, gallery=?, intro_video=?, littles=?, payment_methods=?, home_photo=?, momni_plus=1, circle_up=1, profile_boost=1, gives_toggle=1, legacy_1_0=1,
+      shared_items=?, live_link=?, live_link_label=?, gallery=?, intro_video=?, littles=?, payment_methods=?, home_photo=?, family_photo=?, momni_plus=1, circle_up=1, profile_boost=1, gives_toggle=1, legacy_1_0=1,
       signup_ack_text=?, signup_ack_at=COALESCE(signup_ack_at, datetime('now')), age_affirmed_at=COALESCE(age_affirmed_at, datetime('now')), terms_version=?
     WHERE id = ?`).run(
     "Mama of three, former kindergarten aide, and the house on the street where every kid ends up by 4pm. We keep it simple: outside as much as possible, real snacks, quiet time that’s actually quiet, and a photo text so you never have to wonder. I host because a Circle is how I survived my first baby — I’d like to be that for someone else.",
@@ -1948,7 +1960,7 @@ function ensureExampleHost() {
       { name: 'Beck',   sex: 'boy',  birthdate: '2022-03-02', photo_url: ex('little-2.jpg', null) },
       { name: 'Millie', sex: 'girl', birthdate: '2025-07-10', photo_url: ex('little-3.jpg', null) },
     ]),
-    JSON.stringify(['venmo', 'zelle', 'cash']), ex('home-hero.jpg', '/assets/photos/baking-with-kids.jpg'),
+    JSON.stringify(['venmo', 'zelle', 'cash']), ex('home-hero.jpg', '/assets/photos/baking-with-kids.jpg'), ex('family-hero.jpg', '/assets/photos/mama-lifting-toddler-sky.jpg'),
     ACKNOWLEDGMENT_TEXT, TERMS_VERSION, host.id);
 
   const reviewers = [
