@@ -51,6 +51,7 @@ try { db.exec("ALTER TABLE users ADD COLUMN payment_methods TEXT DEFAULT '[]'");
 try { db.exec('ALTER TABLE users ADD COLUMN home_photo TEXT'); } catch (e) { /* exists */ }   // one photo for the "Our home" section
 try { db.exec('ALTER TABLE users ADD COLUMN family_photo TEXT'); } catch (e) { /* exists */ } // the wide family photo at the top of the profile
 try { db.exec('ALTER TABLE users ADD COLUMN volunteer_at TEXT'); } catch (e) { /* exists */ }    // HQ-verified: Momni Volunteer badge
+try { db.exec('ALTER TABLE users ADD COLUMN max_kids INTEGER'); } catch (e) { /* exists */ }        // littles at once, including her own
 try { db.exec('ALTER TABLE users ADD COLUMN contributor_at TEXT'); } catch (e) { /* exists */ }  // HQ-verified: Blog Contributor badge
 db.exec(`CREATE TABLE IF NOT EXISTS share_events (user_id INTEGER NOT NULL REFERENCES users(id), platform TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (user_id, platform))`); // Momni Influencer badge
       // "Meet the Momni" hello video (/uploads/…)

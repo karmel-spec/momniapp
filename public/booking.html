@@ -120,6 +120,9 @@ a{text-decoration:none;color:inherit}
         <div class="field"><label for="start-time">Drop-off</label><input type="time" id="start-time"></div>
         <div class="field"><label for="end-time">Pick-up</label><input type="time" id="end-time"></div>
       </div>
+      <div class="field"><label for="kids-count">How many littles are you bringing?</label>
+        <select id="kids-count"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select>
+      </div>
       <div class="field" id="recurring-days">
         <label>Which days each week?</label>
         <div class="weekdays">
@@ -298,7 +301,8 @@ function toggleRecurring(){
       start_date: document.getElementById('start-date').value,
       end_date: document.getElementById('end-date').value,
       start_time: document.getElementById('start-time').value,
-      end_time: document.getElementById('end-time').value
+      end_time: document.getElementById('end-time').value,
+      kids: Number(document.getElementById('kids-count').value) || 1
     };
     var days = [];
     document.querySelectorAll('#recurring-days input:checked').forEach(function(c){ days.push(c.value); });

@@ -105,6 +105,22 @@ a.sh-item:hover{border-color:#D9C0A3}
 .sh-ext{color:#8A6B3F;font-weight:700;flex-shrink:0}
 .sh-disclaimer{margin-top:12px;font-size:12.5px;line-height:1.55;color:#5B4A2E;background:#F6ECDB;border-left:4px solid #B0556A;border-radius:0 12px 12px 0;padding:10px 12px}
 .sh-disclaimer b{display:block;color:#7A2E44;font-size:12.5px;margin-bottom:3px}
+.cap{display:flex;align-items:center;gap:12px;background:var(--lavender);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.cap-dots,.cd-dots{display:inline-flex;gap:4px;flex-shrink:0}
+.cap-dots i,.cd-dots i{display:block;width:12px;height:12px;border-radius:50%}
+.cap-dots i.own{background:var(--purple)}.cap-dots i.open,.cd-dots i.open{background:#fff;border:2px solid var(--teal);box-sizing:border-box}
+.cd-dots i{width:10px;height:10px}.cd-dots i.booked{background:var(--teal)}
+.cap-txt{font-size:13.5px;line-height:1.4}.cap-txt b{color:var(--purple-deep)}
+.cal-strip{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 0 8px;margin:0 -20px;padding-left:20px;padding-right:20px;scrollbar-width:none}
+.cal-strip::-webkit-scrollbar{display:none}
+.cd{flex:0 0 118px;scroll-snap-align:start;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:10px 10px 9px;display:flex;flex-direction:column;gap:6px}
+.cd-off{background:#FAF9FC;opacity:.75}.cd-full{border-color:#E8C9D1;background:#FDF6F7}
+.cd-day{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.cd-date{font-family:'Montserrat',sans-serif;font-weight:800;font-size:15px;margin-top:-4px}
+.cd-blocks{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.cb{font-size:10.5px;font-weight:700;text-align:center;border-radius:6px;padding:3px 0}
+.cb.ok{background:var(--teal-soft);color:var(--teal-deep)}.cb.no{background:#F3F1F7;color:#B9B3C9}.cb.busy{background:#EEE;color:#999;text-decoration:line-through}
+.cd-line{font-size:11.5px;color:var(--muted)}.cd-full .cd-line{color:#B0556A;font-weight:700}
 .example-banner{background:var(--lavender);border:1.5px solid #DDD3F3;border-radius:14px;padding:12px 14px;font-size:13.5px;line-height:1.5;color:var(--purple-deep);margin:0 0 14px}
 .example-banner b{font-weight:800}
 .intro-video{width:100%;aspect-ratio:9/12;max-height:420px;background:#111;border-radius:16px;overflow:hidden;display:block;object-fit:cover}
@@ -195,7 +211,7 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
     if (h.home_highlights || h.home_photo) html += sec('Our home',
       (h.home_photo ? '<img class="home-photo" src="' + esc(h.home_photo) + '" alt="' + esc(first) + '’s home" loading="lazy">' : '') +
       (h.home_highlights ? '<p>' + esc(h.home_highlights) + '</p>' : ''));
-    if ((h.gallery||[]).length) html += sec('A peek at our life',
+    if ((h.gallery||[]).length) html += sec('Scroll for a peek at our life',
       '<div class="gallery">' + h.gallery.map(function(src){ return '<img src="'+esc(src)+'" alt="" loading="lazy">'; }).join('') + '</div>');
 
     var av = h.availability || {};
@@ -203,6 +219,11 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
       return '<div class="row"><span class="d">'+d+'</span><span>'+(av[d].map(function(b){ return BLK[b]||b; }).join(', '))+'</span></div>';
     });
     if (h.is_host && avRows.length) html += sec('Available times', '<div class="avail">'+avRows.join('')+'</div>');
+    if (h.is_host) html += '<div class="sec" id="cal-sec"><h2>The next two weeks</h2>' +
+      (h.max_kids ? '<div class="cap"><span class="cap-dots">' + Array.apply(null, Array(h.max_kids)).map(function(_, i){ return '<i class="' + (i < (h.own_kids||0) ? 'own' : 'open') + '"></i>'; }).join('') + '</span>' +
+        '<span class="cap-txt"><b>Up to ' + h.max_kids + ' littles at once</b> — ' + (h.own_kids||0) + ' of her own, so <b>' + Math.max(0, h.max_kids - (h.own_kids||0)) + ' open spot' + (Math.max(0, h.max_kids - (h.own_kids||0)) === 1 ? '' : 's') + '</b> on a normal day.</span></div>' : '') +
+      '<div id="cal-strip" class="cal-strip"><p class="fine">Loading her calendar…</p></div>' +
+      '<p class="fine" id="cal-note"></p></div>';
 
     // "Shared by <first>" — host-provided documents and links. Visually set apart, with the not-verified
     // disclaimer up front: Momni never reviews, confirms, or vouches for any of it.
@@ -245,6 +266,7 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
       '<p class="fine" style="margin-top:8px">Every report reaches a real person at Momni.</p></div>';
 
     document.getElementById('main').innerHTML = html;
+    if (h.is_host) loadCalendar(h);
     if (!h.is_host) {
       document.getElementById('cta').style.display = 'none';   // members you can't book — no Request-a-Link bar
     } else if (h.is_example) {
@@ -276,6 +298,26 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
     });
   }
 
+  var BLK_SHORT = { am: 'Morn', pm: 'Aft', eve: 'Eve', overnight: 'Night' };
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function loadCalendar(h){
+    fetch('/api/hosts/' + encodeURIComponent(h.id) + '/calendar?days=14').then(function(r){ return r.ok ? r.json() : null; }).then(function(c){
+      var strip = document.getElementById('cal-strip'); if (!c) { strip.innerHTML = ''; return; }
+      strip.innerHTML = c.days.map(function(d){
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d.date);
+        var anyOpen = d.blocks.some(function(b){ return b.usual && !b.busy; });
+        var spots = c.spots, used = d.booked_kids, full = spots != null && used >= spots;
+        var dots = spots != null ? '<span class="cd-dots">' + Array.apply(null, Array(spots)).map(function(_, i){ return '<i class="' + (i < used ? 'booked' : 'open') + '"></i>'; }).join('') + '</span>' : '';
+        var line = spots == null ? (used ? used + ' booked' : '') : (full ? 'Full' : (used ? used + ' of ' + spots + ' spots booked' : 'All ' + spots + ' spots open'));
+        return '<div class="cd' + (anyOpen ? '' : ' cd-off') + (full ? ' cd-full' : '') + '">' +
+          '<div class="cd-day">' + d.dow + '</div><div class="cd-date">' + MON[+m[2]-1] + ' ' + (+m[3]) + '</div>' +
+          '<div class="cd-blocks">' + d.blocks.map(function(b){ var cls = !b.usual ? 'no' : b.busy ? 'busy' : 'ok'; return '<span class="cb ' + cls + '" title="' + (b.busy ? 'Busy on her calendar' : b.usual ? 'Usually open' : 'Not usually open') + '">' + BLK_SHORT[b.key] + '</span>'; }).join('') + '</div>' +
+          dots + (line ? '<div class="cd-line">' + line + '</div>' : '') + '</div>';
+      }).join('');
+      document.getElementById('cal-note').innerHTML = (c.calendar_connected ? '<b>Live:</b> synced with her calendar — greyed blocks are busy. ' : 'Usual hours only — ' + esc(first) + ' hasn’t connected a calendar yet. ') +
+        (c.spots != null ? 'Dots are her open spots for other littles; filled ones are already booked. ' : '') + 'Send a Link to ask about a specific time.';
+    }).catch(function(){ document.getElementById('cal-strip').innerHTML = ''; });
+  }
   function sec(title, inner){ return '<div class="sec"><h2>'+esc(title)+'</h2>'+inner+'</div>'; }
 })();
 </script>

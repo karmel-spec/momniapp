@@ -197,6 +197,11 @@ main{padding:6px 20px 24px}
         <input id="hourly-note" type="text" placeholder="$12/hr — paid directly to me">
       </div>
       <div class="field">
+        <label for="max-kids">Littles at once — including your own</label>
+        <select id="max-kids"><option value="">Not set</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="12">12</option></select>
+        <p class="fine" style="margin-top:6px">Your profile shows how many open spots that leaves after your own littles, and your two-week calendar shows how many are booked each day.</p>
+      </div>
+      <div class="field">
         <label>How you accept payment</label>
         <p class="fine" style="margin:-2px 0 8px">Paid directly to you, every penny — pick everything you take.</p>
         <div id="pay-methods" class="paypick"></div>
@@ -484,6 +489,7 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
     showFamilyPhoto(me.family_photo);
     document.getElementById('hood-input').value = me.neighborhood || '';
     document.getElementById('hourly-note').value = me.hourly_note || '';
+    document.getElementById('max-kids').value = me.max_kids || '';
     document.getElementById('home-highlights').value = me.home_highlights || '';
     renderCareTypes();
     renderSharedItems();
@@ -792,6 +798,8 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
     };
     rd.readAsDataURL(f); e.target.value = '';
   });
+
+  document.getElementById('max-kids').addEventListener('change', function(){ me.max_kids = this.value ? Number(this.value) : null; put({ max_kids: me.max_kids }); });
 
   // ---- Payment methods (host) ----
   function renderPay(){

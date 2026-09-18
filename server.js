@@ -170,6 +170,7 @@ const userPublic = (u) => ({
   live_link: u.live_link || null, live_link_label: u.live_link_label || null,
   photo_url: u.photo_url || null, gallery: JSON.parse(u.gallery || '[]'),
   intro_video: u.intro_video || null, is_example: !!u.is_example, littles: publicLittles(u), home_photo: u.home_photo || null, family_photo: u.family_photo || null,
+  max_kids: u.max_kids || null, own_kids: parseLittles(u).length,
   payment_methods: (() => { try { return JSON.parse(u.payment_methods || '[]').filter(m => PAYMENT_METHODS.includes(m)); } catch (e) { return []; } })(),
   boosted: !!u.profile_boost, badges: badgesFor(u)
 });
@@ -499,6 +500,54 @@ app.get('/api/hosts/:id/freebusy', requireAuth, async (req, res) => {
   res.json({ connected: busy !== null, busy: busy || [] });
 });
 
+// ---------- host calendar: the next 14 days — usual blocks, Google busy blocks, and how many littles are booked ----------
+// Capacity = max_kids (including her own) minus her own littles. Booked = kids on scheduled visits that day.
+const BLOCK_HOURS = { am: [6, 12], pm: [12, 17], eve: [17, 22], overnight: [22, 30] };   // overnight runs past midnight
+function ymdInTz(d, tz) { return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d); }
+function hourInTz(d, tz) { return Number(new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hour12: false }).format(d).replace(/\D/g, '')) % 24; }
+app.get('/api/hosts/:id/calendar', requireAuth, async (req, res) => {
+  const u = db.prepare('SELECT * FROM users WHERE id = ? AND is_host = 1').get(req.params.id);
+  if (!u) return res.status(404).json({ error: 'Not found' });
+  if (isBlocked(req.session.userId, u.id)) return res.status(404).json({ error: 'Not found' });
+  const tz = calendar.TZ, days = Math.min(Math.max(parseInt(req.query.days, 10) || 14, 1), 28);
+  let avail = {}; try { avail = JSON.parse(u.availability || '{}'); } catch (e) {}
+  const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = ymdInTz(new Date(), tz);
+  const dates = []; for (let i = 0; i < days; i++) { const d = new Date(Date.parse(today + 'T12:00:00Z') + i * 86400000); dates.push(d.toISOString().slice(0, 10)); }
+  // Google busy → { 'YYYY-MM-DD': Set(block) }
+  const busyMap = {};
+  const connected = calendar.isConnected(u.id);
+  if (connected) {
+    const busy = await calendar.getBusy(u.id, dates[0] + 'T00:00:00Z', dates[dates.length - 1] + 'T23:59:59Z');
+    (busy || []).forEach(b => {
+      const s0 = Date.parse(b.start), e0 = Date.parse(b.end); if (!(s0 < e0)) return;
+      for (let t = s0; t < e0; t += 3600000) {
+        const d = new Date(t), ymd = ymdInTz(d, tz), h = hourInTz(d, tz);
+        const blk = h >= 22 || h < 6 ? 'overnight' : h < 12 ? 'am' : h < 17 ? 'pm' : 'eve';
+        (busyMap[ymd] = busyMap[ymd] || new Set()).add(blk);
+      }
+    });
+  }
+  // Booked littles per day from scheduled visits on this host's Links (multi-day visits count every day)
+  const visits = db.prepare(`SELECT v.date, v.end_date, l.details FROM visits v JOIN links l ON l.id = v.link_id
+    WHERE l.host_id = ? AND v.status IN ('scheduled','checked_in') AND v.date <= ? AND COALESCE(v.end_date, v.date) >= ?`).all(u.id, dates[dates.length - 1], dates[0]);
+  const booked = {};
+  visits.forEach(v => {
+    let kids = 1; try { kids = Math.max(1, parseInt(JSON.parse(v.details || '{}').kids, 10) || 1); } catch (e) {}
+    const end = v.end_date || v.date;
+    dates.forEach(d => { if (d >= v.date && d <= end) booked[d] = (booked[d] || 0) + kids; });
+  });
+  const own = parseLittles(u).length, max = u.max_kids || null;
+  res.json({
+    tz, calendar_connected: connected, own_kids: own, max_kids: max, spots: max ? Math.max(0, max - own) : null,
+    days: dates.map(d => {
+      const dow = DOW[new Date(d + 'T12:00:00Z').getUTCDay()];
+      const usual = Array.isArray(avail[dow]) ? avail[dow] : [];
+      return { date: d, dow, blocks: ['am', 'pm', 'eve', 'overnight'].map(k => ({ key: k, usual: usual.includes(k), busy: !!(busyMap[d] && busyMap[d].has(k)) })), booked_kids: booked[d] || 0 };
+    }),
+  });
+});
+
 // ---------- me ----------
 app.get('/api/me', requireAuth, (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
@@ -532,6 +581,7 @@ app.put('/api/me', requireAuth, (req, res) => {
     }
   }
   if ('payment_methods' in req.body) updates.payment_methods = JSON.stringify((Array.isArray(req.body.payment_methods) ? req.body.payment_methods : []).filter(m => PAYMENT_METHODS.includes(m)));
+  if ('max_kids' in req.body) { const n = parseInt(req.body.max_kids, 10); updates.max_kids = (n >= 1 && n <= 12) ? n : null; }
   // Littles: up to 8, each {name, sex: girl|boy|'', birthdate: YYYY-MM-DD (not in the future, under 18), photo_url from our own upload endpoint}
   if ('littles' in req.body) {
     const raw = Array.isArray(req.body.littles) ? req.body.littles.slice(0, 8) : [];
@@ -2012,7 +2062,7 @@ function ensureExampleHost() {
     ex('family-3.jpg', '/assets/photos/girl-red-balloon-beach.jpg'), ex('home-3.jpg', '/assets/photos/boy-flexing-red-shirt.jpg'),
   ];
   db.prepare(`UPDATE users SET bio=?, kids_note=?, neighborhood=?, home_highlights=?, care_types=?, available_now=0, hourly_note=?, availability=?,
-      shared_items=?, live_link=?, live_link_label=?, gallery=?, intro_video=?, littles=?, payment_methods=?, home_photo=?, family_photo=?, volunteer_at='2026-05-02 10:00:00', contributor_at='2026-06-20 10:00:00', momni_plus=1, circle_up=1, profile_boost=1, gives_toggle=1, legacy_1_0=1,
+      shared_items=?, live_link=?, live_link_label=?, gallery=?, intro_video=?, littles=?, payment_methods=?, home_photo=?, family_photo=?, volunteer_at='2026-05-02 10:00:00', contributor_at='2026-06-20 10:00:00', max_kids=6, momni_plus=1, circle_up=1, profile_boost=1, gives_toggle=1, legacy_1_0=1,
       signup_ack_text=?, signup_ack_at=COALESCE(signup_ack_at, datetime('now')), age_affirmed_at=COALESCE(age_affirmed_at, datetime('now')), terms_version=?
     WHERE id = ?`).run(
     "Mama of three, former kindergarten aide, and the house on the street where every kid ends up by 4pm. We keep it simple: outside as much as possible, real snacks, quiet time that’s actually quiet, and a photo text so you never have to wonder. I host because a Circle is how I survived my first baby — I’d like to be that for someone else.",
@@ -2060,6 +2110,22 @@ function ensureExampleHost() {
       insRev.run(link.lastInsertRowid, g, host.id, rating, body, at);
     });
   })();
+  // Upcoming bookings so the calendar has something to show: rebuilt relative to today on every boot.
+  try {
+    const oldCal = db.prepare('SELECT id FROM links WHERE host_id = ? AND details LIKE ?').all(host.id, '%"seed":"example-cal"%').map(r => r.id);
+    if (oldCal.length) { const q = oldCal.map(() => '?').join(','); db.prepare(`DELETE FROM visits WHERE link_id IN (${q})`).run(...oldCal); db.prepare(`DELETE FROM links WHERE id IN (${q})`).run(...oldCal); }
+    const g = (i) => db.prepare('SELECT id FROM users WHERE email = ?').get(`example-reviewer-${i}@momni.com`).id;
+    const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    const mk = (guest, care, kids, dates, st, et) => {
+      const l = db.prepare(`INSERT INTO links (guest_id,host_id,care_type,details,status,acknowledgment_text,acknowledged_at) VALUES (?,?,?,?,'confirmed',?,datetime('now'))`)
+        .run(guest, host.id, care, JSON.stringify({ seed: 'example-cal', kids }), ACKNOWLEDGMENT_TEXT).lastInsertRowid;
+      dates.forEach(([d, e]) => db.prepare('INSERT INTO visits (link_id,date,end_date,start_time,end_time) VALUES (?,?,?,?,?)').run(l, d, e || null, st, et));
+    };
+    mk(g(1), 'recurring', 2, [[day(1)], [day(3)], [day(8)], [day(10)]], '08:30', '12:00');   // Brittany's two, Tue/Thu mornings
+    mk(g(2), 'overnight', 1, [[day(4), day(5)]], '18:00', '09:00');                          // Kayla's one, an overnight
+    mk(g(3), 'night-out', 3, [[day(5)], [day(12)]], '17:30', '22:00');                      // Megan's three, date nights
+    mk(g(5), 'recurring', 1, [[day(2)], [day(9)]], '13:00', '17:00');                       // Courtney's one, afternoons
+  } catch (e) { console.error('example calendar seed', e.message); }
   return { id: host.id, reviews: reviewers.length };
 }
 let EXAMPLE_HOST_ID = null;
