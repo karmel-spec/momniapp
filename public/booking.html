@@ -122,6 +122,7 @@ a{text-decoration:none;color:inherit}
       </div>
       <div class="field"><label for="kids-count">How many littles are you bringing?</label>
         <select id="kids-count"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select>
+        <p class="fine" id="cap-note" style="display:none;margin-top:8px;font-weight:600"></p>
       </div>
       <div class="field" id="recurring-days">
         <label>Which days each week?</label>
@@ -364,7 +365,35 @@ function toggleRecurring(){
   document.querySelectorAll('#recurring-days input').forEach(function(c){ c.addEventListener('change', updatePreview); });
   updatePreview();
 
+  // Capacity preflight: full days close to new Links (the server enforces the same rule on send).
+  var capFull = false, capTimer;
+  function checkCapacity(){
+    if (!hostId) return;
+    var d = collectDetails(), care = (document.querySelector('input[name="caretype"]:checked') || {}).value || 'one-time';
+    var note = document.getElementById('cap-note'), btn = document.getElementById('send');
+    if (!d.start_date) { capFull = false; note.style.display = 'none'; if (btn.dataset.capfull) { delete btn.dataset.capfull; btn.disabled = false; } return; }
+    clearTimeout(capTimer);
+    capTimer = setTimeout(function(){
+      var q = 'care_type=' + encodeURIComponent(care) + '&start_date=' + encodeURIComponent(d.start_date) + '&end_date=' + encodeURIComponent(d.end_date || '') + '&kids=' + encodeURIComponent(d.kids || 1) + '&weekdays=' + encodeURIComponent((d.weekdays || []).join(','));
+      fetch('/api/hosts/' + encodeURIComponent(hostId) + '/capacity?' + q).then(function(r){ return r.ok ? r.json() : null; }).then(function(c){
+        if (!c) return;
+        if (c.full) {
+          capFull = true; note.style.display = 'block'; note.style.color = '#B4434E';
+          note.textContent = '⛔ ' + hostName + ' is full on ' + c.full.date + ' — ' + c.full.spots + ' spot' + (c.full.spots === 1 ? '' : 's') + ' for other littles, ' + c.full.booked + ' already booked. Pick another day or fewer littles.';
+          btn.dataset.capfull = '1'; btn.disabled = true;
+        } else {
+          capFull = false;
+          if (c.spots != null) { note.style.display = 'block'; note.style.color = 'var(--teal-deep)'; note.textContent = '✓ Room for your ' + (d.kids || 1) + ' that day.'; } else note.style.display = 'none';
+          if (btn.dataset.capfull) { delete btn.dataset.capfull; btn.disabled = false; }
+        }
+      }).catch(function(){});
+    }, 300);
+  }
+  ['start-date','end-date','kids-count'].forEach(function(id){ var el = document.getElementById(id); el.addEventListener('input', checkCapacity); el.addEventListener('change', checkCapacity); });
+  document.querySelectorAll('input[name="caretype"], #recurring-days input').forEach(function(el){ el.addEventListener('change', checkCapacity); });
+
   function sendLink(){
+    if (capFull) { alert('That day is full — pick another day or fewer littles.'); return; }
     var careType = document.querySelector('input[name="caretype"]:checked').value;
     var btn = document.getElementById('send');
     var hello = document.getElementById('details').value.trim().slice(0, 2000);

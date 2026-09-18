@@ -500,6 +500,16 @@ app.get('/api/hosts/:id/freebusy', requireAuth, async (req, res) => {
   res.json({ connected: busy !== null, busy: busy || [] });
 });
 
+// Booking-page preflight: would this request fit? Same rule the POST enforces.
+app.get('/api/hosts/:id/capacity', requireAuth, (req, res) => {
+  const host = db.prepare('SELECT * FROM users WHERE id = ? AND is_host = 1').get(req.params.id);
+  if (!host) return res.status(404).json({ error: 'Not found' });
+  const q = req.query, d = { start_date: q.start_date, end_date: q.end_date || null, weekdays: q.weekdays ? String(q.weekdays).split(',').filter(Boolean) : [] };
+  const kids = Math.max(1, parseInt(q.kids, 10) || 1);
+  const over = capacityProblem(host, linkDates(String(q.care_type || 'one-time'), d), kids);
+  res.json({ ok: !over, full: over, spots: host.max_kids ? Math.max(0, host.max_kids - parseLittles(host).length) : null });
+});
+
 // ---------- host calendar: the next 14 days — usual blocks, Google busy blocks, and how many littles are booked ----------
 // Capacity = max_kids (including her own) minus her own littles. Booked = kids on scheduled visits that day.
 const BLOCK_HOURS = { am: [6, 12], pm: [12, 17], eve: [17, 22], overnight: [22, 30] };   // overnight runs past midnight
@@ -759,6 +769,11 @@ app.post('/api/links', requireAuth, (req, res) => {
   if (!me.momni_plus && me.links_balance < 1) {
     return res.status(402).json({ error: 'You’re out of Links. Buy a bundle (10 for $10) or go Momni+ for unlimited.' });
   }
+  {
+    const d = details || {}, kids = Math.max(1, parseInt(d.kids, 10) || 1);
+    const over = capacityProblem(host, linkDates(care_type, d), kids);
+    if (over) return res.status(409).json({ error: `${(host.name || 'This Momni').split(' ')[0]} is full on ${prettyDay(over.date)} — ${over.spots} spot${over.spots === 1 ? '' : 's'} for other littles, ${over.booked} already booked. Try another day or fewer littles.`, full: over });
+  }
   const info = db.prepare(`INSERT INTO links (guest_id,host_id,care_type,details,acknowledgment_text,acknowledged_at,terms_version)
     VALUES (?,?,?,?,?,datetime('now'),?)`)
     .run(me.id, host.id, care_type, JSON.stringify(details || {}), ACKNOWLEDGMENT_TEXT, TERMS_VERSION);
@@ -916,30 +931,44 @@ app.post('/api/links/:id/messages', requireAuth, (req, res) => {
 
 // ---------- visits (the shared drop-off/pick-up timeline both Momnis can see — coordination, never supervision) ----------
 // When a host confirms, build the timeline from the Link's details (once; never duplicates).
+// The dates a Link occupies, from its care type + details: [[date, end_date|null], ...]. Shared by visit
+// generation and the capacity check so both always agree.
+function linkDates(care_type, d) {
+  d = d || {}; if (!d.start_date) return [];
+  if (care_type === 'overnight') return [[d.start_date, d.end_date || null]];
+  if (care_type === 'recurring' && Array.isArray(d.weekdays) && d.weekdays.length) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d.start_date)); if (!m) return [];
+    const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], startUtc = Date.UTC(+m[1], +m[2] - 1, +m[3]), out = [];
+    for (let i = 0; i < 28; i++) { const day = new Date(startUtc + i * 86400000); if (d.weekdays.includes(names[day.getUTCDay()])) out.push([day.toISOString().slice(0, 10), null]); }
+    return out;
+  }
+  return [[d.start_date, null]];
+}
+// Full days close to new Links: for each requested date, littles already booked + the ones requested must fit her open spots.
+function capacityProblem(host, dates, kids) {
+  if (!host.max_kids || !dates.length) return null;
+  const spots = Math.max(0, host.max_kids - parseLittles(host).length);
+  const lo = dates.reduce((a, x) => x[0] < a ? x[0] : a, dates[0][0]), hi = dates.reduce((a, x) => (x[1] || x[0]) > a ? (x[1] || x[0]) : a, dates[0][1] || dates[0][0]);
+  const visits = db.prepare(`SELECT v.date, v.end_date, l.details FROM visits v JOIN links l ON l.id = v.link_id
+    WHERE l.host_id = ? AND v.status IN ('scheduled','checked_in') AND v.date <= ? AND COALESCE(v.end_date, v.date) >= ?`).all(host.id, hi, lo);
+  const booked = {};
+  visits.forEach(v => { let k = 1; try { k = Math.max(1, parseInt(JSON.parse(v.details || '{}').kids, 10) || 1); } catch (e) {} const e = v.end_date || v.date;
+    for (let t = Date.parse(v.date + 'T12:00:00Z'); t <= Date.parse(e + 'T12:00:00Z'); t += 86400000) { const day = new Date(t).toISOString().slice(0, 10); booked[day] = (booked[day] || 0) + k; } });
+  for (const [start, end] of dates) {
+    for (let t = Date.parse(start + 'T12:00:00Z'); t <= Date.parse((end || start) + 'T12:00:00Z'); t += 86400000) {
+      const day = new Date(t).toISOString().slice(0, 10), used = booked[day] || 0;
+      if (used + kids > spots) return { date: day, spots, booked: used, open: Math.max(0, spots - used) };
+    }
+  }
+  return null;
+}
+function prettyDay(ymd) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd); return m ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2]-1] + ' ' + (+m[3]) : ymd; }
 function generateVisitsForLink(link) {
   if (db.prepare('SELECT COUNT(*) c FROM visits WHERE link_id = ?').get(link.id).c > 0) return;
-  let d;
-  try { d = JSON.parse(link.details || '{}'); } catch (e) { d = {}; }
-  if (!d.start_date) return; // nothing to schedule from
+  let d; try { d = JSON.parse(link.details || '{}'); } catch (e) { d = {}; }
   const ins = db.prepare('INSERT INTO visits (link_id,date,end_date,start_time,end_time) VALUES (?,?,?,?,?)');
   const st = d.start_time || null, et = d.end_time || null;
-  if (link.care_type === 'overnight') return void ins.run(link.id, d.start_date, d.end_date || null, st, et);
-  if (link.care_type === 'recurring' && Array.isArray(d.weekdays) && d.weekdays.length) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d.start_date));
-    if (!m) return;
-    const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    const startUtc = Date.UTC(+m[1], +m[2] - 1, +m[3]);
-    const tx = db.transaction(() => {
-      for (let i = 0; i < 28; i++) { // 28 days from start_date; start_date itself counts if it matches
-        const day = new Date(startUtc + i * 86400000);
-        if (d.weekdays.includes(names[day.getUTCDay()])) ins.run(link.id, day.toISOString().slice(0, 10), null, st, et);
-      }
-    });
-    tx();
-    return;
-  }
-  // one-time — or recurring with no weekdays picked — gets a single visit on start_date
-  ins.run(link.id, d.start_date, null, st, et);
+  db.transaction(() => { linkDates(link.care_type, d).forEach(([date, end]) => ins.run(link.id, date, end, st, et)); })();
 }
 
 app.get('/api/links/:id/visits', requireAuth, (req, res) => {
