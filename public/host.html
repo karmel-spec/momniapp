@@ -92,6 +92,19 @@ main{padding:18px 20px 8px}
 .loc a:hover{color:var(--teal-deep);border-bottom-style:solid}
 .badges-link{display:inline-block;font-size:12px;font-weight:700;color:var(--teal-deep);text-decoration:none;margin:6px 0 0 4px}
 .badges-link:hover{text-decoration:underline}
+.shared-box{margin:16px -20px 4px;padding:18px 20px 16px;background:#FBF6EE;border-top:2px solid #E8D8BE;border-bottom:2px solid #E8D8BE}
+.sh-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.sh-kicker{font-size:12px;font-weight:700;color:#8A6B3F;text-transform:uppercase;letter-spacing:.08em}
+.sh-flag{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#B0556A;border-radius:100px;padding:4px 10px;white-space:nowrap}
+.sh-item{display:flex;align-items:center;gap:12px;background:#fff;border:1.5px solid #EFE3D0;border-radius:14px;padding:11px 13px;margin-bottom:8px;color:inherit;text-decoration:none}
+a.sh-item:hover{border-color:#D9C0A3}
+.sh-ico{width:36px;height:36px;border-radius:10px;background:#FBF6EE;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.sh-txt{flex:1;min-width:0}
+.sh-label{display:block;font-size:14px;font-weight:700;color:var(--ink);line-height:1.3}
+.sh-date{display:block;font-size:12px;color:#8A6B3F;margin-top:2px}
+.sh-ext{color:#8A6B3F;font-weight:700;flex-shrink:0}
+.sh-disclaimer{margin-top:12px;font-size:12.5px;line-height:1.55;color:#5B4A2E;background:#F6ECDB;border-left:4px solid #B0556A;border-radius:0 12px 12px 0;padding:10px 12px}
+.sh-disclaimer b{display:block;color:#7A2E44;font-size:12.5px;margin-bottom:3px}
 .example-banner{background:var(--lavender);border:1.5px solid #DDD3F3;border-radius:14px;padding:12px 14px;font-size:13.5px;line-height:1.5;color:var(--purple-deep);margin:0 0 14px}
 .example-banner b{font-weight:800}
 .intro-video{width:100%;aspect-ratio:9/12;max-height:420px;background:#111;border-radius:16px;overflow:hidden;display:block;object-fit:cover}
@@ -186,18 +199,26 @@ main{padding:18px 20px 8px}
     });
     if (avRows.length) html += sec('Available times', '<div class="avail">'+avRows.join('')+'</div>');
 
+    // "Shared by <first>" — host-provided documents and links. Visually set apart, with the not-verified
+    // disclaimer up front: Momni never reviews, confirms, or vouches for any of it.
+    var ICONS = { background_check: '🛡️', cpr: '❤️‍🩹', reference: '💬', license: '📄' };
+    function fmtDate(d){ var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); if (!m) return esc(d || ''); var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return months[+m[2]-1] + ' ' + (+m[3]) + ', ' + m[1]; }
     var shared = (h.shared_items||[]).map(function(it){
-      var txt = esc(it.label) + (it.as_of ? ' · as of ' + esc(it.as_of) : '');
+      var ico = ICONS[it.type] || '📎';
+      var body = '<span class="sh-label">' + esc(it.label) + '</span>' + (it.as_of ? '<span class="sh-date">Dated ' + fmtDate(it.as_of) + ' · self-reported</span>' : '<span class="sh-date">Self-reported</span>');
       return (it.url && /^https:\/\//.test(it.url))
-        ? '<p class="shared"><a href="'+esc(it.url)+'" target="_blank" rel="noopener">'+txt+' ↗</a></p>'
-        : '<p class="shared">'+txt+'</p>';
+        ? '<a class="sh-item" href="'+esc(it.url)+'" target="_blank" rel="noopener nofollow"><span class="sh-ico">' + ico + '</span><span class="sh-txt">' + body + '</span><span class="sh-ext">↗</span></a>'
+        : '<div class="sh-item"><span class="sh-ico">' + ico + '</span><span class="sh-txt">' + body + '</span></div>';
     });
     if (h.live_link && /^https?:\/\//.test(h.live_link)) {
-      shared.push('<p class="shared"><a href="'+esc(h.live_link)+'" target="_blank" rel="noopener">'+esc(h.live_link_label || 'Their link')+' ↗</a></p>');
+      shared.push('<a class="sh-item" href="'+esc(h.live_link)+'" target="_blank" rel="noopener nofollow"><span class="sh-ico">🔗</span><span class="sh-txt"><span class="sh-label">'+esc(h.live_link_label || 'Their link')+'</span><span class="sh-date">Outside link · not reviewed by Momni</span></span><span class="sh-ext">↗</span></a>');
     }
     if (shared.length) {
-      html += sec('What ' + first + ' shares', shared.join('') +
-        '<p class="fine">These are ' + esc(first) + '’s own shared items. Momni doesn’t review or confirm what’s shared, or whether it’s current — you decide how to weigh it.</p>');
+      html += '<div class="shared-box">' +
+        '<div class="sh-head"><span class="sh-kicker">Shared by ' + esc(first) + '</span><span class="sh-flag">Not verified by Momni</span></div>' +
+        shared.join('') +
+        '<div class="sh-disclaimer"><b>Read this before you weigh it.</b> Everything above was added by ' + esc(first) + ' herself. Momni has not seen, checked, or confirmed any of it — not the document, the date, the provider, or whether it is still current. Momni is a community platform, not a screening service; we don’t vet, license, or endorse anyone. If something matters to your decision, ask ' + esc(first) + ' to show you the original, contact the provider directly, and trust your own judgment — exactly as you would with any new friend watching your littles.</div>' +
+        '</div>';
     }
 
     html += sec('Reviews from other Momnis', revs.length ? revs.map(function(r){
