@@ -631,7 +631,8 @@ function haversineMi(lat1, lng1, lat2, lng2) {
   return 2 * 3958.8 * Math.asin(Math.sqrt(a)); // Earth radius in miles
 }
 
-app.get('/api/hosts', (req, res) => {
+// Members only: host profiles are never visible without a Momni session (nothing here is internet-searchable).
+app.get('/api/hosts', requireAuth, (req, res) => {
   const { care_type, available_now, lat, lng, radius_mi } = req.query;
   let rows = db.prepare('SELECT * FROM users WHERE is_host = 1').all();
   const blk = blockedSet(req.session.userId);
@@ -669,11 +670,10 @@ app.get('/api/hosts', (req, res) => {
     review_count: ratings[r.id] ? ratings[r.id].n : 0 })));
 });
 
-// A host's profile is public; a non-host member's (a guest who left a review, say) is visible to signed-in Momnis only.
-app.get('/api/hosts/:id', (req, res) => {
+// Every profile — host or guest — is for signed-in Momnis only.
+app.get('/api/hosts/:id', requireAuth, (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!u) return res.status(404).json({ error: 'Not found' });
-  if (!u.is_host && !req.session.userId) return res.status(401).json({ error: 'Please sign in to see other Momnis’ profiles.' });
   if (req.session.userId && isBlocked(req.session.userId, u.id)) return res.status(404).json({ error: 'Not found' });
   const reviews = db.prepare(`SELECT r.rating, r.body, r.created_at, a.id author_id, a.name author, a.photo_url author_photo, a.city author_city
     FROM reviews r JOIN users a ON a.id = r.author_id WHERE r.subject_id = ? ORDER BY r.created_at DESC`).all(u.id);
@@ -684,7 +684,9 @@ app.get('/api/map', (req, res) => {
   // momni.com's Movement Map reads this for live 2.0 lights — same-brand CORS only
   const origin = req.headers.origin || '';
   if (/^https:\/\/(www\.)?momni\.com$/.test(origin)) { res.set('Access-Control-Allow-Origin', origin); res.set('Vary', 'Origin'); }
-  let hosts = db.prepare('SELECT * FROM users WHERE is_host = 1 AND lat IS NOT NULL').all().map(userPublic);
+  // Signed-out callers (momni.com's Movement Map, or anyone) get lights only — position, city, on/off. No names, no profiles.
+  const mapLight = (u) => ({ id: u.id, lat: round2(u.lat), lng: round2(u.lng), city: u.city, available_now: !!u.available_now });
+  let hosts = db.prepare('SELECT * FROM users WHERE is_host = 1 AND lat IS NOT NULL').all().map(req.session.userId ? userPublic : mapLight);
   const blk = blockedSet(req.session.userId);
   if (blk.size) hosts = hosts.filter(h => !blk.has(h.id));   // hide blocked Momnis from the map
   const circles = db.prepare('SELECT * FROM circles').all();

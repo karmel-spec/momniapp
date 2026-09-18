@@ -375,7 +375,7 @@ function loadHosts(){
     if (radiusMi !== 'all') q.push('radius_mi=' + encodeURIComponent(radiusMi));
   }
   fetch('/api/hosts' + (q.length ? '?' + q.join('&') : ''))
-    .then(function(r){ return r.json(); })
+    .then(function(r){ if (r.status === 401) { try { sessionStorage.setItem('momni-next', 'search.html' + location.search); } catch(e){} location = 'index.html'; throw new Error('unauth'); } return r.json(); })
     .then(function(hosts){
       var box = document.getElementById('host-cards');
       hosts.forEach(function(h){ if (h.distance_mi != null) distById[h.id] = h.distance_mi; });

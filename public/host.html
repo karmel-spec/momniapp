@@ -145,7 +145,7 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
 
   fetch('/api/hosts/' + encodeURIComponent(id)).then(function(r){ return r.status === 401 ? { __signin: true } : (r.ok ? r.json() : null); })
     .then(function(h){
-      if (h && h.__signin) { rememberNext(); document.getElementById('main').innerHTML = '<p class="state">Sign in to see other Momnis’ profiles. <a href="index.html" style="color:var(--teal-deep);font-weight:600">Sign in</a></p>'; return; }
+      if (h && h.__signin) { rememberNext(); document.getElementById('main').innerHTML = '<p class="state">Momni profiles are for members — sign in to see this one. <a href="index.html" style="color:var(--teal-deep);font-weight:600">Sign in</a></p>'; return; }
       if (!h) { document.getElementById('main').innerHTML = '<p class="state">We couldn’t find that Momni. <a href="search.html" style="color:var(--teal-deep);font-weight:600">Back to search</a></p>'; return; }
       render(h);
     }).catch(function(){

@@ -1,0 +1,3 @@
+# app.momni.com is a members-only app; nothing here is for search engines. momni.com is the public site.
+User-agent: *
+Disallow: /
