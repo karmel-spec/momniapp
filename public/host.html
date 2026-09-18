@@ -314,9 +314,10 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
           '<div class="cd-blocks">' + d.blocks.map(function(b){ var cls = !b.usual ? 'no' : b.busy ? 'busy' : 'ok'; return '<span class="cb ' + cls + '" title="' + (b.busy ? 'Busy on her calendar' : b.usual ? 'Usually open' : 'Not usually open') + '">' + BLK_SHORT[b.key] + '</span>'; }).join('') + '</div>' +
           dots + (line ? '<div class="cd-line">' + line + '</div>' : '') + '</div>';
       }).join('');
-      document.getElementById('cal-note').innerHTML = (c.calendar_connected ? '<b>Live:</b> synced with her calendar — greyed blocks are busy. ' : 'Usual hours only — ' + esc(first) + ' hasn’t connected a calendar yet. ') +
+      var fn = (h.name || 'She').split(' ')[0];
+      document.getElementById('cal-note').innerHTML = (c.calendar_connected ? '<b>Live:</b> synced with her calendar — greyed blocks are busy. ' : 'Usual hours only — ' + esc(fn) + ' hasn’t connected a calendar yet. ') +
         (c.spots != null ? 'Dots are her open spots for other littles; filled ones are already booked. ' : '') + 'Send a Link to ask about a specific time.';
-    }).catch(function(){ document.getElementById('cal-strip').innerHTML = ''; });
+    }).catch(function(e){ console.error('calendar', e); });
   }
   function sec(title, inner){ return '<div class="sec"><h2>'+esc(title)+'</h2>'+inner+'</div>'; }
 })();
