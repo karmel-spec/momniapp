@@ -288,7 +288,7 @@ var DAY_ORDER = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 var BLOCK_LABELS = {am:'Mornings', pm:'Afternoons', eve:'Evenings', overnight:'Overnights'};
 var BLOCK_ORDER = ['am','pm','eve','overnight'];
 
-function rateOnly(note){ var m = /\$\s?\d+(?:\.\d{2})?(?:\s?(?:\/|per)\s?[a-z]+)?/i.exec(note || ''); return m ? m[0].replace(/\s+/g,'') : ''; }
+function rateOnly(note){ var m = /\$\s?\d+(?:\.\d{2})?(?:\s?(?:\/|per)\s?[a-z]+)?/i.exec(note || ''); return m ? m[0].replace(/\s*\/\s*/g,'/') : ''; }
 function availSummary(avail){
   if (!avail) return '';
   var byBlock = {};
