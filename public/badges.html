@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Badges — Momni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Albert+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#6D58A4; --purple-deep:#4A3880; --teal:#0D878F; --teal-deep:#0A6B72;
+  --algae:#92E2C1; --lavender:#F5F0FE; --teal-soft:#E1F7F2; --clay:#D9C0A3;
+  --ink:#2B2233; --muted:#6B6477; --white:#FFFFFF; --line:#EEE9F9;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Albert Sans',sans-serif;color:var(--ink);background:var(--lavender);line-height:1.5;min-height:100vh;display:flex;justify-content:center}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+.script{font-family:'Caveat',cursive}
+.app{width:100%;max-width:480px;min-height:100vh;background:var(--white);box-shadow:0 0 40px rgba(109,88,164,0.12);display:flex;flex-direction:column;padding-bottom:76px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px}
+.topbar img{height:34px;display:block}
+.topbar .hello{font-family:'Caveat',cursive;font-size:22px;color:var(--teal)}
+main{padding:6px 20px 24px}
+.tile{display:block;border-radius:18px;padding:20px;margin-bottom:14px;transition:transform .15s}
+.tile:hover{transform:translateY(-2px)}
+.tile h2{font-size:19px;font-weight:800;letter-spacing:-0.01em;margin-bottom:4px}
+.tile p{font-size:14px}
+.tile-now{background:var(--teal);color:white}
+.tile-now p{color:rgba(255,255,255,0.9)}
+.live{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;font-weight:600;color:var(--algae)}
+.pulse{width:10px;height:10px;border-radius:50%;background:var(--algae);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(146,226,193,.7)}70%{box-shadow:0 0 0 10px rgba(146,226,193,0)}100%{box-shadow:0 0 0 0 rgba(146,226,193,0)}}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.row2 .tile{margin-bottom:0}
+.tile-date{background:var(--lavender)}
+.tile-date h2{color:var(--purple-deep)}
+.tile-reg{background:var(--teal-soft)}
+.tile-reg h2{color:var(--teal-deep)}
+.tile-date p,.tile-reg p{color:var(--muted)}
+.tile-over{background:#FBF6EE;border:1.5px solid var(--clay)}
+.tile-over p{color:var(--muted)}
+.chips{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.chip{font-size:13px;font-weight:600;padding:6px 14px;border-radius:100px;background:white;border:1.5px solid var(--clay);color:var(--ink)}
+.tile-daycare{background:var(--purple);color:white;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.tile-daycare h2{font-size:17px}
+.tile-daycare p{font-size:12.5px;color:rgba(255,255,255,0.85)}
+.tile-daycare .arrow{font-size:22px;font-weight:700}
+.tile-host[hidden]{display:none}
+.tile-host{background:var(--algae);color:var(--ink);display:flex;align-items:center;justify-content:space-between;gap:14px}
+.tile-host h2{font-size:17px;color:#0B4A36}
+.tile-host p{font-size:12.5px;color:#0B4A36;opacity:.85}
+.tile-host .arrow{font-size:22px;font-weight:700;color:#0B4A36}
+.section-title{font-size:15px;font-weight:800;font-family:'Montserrat',sans-serif;margin:24px 0 12px}
+.rebook{display:flex;gap:14px}
+.momni{flex:1;text-align:center;background:#FCFBFE;border:1.5px solid var(--line);border-radius:16px;padding:16px 10px}
+.avatar{width:54px;height:54px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:700;font-size:20px;color:white}
+.a1{background:var(--purple)}.a2{background:var(--teal)}.a3{background:var(--clay);color:var(--ink)}
+.momni .name{font-size:14px;font-weight:600;margin-bottom:8px}
+.rebook-btn{display:inline-block;font-size:13px;font-weight:600;color:var(--teal);border:1.5px solid var(--teal);border-radius:100px;padding:4px 16px;transition:all .15s}
+.rebook-btn:hover{background:var(--teal);color:white}
+.circle-card{background:var(--lavender);border-radius:16px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.circle-card h3{font-size:15px;font-weight:700;color:var(--purple-deep);margin-bottom:2px}
+.circle-card p{font-size:13.5px;color:var(--muted)}
+.circle-card .script{font-size:20px;color:var(--purple);white-space:nowrap}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;border-top:1px solid var(--line);display:flex;z-index:50}
+.tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.tab .ico{display:block;font-size:20px;line-height:1.2}
+.tab.active{color:var(--purple)}
+
+.bd-hero{background:var(--purple);color:white;border-radius:18px;padding:22px 20px;margin-bottom:16px}
+.bd-hero h1{font-size:22px;font-weight:800;letter-spacing:-0.01em;margin-bottom:6px}
+.bd-hero p{font-size:14px;color:rgba(255,255,255,0.88)}
+.bd{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.bd.earned{border-color:var(--teal);background:var(--teal-soft)}
+.bd .em{width:46px;height:46px;border-radius:12px;background:var(--lavender);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.bd.earned .em{background:#fff}
+.bd h3{font-size:15px;font-weight:800;font-family:'Montserrat',sans-serif;margin-bottom:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bd h3 .got{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0B4A36;background:var(--algae);border-radius:100px;padding:2px 8px}
+.bd .note{font-size:13.5px;color:var(--ink)}
+.bd .how{font-size:12.5px;color:var(--muted);margin-top:4px}
+.bd .how b{color:var(--teal-deep)}
+.bd-cta{display:block;text-align:center;background:var(--teal);color:#fff;font-weight:700;border-radius:100px;padding:12px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <img src="assets/momni-logo-color-horizontal.png" alt="Momni">
+    <span class="hello" id="hello"></span>
+  </div>
+  <main>
+    <div class="bd-hero">
+      <h1>Momni badges</h1>
+      <p>Every badge is earned by doing something real for the Circle — hosting, showing up, sharing, giving back. Here’s the whole list and how to get each one.</p>
+    </div>
+    <div id="list"><p style="font-size:14px;color:var(--muted)">Loading…</p></div>
+    <a class="bd-cta" id="cta" href="me.html">Go to my profile →</a>
+  </main>
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><span class="ico">🏠</span>Home</a>
+    <a class="tab" href="search.html"><span class="ico">🔍</span>Search</a>
+    <a class="tab" href="campfire.html"><span class="ico">🔥</span>Campfire</a>
+    <a class="tab" href="circles.html"><span class="ico">💜</span>Circles</a>
+    <a class="tab" href="links.html"><span class="ico">🔗</span>Links</a>
+    <a class="tab" href="me.html"><span class="ico">👤</span>Me</a>
+  </nav>
+</div>
+<script>
+(function(){
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  fetch('/api/badges').then(function(r){ return r.json(); }).then(function(d){
+    var list = d.badges.slice().sort(function(a,b){ return (b.earned?1:0) - (a.earned?1:0); });
+    document.getElementById('list').innerHTML = list.map(function(b){
+      return '<div class="bd' + (b.earned ? ' earned' : '') + '"><div class="em">' + b.emoji + '</div><div>' +
+        '<h3>' + esc(b.label) + (b.earned ? '<span class="got">You have it</span>' : '') + '</h3>' +
+        '<div class="note">' + esc(b.note) + '</div>' +
+        (b.how ? '<div class="how"><b>How:</b> ' + esc(b.how) + '</div>' : '') + '</div></div>';
+    }).join('');
+    if (!d.signed_in) { var c = document.getElementById('cta'); c.href = 'index.html'; c.textContent = 'Sign in to start earning →'; }
+  }).catch(function(){ document.getElementById('list').innerHTML = '<p style="font-size:14px;color:var(--muted)">Couldn’t load badges — try again.</p>'; });
+})();
+</script>
+<script src="site-nav.js" defer></script>
+<script src="momni-chat.js" defer></script>
+</body>
+</html>

@@ -338,8 +338,11 @@ fetch('/api/map').then(function(r){ return r.json(); }).then(function(data){
     // Popup content built at open time, so distance is there once we know where you are
     var m = L.marker([h.lat, h.lng], {icon: litIcon(mapTheme, h.available_now)})
       .addTo(map).bindPopup(function(){ return hostPopup(h); });
-    hostMarkers.push({marker: m, avail: !!h.available_now});
+    hostMarkers.push({marker: m, avail: !!h.available_now, id: h.id});
   });
+  // Arrived from a profile pin (host.html → search.html?focus=ID): zoom to her and open the popup.
+  var focusId = new URLSearchParams(location.search).get('focus');
+  if (focusId) { var fm = hostMarkers.filter(function(x){ return String(x.id) === String(focusId); })[0]; if (fm) { map.setView(fm.marker.getLatLng(), 14); setTimeout(function(){ fm.marker.openPopup(); }, 300); } }
   var cv = L.canvas({padding:0.5});
   var legacyPopup = L.popup();
   var legacyLayer = L.layerGroup();

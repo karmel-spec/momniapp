@@ -157,7 +157,7 @@ function littleAgeLabel(birthdate) {
   return Math.floor(months / 12) + ' yrs';
 }
 function parseLittles(u) { try { const l = JSON.parse(u.littles || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
-const publicLittles = (u) => parseLittles(u).map(l => ({ name: l.name, sex: l.sex || '', age: littleAgeLabel(l.birthdate), photo_url: l.photo_url || null }));
+const publicLittles = (u) => parseLittles(u).map(l => ({ name: l.name, sex: l.sex || '', age: littleAgeLabel(l.birthdate), photo_url: l.photo_url || null, blurb: l.blurb || '' }));
 const PAYMENT_METHODS = ['venmo', 'paypal', 'zelle', 'cashapp', 'applecash', 'cash'];   // how a host accepts mom-to-mom payment (Momni never touches it)
 const userPublic = (u) => ({
   id: u.id, name: u.name, city: u.city, lat: round2(u.lat), lng: round2(u.lng),
@@ -186,7 +186,34 @@ const BADGE_CATALOG = {
   'circle-up':       { label: 'Circle Up Member', emoji: '💜', note: 'Supports the movement at Circle Up.' },
   'momni-plus':      { label: 'Momni+ Member', emoji: '💎', note: 'All-in with Momni+.' },
   'foundation-giver':{ label: 'Foundation Giver', emoji: '🤲', note: 'Gives a dollar back through Momni Gives.' },
+  'volunteer':       { label: 'Momni Volunteer', emoji: '🙋‍♀️', note: 'Gives her time to the movement — verified by Momni HQ.' },
+  'circle-host':     { label: 'Circle Host', emoji: '🔥', note: 'Leads a Circle.' },
+  'circle-member':   { label: 'Circle Member', emoji: '🫶', note: 'Belongs to a Circle.' },
+  'bgc-current':     { label: 'Current Background Check', emoji: '✅', note: 'Shared a background check dated within the last 12 months.' },
+  'reviewed':        { label: 'Reviewed Momni', emoji: '📝', note: 'Reviewed by at least one other Momni after a Link.' },
+  'blog-contributor':{ label: 'Blog Contributor', emoji: '✍️', note: 'Wrote for the Momni blog.' },
+  'influencer':      { label: 'Momni Influencer', emoji: '📣', note: 'Shared Momni on every platform from the Share page.' },
 };
+// How each badge is earned — shown on badges.html and the Me page. Order = display order.
+const BADGE_HOW = {
+  'founding-member': 'Be one of the original Momni 1.0 members (2017–2020). Reclaim your pin on the Movement Map.',
+  'founding-host':   'Hosted in Momni 1.0. Reclaim your pin and switch hosting on.',
+  'super-host':      'Complete 5+ Links as a host with a 4.5★ average.',
+  'campfire-spark':  'Post, comment, or vote once at the Campfire.',
+  'campfire-flame':  'Keep showing up at the Campfire — about ten posts, comments, or votes.',
+  'campfire-keeper': 'Thirty-plus Campfire contributions.',
+  'circle-up':       'Join Circle Up from the Me tab.',
+  'momni-plus':      'Join Momni+ from the Me tab.',
+  'foundation-giver':'Turn on Momni Gives in the Me tab.',
+  'volunteer':       'Volunteer at momni.com/volunteer. Once you’ve served, HQ adds the badge.',
+  'circle-host':     'Start a Circle from the Circles tab and lead it.',
+  'circle-member':   'Join any Circle from the Circles tab.',
+  'bgc-current':     'Me → “Share a background check I purchased,” with the date on it. Renew it every 12 months to keep the badge.',
+  'reviewed':        'Complete a Link — the other Momni reviews you afterward.',
+  'blog-contributor':'Pitch a post through the chat bubble or stories@momni.com. When it’s published, HQ adds the badge.',
+  'influencer':      'Me → Share Momni: share from every platform button (Facebook, Instagram, TikTok, X, Pinterest, and a text).',
+};
+const SHARE_PLATFORMS = ['facebook', 'instagram', 'tiktok', 'x', 'pinterest', 'text'];
 function badgesFor(u) {
   const out = [];
   const add = (key, source) => BADGE_CATALOG[key] && out.push({ key, source, ...BADGE_CATALOG[key] });
@@ -209,6 +236,18 @@ function badgesFor(u) {
   } catch (e) { /* table may be absent */ }
   if (u.momni_plus) add('momni-plus', 'earned'); else if (u.circle_up) add('circle-up', 'earned');
   if (u.gives_toggle) add('foundation-giver', 'earned');
+  if (u.volunteer_at) add('volunteer', 'earned');
+  if (u.contributor_at) add('blog-contributor', 'earned');
+  try {
+    if (db.prepare('SELECT 1 FROM circles WHERE leader_id = ? LIMIT 1').get(u.id)) add('circle-host', 'earned');
+    else if (db.prepare('SELECT 1 FROM circle_members WHERE user_id = ? LIMIT 1').get(u.id)) add('circle-member', 'earned');
+  } catch (e) { /* tables may be absent */ }
+  try {
+    const bgc = JSON.parse(u.shared_items || '[]').find(i => i && i.type === 'background_check' && i.as_of);
+    if (bgc && Date.now() - Date.parse(bgc.as_of) < 365 * 86400000) add('bgc-current', 'earned');
+  } catch (e) { /* bad json */ }
+  try { if (db.prepare('SELECT 1 FROM reviews WHERE subject_id = ? LIMIT 1').get(u.id)) add('reviewed', 'earned'); } catch (e) {}
+  try { if (db.prepare('SELECT COUNT(DISTINCT platform) c FROM share_events WHERE user_id = ?').get(u.id).c >= SHARE_PLATFORMS.length) add('influencer', 'earned'); } catch (e) {}
   // purchased / granted badges layered on top
   try {
     db.prepare('SELECT badge_key, source FROM user_badges WHERE user_id = ?').all(u.id)
@@ -511,7 +550,8 @@ app.put('/api/me', requireAuth, (req, res) => {
         birthdate = bd;
       }
       const photo_url = (typeof l.photo_url === 'string' && /^\/(uploads|assets)\/[\w./-]+$/.test(l.photo_url)) ? l.photo_url : null;
-      clean.push({ name, sex, birthdate, photo_url });
+      const blurb = String(l.blurb || '').trim().slice(0, 120);
+      clean.push({ name, sex, birthdate, photo_url, blurb });
     }
     updates.littles = JSON.stringify(clean);
   }
@@ -1468,9 +1508,38 @@ app.get('/api/admin/analytics', requireAdmin, (req, res) => {
     },
   });
 });
+// ---------- badges: the catalog with how-to-earn, plus which ones the signed-in Momni has ----------
+app.get('/api/badges', (req, res) => {
+  const u = req.session.userId ? db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId) : null;
+  const earned = new Set(u ? badgesFor(u).map(b => b.key) : []);
+  const shared = u ? db.prepare('SELECT platform FROM share_events WHERE user_id = ?').all(u.id).map(r => r.platform) : [];
+  res.json({
+    signed_in: !!u,
+    badges: Object.keys(BADGE_CATALOG).map(key => ({ key, ...BADGE_CATALOG[key], how: BADGE_HOW[key] || '', earned: earned.has(key) })),
+    share: { platforms: SHARE_PLATFORMS, done: shared },
+  });
+});
+// Momni Influencer: one row per platform she has shared from (the Me tab records the click before opening the share sheet).
+app.post('/api/me/share', requireAuth, (req, res) => {
+  const platform = String(req.body && req.body.platform || '');
+  if (!SHARE_PLATFORMS.includes(platform)) return res.status(400).json({ error: 'Unknown platform.' });
+  db.prepare('INSERT OR IGNORE INTO share_events (user_id, platform) VALUES (?, ?)').run(req.session.userId, platform);
+  const done = db.prepare('SELECT platform FROM share_events WHERE user_id = ?').all(req.session.userId).map(r => r.platform);
+  res.json({ ok: true, done, complete: done.length >= SHARE_PLATFORMS.length });
+});
+// HQ-verified badges: Momni Volunteer and Blog Contributor are switched on by Karmel, never self-declared.
+app.put('/api/admin/users/:id/flags', requireAdmin, (req, res) => {
+  const u = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id);
+  if (!u) return res.status(404).json({ error: 'Not found' });
+  const b = req.body || {};
+  if ('volunteer' in b) db.prepare(`UPDATE users SET volunteer_at = ${b.volunteer ? "COALESCE(volunteer_at, datetime('now'))" : 'NULL'} WHERE id = ?`).run(u.id);
+  if ('contributor' in b) db.prepare(`UPDATE users SET contributor_at = ${b.contributor ? "COALESCE(contributor_at, datetime('now'))" : 'NULL'} WHERE id = ?`).run(u.id);
+  const r = db.prepare('SELECT volunteer_at, contributor_at FROM users WHERE id = ?').get(u.id);
+  res.json({ ok: true, volunteer: !!r.volunteer_at, contributor: !!r.contributor_at });
+});
 app.get('/api/admin/users', requireAdmin, (req, res) => {
   const search = `%${(req.query.q || '')}%`;
-  res.json(db.prepare(`SELECT id,name,email,city,is_host,available_now,links_balance,momni_plus,created_at
+  res.json(db.prepare(`SELECT id,name,email,city,is_host,available_now,links_balance,momni_plus,created_at,volunteer_at,contributor_at,is_example
     FROM users WHERE name LIKE ? OR email LIKE ? OR city LIKE ? ORDER BY created_at DESC LIMIT 100`)
     .all(search, search, search));
 });
@@ -1939,11 +2008,11 @@ function ensureExampleHost() {
     ex('family-3.jpg', '/assets/photos/girl-red-balloon-beach.jpg'), ex('home-3.jpg', '/assets/photos/boy-flexing-red-shirt.jpg'),
   ];
   db.prepare(`UPDATE users SET bio=?, kids_note=?, neighborhood=?, home_highlights=?, care_types=?, available_now=0, hourly_note=?, availability=?,
-      shared_items=?, live_link=?, live_link_label=?, gallery=?, intro_video=?, littles=?, payment_methods=?, home_photo=?, family_photo=?, momni_plus=1, circle_up=1, profile_boost=1, gives_toggle=1, legacy_1_0=1,
+      shared_items=?, live_link=?, live_link_label=?, gallery=?, intro_video=?, littles=?, payment_methods=?, home_photo=?, family_photo=?, volunteer_at='2026-05-02 10:00:00', contributor_at='2026-06-20 10:00:00', momni_plus=1, circle_up=1, profile_boost=1, gives_toggle=1, legacy_1_0=1,
       signup_ack_text=?, signup_ack_at=COALESCE(signup_ack_at, datetime('now')), age_affirmed_at=COALESCE(age_affirmed_at, datetime('now')), terms_version=?
     WHERE id = ?`).run(
     "Mama of three, former kindergarten aide, and the house on the street where every kid ends up by 4pm. We keep it simple: outside as much as possible, real snacks, quiet time that’s actually quiet, and a photo text so you never have to wonder. I host because a Circle is how I survived my first baby — I’d like to be that for someone else.",
-    "Hazel reads to everyone, Beck is our resident dinosaur expert, and Millie is a professional snuggler.",
+    "All three are outside kids — they’ll have your littles in the sandbox within five minutes.",
     "Cherry Hill, Orem",
     "Fenced backyard with a playhouse and sandbox, a mudroom for boots, no pets, an allergy-aware kitchen, a nap room with blackout curtains and a sound machine, and a whole wall of picture books.",
     JSON.stringify(['available-now', 'night-out', 'recurring', 'overnight']),
@@ -1956,13 +2025,14 @@ function ensureExampleHost() {
     'https://momni.com/stories/', 'Our Circle story',
     JSON.stringify(gallery), ex('intro.mp4', null),
     JSON.stringify([   // birthdays, so the ages on the example keep themselves current
-      { name: 'Hazel',  sex: 'girl', birthdate: '2020-06-14', photo_url: ex('little-1.jpg', null) },
-      { name: 'Beck',   sex: 'boy',  birthdate: '2022-03-02', photo_url: ex('little-2.jpg', null) },
-      { name: 'Millie', sex: 'girl', birthdate: '2025-07-10', photo_url: ex('little-3.jpg', null) },
+      { name: 'Hazel',  sex: 'girl', birthdate: '2020-06-14', photo_url: ex('little-1.jpg', null), blurb: 'Reads to everyone, including the dog next door.' },
+      { name: 'Beck',   sex: 'boy',  birthdate: '2022-03-02', photo_url: ex('little-2.jpg', null), blurb: 'Resident dinosaur expert. Ask him anything.' },
+      { name: 'Millie', sex: 'girl', birthdate: '2025-07-10', photo_url: ex('little-3.jpg', null), blurb: 'Professional snuggler, part-time climber.' },
     ]),
     JSON.stringify(['venmo', 'zelle', 'cash']), ex('home-hero.jpg', '/assets/photos/baking-with-kids.jpg'), ex('family-hero.jpg', '/assets/photos/mama-lifting-toddler-sky.jpg'),
     ACKNOWLEDGMENT_TEXT, TERMS_VERSION, host.id);
 
+  SHARE_PLATFORMS.forEach(pl => db.prepare('INSERT OR IGNORE INTO share_events (user_id, platform) VALUES (?, ?)').run(host.id, pl));
   const reviewers = [
     ['Brittany S.', 'Orem, UT',           5, '2026-09-02 19:10:00', 'Whitney sent a photo of my two building a blanket fort within twenty minutes of drop-off. Came home to full, happy, sandy kids. She’s our Tuesday now.'],
     ['Kayla T.',    'Provo, UT',          5, '2026-08-24 08:30:00', 'First overnight away from our 18-month-old and I barely worried — Whitney texted at bedtime and again at 6am. The nap room is real, and it works.'],

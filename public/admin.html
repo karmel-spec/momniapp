@@ -277,7 +277,10 @@ async function loadUsers(){
   document.getElementById('users').innerHTML = data.map(u=>`
     <div class="item"><strong>${esc(u.name)}</strong> ${u.is_host?'<span class="pill p-teal">host</span>':''} ${u.momni_plus?'<span class="pill p-grey">Momni+</span>':''}
     <div class="meta">${esc(u.email)} · ${esc(u.city)||'—'} · ${u.links_balance} Links · joined ${esc(u.created_at)}</div>
-    <button class="b-no" data-reset="${u.id}" data-name="${esc(u.name)}">Reset password</button><span class="meta" id="pw-${u.id}"></span></div>`).join('') || '<p class="empty">No Momnis match.</p>';
+    <button class="b-no" data-reset="${u.id}" data-name="${esc(u.name)}">Reset password</button>
+    <button class="${u.volunteer_at?'b-ok':'b-no'}" data-flag="volunteer" data-id="${u.id}" data-on="${u.volunteer_at?1:0}">🙋‍♀️ Volunteer${u.volunteer_at?' ✓':''}</button>
+    <button class="${u.contributor_at?'b-ok':'b-no'}" data-flag="contributor" data-id="${u.id}" data-on="${u.contributor_at?1:0}">✍️ Blog contributor${u.contributor_at?' ✓':''}</button>
+    <span class="meta" id="pw-${u.id}"></span></div>`).join('') || '<p class="empty">No Momnis match.</p>';
 }
 init();
 async function resetPw(id,name){
@@ -285,6 +288,12 @@ async function resetPw(id,name){
   const d=await api('/api/admin/users/'+id+'/reset-password',{method:'POST'});
   document.getElementById('pw-'+id).textContent=' temp password: '+d.temp_password+' (share privately)';
 }
+document.getElementById('users').addEventListener('click', async function(e){
+  const b = e.target.closest('button[data-flag]'); if (!b) return;
+  const body = {}; body[b.dataset.flag] = b.dataset.on !== '1';
+  await api('/api/admin/users/' + b.dataset.id + '/flags', { method: 'PUT', body: JSON.stringify(body) });
+  loadUsers();
+});
 // Delegated: member names never touch inline handlers (avoids stored XSS in the admin session).
 document.getElementById('users').addEventListener('click', function(e){
   var b=e.target.closest('[data-reset]'); if(!b) return;
