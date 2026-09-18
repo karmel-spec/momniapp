@@ -146,6 +146,19 @@ function requireAuth(req, res, next) {
 // Privacy: public payloads only ever carry ~neighborhood-level coords (2 decimals);
 // precise lat/lng stays in the DB and never leaves the server.
 const round2 = (v) => (v == null ? v : Math.round(v * 100) / 100);
+// Littles: stored with birthdates so ages stay right forever; the public shape carries only an age label.
+function littleAgeLabel(birthdate) {
+  if (!birthdate) return '';
+  const b = new Date(birthdate + 'T00:00:00'), n = new Date(); if (isNaN(b)) return '';
+  let months = (n.getFullYear() - b.getFullYear()) * 12 + (n.getMonth() - b.getMonth()) - (n.getDate() < b.getDate() ? 1 : 0);
+  if (months < 0) return '';
+  if (months < 1) return Math.max(1, Math.floor((n - b) / 604800000)) + ' wks';
+  if (months < 24) return months + ' mo';
+  return Math.floor(months / 12) + ' yrs';
+}
+function parseLittles(u) { try { const l = JSON.parse(u.littles || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
+const publicLittles = (u) => parseLittles(u).map(l => ({ name: l.name, sex: l.sex || '', age: littleAgeLabel(l.birthdate), photo_url: l.photo_url || null }));
+const PAYMENT_METHODS = ['venmo', 'paypal', 'zelle', 'cashapp', 'applecash', 'cash'];   // how a host accepts mom-to-mom payment (Momni never touches it)
 const userPublic = (u) => ({
   id: u.id, name: u.name, city: u.city, lat: round2(u.lat), lng: round2(u.lng),
   is_host: !!u.is_host, bio: u.bio, care_types: JSON.parse(u.care_types || '[]'),
@@ -156,7 +169,8 @@ const userPublic = (u) => ({
   shared_items: JSON.parse(u.shared_items || '[]'), legacy_1_0: !!u.legacy_1_0,
   live_link: u.live_link || null, live_link_label: u.live_link_label || null,
   photo_url: u.photo_url || null, gallery: JSON.parse(u.gallery || '[]'),
-  intro_video: u.intro_video || null, is_example: !!u.is_example,
+  intro_video: u.intro_video || null, is_example: !!u.is_example, littles: publicLittles(u), home_photo: u.home_photo || null,
+  payment_methods: (() => { try { return JSON.parse(u.payment_methods || '[]').filter(m => PAYMENT_METHODS.includes(m)); } catch (e) { return []; } })(),
   boosted: !!u.profile_boost, badges: badgesFor(u)
 });
 
@@ -450,7 +464,7 @@ app.get('/api/hosts/:id/freebusy', requireAuth, async (req, res) => {
 app.get('/api/me', requireAuth, (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
   const reviews = db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE subject_id = ?').get(u.id);
-  res.json({ ...userPublic(u), email: u.email, links_balance: u.links_balance,
+  res.json({ ...userPublic(u), littles_edit: parseLittles(u), email: u.email, links_balance: u.links_balance,
     momni_plus: !!u.momni_plus, circle_up: !!u.circle_up, gives_toggle: !!u.gives_toggle,
     is_admin: !!u.is_admin, phone: u.phone || '', sms_opt_in: !!u.sms_opt_in,
     rating: reviews.n ? Number(reviews.avg.toFixed(1)) : null, review_count: reviews.n });
@@ -477,6 +491,29 @@ app.put('/api/me', requireAuth, (req, res) => {
     } else {
       return res.status(402).json({ error: 'A live profile link is a Profile Boost / Momni+ perk.' });
     }
+  }
+  if ('payment_methods' in req.body) updates.payment_methods = JSON.stringify((Array.isArray(req.body.payment_methods) ? req.body.payment_methods : []).filter(m => PAYMENT_METHODS.includes(m)));
+  // Littles: up to 8, each {name, sex: girl|boy|'', birthdate: YYYY-MM-DD (not in the future, under 18), photo_url from our own upload endpoint}
+  if ('littles' in req.body) {
+    const raw = Array.isArray(req.body.littles) ? req.body.littles.slice(0, 8) : [];
+    const clean = [];
+    for (const l of raw) {
+      if (!l || typeof l !== 'object') continue;
+      const name = String(l.name || '').trim().slice(0, 40); if (!name) continue;
+      const sex = ['girl', 'boy'].includes(l.sex) ? l.sex : '';
+      let birthdate = null;
+      if (l.birthdate) {
+        const bd = String(l.birthdate);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(bd)) return res.status(400).json({ error: `The birthday for ${name} didn’t look like a date.` });
+        const d = new Date(bd + 'T00:00:00'), now = new Date();
+        if (isNaN(d) || d > now) return res.status(400).json({ error: `The birthday for ${name} is in the future.` });
+        if (now.getFullYear() - d.getFullYear() > 18) return res.status(400).json({ error: `Littles are under 18 — check the birthday for ${name}.` });
+        birthdate = bd;
+      }
+      const photo_url = (typeof l.photo_url === 'string' && /^\/(uploads|assets)\/[\w./-]+$/.test(l.photo_url)) ? l.photo_url : null;
+      clean.push({ name, sex, birthdate, photo_url });
+    }
+    updates.littles = JSON.stringify(clean);
   }
   if ('care_types' in updates) updates.care_types = JSON.stringify(updates.care_types);
   if ('availability' in updates) updates.availability = JSON.stringify(updates.availability);
@@ -1200,6 +1237,13 @@ app.post('/api/me/photo', requireAuth, photoLimiter, uploadJson, (req, res) => {
   try { fsp.writeFileSync(path.join(UPLOADS_DIR, filename), buf); }
   catch (e) { return res.status(500).json({ error: 'Could not save that photo — try again.' }); }
   const url = '/uploads/' + filename;
+  if (target === 'little') return res.json({ ok: true, url });   // attached to a little via PUT /api/me { littles }
+  if (target === 'home') {
+    const oldHome = (db.prepare('SELECT home_photo FROM users WHERE id = ?').get(req.session.userId) || {}).home_photo;
+    db.prepare('UPDATE users SET home_photo = ? WHERE id = ?').run(url, req.session.userId);
+    if (oldHome && oldHome.indexOf('/uploads/') === 0) { try { fsp.unlinkSync(path.join(UPLOADS_DIR, path.basename(oldHome))); } catch (e) {} }
+    return res.json({ ok: true, url });
+  }
   if (target === 'gallery') {
     const u = db.prepare('SELECT gallery FROM users WHERE id = ?').get(req.session.userId);
     let g = []; try { g = JSON.parse(u.gallery || '[]'); } catch (e) {}
@@ -1237,6 +1281,12 @@ app.delete('/api/me/video', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete('/api/me/home-photo', requireAuth, (req, res) => {
+  const oldHome = (db.prepare('SELECT home_photo FROM users WHERE id = ?').get(req.session.userId) || {}).home_photo;
+  db.prepare('UPDATE users SET home_photo = NULL WHERE id = ?').run(req.session.userId);
+  if (oldHome && oldHome.indexOf('/uploads/') === 0) { try { fsp.unlinkSync(path.join(UPLOADS_DIR, path.basename(oldHome))); } catch (e) {} }
+  res.json({ ok: true });
+});
 // Remove one gallery photo (by url).
 app.delete('/api/me/gallery', requireAuth, (req, res) => {
   const url = String(req.body && req.body.url || '');
@@ -1877,11 +1927,11 @@ function ensureExampleHost() {
     ex('family-3.jpg', '/assets/photos/girl-red-balloon-beach.jpg'), ex('home-3.jpg', '/assets/photos/boy-flexing-red-shirt.jpg'),
   ];
   db.prepare(`UPDATE users SET bio=?, kids_note=?, neighborhood=?, home_highlights=?, care_types=?, available_now=0, hourly_note=?, availability=?,
-      shared_items=?, live_link=?, live_link_label=?, gallery=?, intro_video=?, momni_plus=1, circle_up=1, profile_boost=1, gives_toggle=1, legacy_1_0=1,
+      shared_items=?, live_link=?, live_link_label=?, gallery=?, intro_video=?, littles=?, payment_methods=?, home_photo=?, momni_plus=1, circle_up=1, profile_boost=1, gives_toggle=1, legacy_1_0=1,
       signup_ack_text=?, signup_ack_at=COALESCE(signup_ack_at, datetime('now')), age_affirmed_at=COALESCE(age_affirmed_at, datetime('now')), terms_version=?
     WHERE id = ?`).run(
     "Mama of three, former kindergarten aide, and the house on the street where every kid ends up by 4pm. We keep it simple: outside as much as possible, real snacks, quiet time that’s actually quiet, and a photo text so you never have to wonder. I host because a Circle is how I survived my first baby — I’d like to be that for someone else.",
-    "Three of our own — Hazel (6, reads to everyone), Beck (4, resident dinosaur expert), and Millie (14 months, professional snuggler).",
+    "Hazel reads to everyone, Beck is our resident dinosaur expert, and Millie is a professional snuggler.",
     "Cherry Hill, Orem",
     "Fenced backyard with a playhouse and sandbox, a mudroom for boots, no pets, an allergy-aware kitchen, a nap room with blackout curtains and a sound machine, and a whole wall of picture books.",
     JSON.stringify(['available-now', 'night-out', 'recurring', 'overnight']),
@@ -1893,6 +1943,12 @@ function ensureExampleHost() {
     ]),
     'https://momni.com/stories/', 'Our Circle story',
     JSON.stringify(gallery), ex('intro.mp4', null),
+    JSON.stringify([   // birthdays, so the ages on the example keep themselves current
+      { name: 'Hazel',  sex: 'girl', birthdate: '2020-06-14', photo_url: ex('little-1.jpg', null) },
+      { name: 'Beck',   sex: 'boy',  birthdate: '2022-03-02', photo_url: ex('little-2.jpg', null) },
+      { name: 'Millie', sex: 'girl', birthdate: '2025-07-10', photo_url: ex('little-3.jpg', null) },
+    ]),
+    JSON.stringify(['venmo', 'zelle', 'cash']), ex('home-hero.jpg', '/assets/photos/baking-with-kids.jpg'),
     ACKNOWLEDGMENT_TEXT, TERMS_VERSION, host.id);
 
   const reviewers = [

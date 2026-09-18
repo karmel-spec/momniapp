@@ -70,7 +70,27 @@ main{padding:6px 20px 24px}
 .tab{flex:1;text-align:center;padding:10px 0 12px;font-size:11.5px;font-weight:600;color:var(--muted)}
 .tab .ico{display:block;font-size:20px;line-height:1.2}
 .tab.active{color:var(--purple)}
+#littles-list{display:grid;gap:10px;margin-bottom:10px}
+.lcard{display:grid;grid-template-columns:56px 1fr;gap:10px 12px;align-items:start;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px}
+.lcard .lpic{width:56px;height:56px;border-radius:50%;overflow:hidden;background:var(--lavender) center/cover no-repeat;cursor:pointer;position:relative}
+.lcard .lpic svg{width:100%;height:100%;display:block}
+.lcard .lpic:after{content:'📷';position:absolute;right:-2px;bottom:-2px;font-size:12px;background:#fff;border-radius:50%;padding:2px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.lcard .lrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lcard input[type=text]{flex:1;min-width:120px;border:1.5px solid #E5DEF4;border-radius:10px;padding:8px 10px;font-family:inherit;font-size:14px}
+.lcard input[type=date]{border:1.5px solid #E5DEF4;border-radius:10px;padding:7px 10px;font-family:inherit;font-size:14px}
+.lcard .sex{display:inline-flex;border:1.5px solid #E5DEF4;border-radius:100px;overflow:hidden}
+.lcard .sex button{border:none;background:#fff;padding:7px 12px;font-family:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.lcard .sex button.on.girl{background:var(--purple);color:#fff}.lcard .sex button.on.boy{background:var(--teal);color:#fff}
+.lcard .lmeta{grid-column:2;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.lcard .lmeta b{color:var(--ink)}
+.lcard .ldel{background:none;border:none;color:#B0556A;font-size:12.5px;cursor:pointer;font-family:inherit;text-decoration:underline}
+.paypick{display:flex;flex-wrap:wrap;gap:8px}
+.paypick label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:1.5px solid #E5DEF4;border-radius:100px;padding:6px 12px 6px 8px;background:#fff;font-size:13px;font-weight:600}
+.paypick label.on{border-color:var(--purple);background:var(--lavender)}
+.paypick input{accent-color:var(--purple)}
+.paypick .paychip{font-size:12px;padding:3px 8px;border-radius:6px}
 </style>
+<script src="littles.js"></script>
 </head>
 <body>
 <div class="app">
@@ -97,8 +117,15 @@ main{padding:6px 20px 24px}
         <textarea id="bio-input" rows="3" placeholder="Tell the Circle a little about you and your family…"></textarea>
       </div>
       <div class="field">
-        <label for="kids-input">Your littles</label>
+        <label for="kids-input">Anything else about your littles</label>
         <input id="kids-input" type="text" placeholder="18mo &amp; 4yr">
+      </div>
+      <div class="field" id="littles-field">
+        <label>Your littles — one card each</label>
+        <p class="fine" style="margin:-2px 0 10px">Name, boy or girl, and birthday. The age updates itself every birthday. Photos are optional — an icon shows until you add one.</p>
+        <div id="littles-list"></div>
+        <button type="button" id="little-add" style="background:var(--teal-soft);color:var(--teal-deep);border:none;border-radius:100px;padding:8px 16px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">+ Add a little</button>
+        <input type="file" id="little-photo-file" accept="image/*" style="display:none">
       </div>
       <div class="field">
         <label for="hood-input">Your neighborhood</label>
@@ -150,8 +177,23 @@ main{padding:6px 20px 24px}
         <input id="hourly-note" type="text" placeholder="$12/hr — paid directly to me">
       </div>
       <div class="field">
+        <label>How you accept payment</label>
+        <p class="fine" style="margin:-2px 0 8px">Paid directly to you, every penny — pick everything you take.</p>
+        <div id="pay-methods" class="paypick"></div>
+      </div>
+      <div class="field">
         <label for="home-highlights">Your home</label>
         <input id="home-highlights" type="text" placeholder="Big backyard, fenced, no pets">
+      </div>
+      <div class="field">
+        <label>A photo of your home</label>
+        <div id="home-photo-wrap" style="display:none;margin-bottom:8px"><img id="home-photo-img" alt="" style="width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:14px;display:block"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button type="button" id="home-photo-btn" style="background:var(--teal-soft);color:var(--teal-deep);border:none;border-radius:100px;padding:8px 16px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">🏡 Add / change home photo</button>
+          <button type="button" id="home-photo-remove" style="display:none;background:none;border:1.5px solid var(--line);border-radius:100px;padding:7px 14px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted)">Remove</button>
+          <input type="file" id="home-photo-file" accept="image/*" style="display:none">
+        </div>
+        <p class="fine" style="margin-top:6px">The playroom, the backyard, the reading corner — the space their littles will be in.</p>
       </div>
       <div style="margin-bottom:14px">
         <label style="display:block;font-size:13px;font-weight:600;margin-bottom:8px">When you're usually open</label>
@@ -416,6 +458,9 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
     }
     document.getElementById('bio-input').value = me.bio || '';
     document.getElementById('kids-input').value = me.kids_note || '';
+    littles = Array.isArray(me.littles_edit) ? me.littles_edit : []; renderLittles();
+    renderPay();
+    showHomePhoto(me.home_photo);
     document.getElementById('hood-input').value = me.neighborhood || '';
     document.getElementById('hourly-note').value = me.hourly_note || '';
     document.getElementById('home-highlights').value = me.home_highlights || '';
@@ -626,6 +671,112 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
       body: JSON.stringify({ body: body.trim(), page: location.pathname }) })
       .then(function(r){ return r.json(); })
       .then(function(d){ alert(d.note || d.error || 'Something went wrong — try again.'); });
+  });
+
+  // ---- Home photo ----
+  function showHomePhoto(url){
+    var w = document.getElementById('home-photo-wrap');
+    if (url) { document.getElementById('home-photo-img').src = url; w.style.display = 'block'; document.getElementById('home-photo-remove').style.display = 'inline-block'; }
+    else { w.style.display = 'none'; document.getElementById('home-photo-remove').style.display = 'none'; }
+  }
+  document.getElementById('home-photo-btn').addEventListener('click', function(){ document.getElementById('home-photo-file').click(); });
+  document.getElementById('home-photo-remove').addEventListener('click', function(){
+    fetch('/api/me/home-photo', { method: 'DELETE' }).then(function(){ me.home_photo = null; showHomePhoto(null); });
+  });
+  document.getElementById('home-photo-file').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    var btn = document.getElementById('home-photo-btn'); btn.textContent = 'Uploading…';
+    var rd = new FileReader();
+    rd.onload = function(){
+      var im = new Image();
+      im.onload = function(){
+        var W = 1200, H = 750, c = document.createElement('canvas'); c.width = W; c.height = H; var ctx = c.getContext('2d');
+        var r = Math.max(W / im.width, H / im.height), w = im.width * r, h = im.height * r;
+        ctx.drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
+        fetch('/api/me/photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data_base64: c.toDataURL('image/jpeg', 0.85), target: 'home' }) })
+          .then(function(r){ return r.json(); }).then(function(d){
+            btn.textContent = '🏡 Add / change home photo';
+            if (d && d.url) { me.home_photo = d.url; showHomePhoto(d.url); } else alert((d && d.error) || 'That photo didn’t upload — try another.');
+          }).catch(function(){ btn.textContent = '🏡 Add / change home photo'; });
+      };
+      im.src = rd.result;
+    };
+    rd.readAsDataURL(f); e.target.value = '';
+  });
+
+  // ---- Payment methods (host) ----
+  function renderPay(){
+    var mine = Array.isArray(me.payment_methods) ? me.payment_methods : [];
+    document.getElementById('pay-methods').innerHTML = MomniLittles.PAY_KEYS.map(function(k){
+      var on = mine.indexOf(k) !== -1;
+      return '<label class="' + (on ? 'on' : '') + '"><input type="checkbox" value="' + k + '"' + (on ? ' checked' : '') + '>' + MomniLittles.payChip(k) + '</label>';
+    }).join('');
+  }
+  document.getElementById('pay-methods').addEventListener('change', function(){
+    var picked = [].map.call(document.querySelectorAll('#pay-methods input:checked'), function(i){ return i.value; });
+    me.payment_methods = picked; renderPay(); put({ payment_methods: picked });
+  });
+
+  // ---- Littles editor: name · boy/girl · birthday · optional photo. Saved as a whole list on every change. ----
+  var littles = [], littleSaveTimer = null, littlePhotoIdx = null;
+  function saveLittles(){
+    clearTimeout(littleSaveTimer);
+    littleSaveTimer = setTimeout(function(){
+      put({ littles: littles }).then(function(r){ return r.json(); }).then(function(d){
+        if (d && d.error) alert(d.error); else { me.littles_edit = littles; }
+      });
+    }, 400);
+  }
+  function renderLittles(keepFocus){
+    var active = document.activeElement, activeId = active && active.dataset ? active.dataset.lid : null;
+    document.getElementById('littles-list').innerHTML = littles.map(function(l, i){
+      var pic = l.photo_url ? '<div class="lpic" data-i="' + i + '" style="background-image:url(\'' + esc(l.photo_url) + '\')" title="Change photo"></div>'
+                            : '<div class="lpic" data-i="' + i + '" title="Add a photo">' + MomniLittles.icon(l.sex) + '</div>';
+      var age = MomniLittles.ageLabel(l.birthdate);
+      return '<div class="lcard">' + pic +
+        '<div class="lrow"><input type="text" data-lid="n' + i + '" data-i="' + i + '" data-k="name" maxlength="40" placeholder="Name" value="' + esc(l.name || '') + '">' +
+        '<span class="sex"><button type="button" class="girl' + (l.sex === 'girl' ? ' on' : '') + '" data-i="' + i + '" data-sex="girl">Girl</button><button type="button" class="boy' + (l.sex === 'boy' ? ' on' : '') + '" data-i="' + i + '" data-sex="boy">Boy</button></span>' +
+        '<input type="date" data-lid="d' + i + '" data-i="' + i + '" data-k="birthdate" max="' + new Date().toISOString().slice(0,10) + '" value="' + esc(l.birthdate || '') + '" aria-label="Birthday"></div>' +
+        '<div class="lmeta"><span>' + (age ? 'Shows as <b>' + esc(l.name || 'Little') + ' · ' + esc(age) + '</b>' : 'Add a birthday to show an age') + '</span><span>' +
+        (l.photo_url ? '<button type="button" class="ldel" data-i="' + i + '" data-act="unphoto">Use icon instead</button> ' : '') +
+        '<button type="button" class="ldel" data-i="' + i + '" data-act="del">Remove</button></span></div></div>';
+    }).join('');
+    if (keepFocus && activeId) { var el = document.querySelector('[data-lid="' + activeId + '"]'); if (el) el.focus(); }
+  }
+  document.getElementById('little-add').addEventListener('click', function(){
+    if (littles.length >= 8) return alert('Up to eight littles, Momni.');
+    littles.push({ name: '', sex: '', birthdate: '', photo_url: null }); renderLittles();
+    var first = document.querySelector('[data-lid="n' + (littles.length - 1) + '"]'); if (first) first.focus();
+  });
+  document.getElementById('littles-list').addEventListener('input', function(e){
+    var i = e.target.dataset.i, k = e.target.dataset.k; if (i == null || !k) return;
+    littles[i][k] = e.target.value; if (k === 'birthdate') renderLittles(true); saveLittles();
+  });
+  document.getElementById('littles-list').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-sex]'); if (b) { littles[b.dataset.i].sex = b.dataset.sex; renderLittles(); saveLittles(); return; }
+    var a = e.target.closest('button[data-act]');
+    if (a && a.dataset.act === 'del') { if (!confirm('Remove this little from your profile?')) return; littles.splice(a.dataset.i, 1); renderLittles(); saveLittles(); return; }
+    if (a && a.dataset.act === 'unphoto') { littles[a.dataset.i].photo_url = null; renderLittles(); saveLittles(); return; }
+    var p = e.target.closest('.lpic'); if (p) { littlePhotoIdx = Number(p.dataset.i); document.getElementById('little-photo-file').click(); }
+  });
+  document.getElementById('little-photo-file').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0]; if (!f || littlePhotoIdx == null) return;
+    var rd = new FileReader();
+    rd.onload = function(){
+      var im = new Image();
+      im.onload = function(){
+        var S = 400, c = document.createElement('canvas'); c.width = S; c.height = S; var ctx = c.getContext('2d');
+        var r = Math.max(S / im.width, S / im.height), w = im.width * r, h = im.height * r;
+        ctx.drawImage(im, (S - w) / 2, (S - h) / 2, w, h);
+        fetch('/api/me/photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data_base64: c.toDataURL('image/jpeg', 0.85), target: 'little' }) })
+          .then(function(r){ return r.json(); }).then(function(d){
+            if (d && d.url) { littles[littlePhotoIdx].photo_url = d.url; renderLittles(); saveLittles(); }
+            else alert((d && d.error) || 'That photo didn’t upload — try another.');
+          });
+      };
+      im.src = rd.result;
+    };
+    rd.readAsDataURL(f); e.target.value = '';
   });
 
   // ---- Meet-the-Momni video ----

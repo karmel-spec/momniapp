@@ -25,8 +25,9 @@ main{padding:18px 20px 8px}
 .head{text-align:center;margin-bottom:8px}
 .avatar{width:88px;height:88px;border-radius:50%;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:34px;margin:4px auto 12px}
 .avatar.photo{background-size:cover;background-position:center;color:transparent}
-.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.gallery img{width:100%;height:92px;object-fit:cover;border-radius:10px;display:block}
+.gallery{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:2px 0 8px;margin:0 -20px;padding-left:20px;padding-right:20px;scrollbar-width:none}
+.gallery::-webkit-scrollbar{display:none}
+.gallery img{flex:0 0 78%;max-width:300px;aspect-ratio:4/3;object-fit:cover;border-radius:14px;scroll-snap-align:start;background:var(--lavender)}
 .head h1{font-size:23px;font-weight:800;letter-spacing:-0.02em}
 .loc{font-size:14px;color:var(--muted);margin-top:3px}
 .pills{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:12px}
@@ -57,6 +58,24 @@ main{padding:18px 20px 8px}
 .cta-bar .req{display:block;text-align:center;background:var(--algae);color:#0B4A36;border-radius:100px;padding:14px;font-size:16px;font-weight:700}
 .cta-bar .note{font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5}
 .state{padding:48px 24px;text-align:center;color:var(--muted)}
+.ct{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ctile{display:flex;flex-direction:column;gap:2px;border-radius:14px;padding:12px 13px;border:1.5px solid transparent}
+.ctile .cti{font-size:20px;line-height:1;margin-bottom:4px}.ctile .ctt{font-size:14px;font-weight:800;font-family:'Montserrat',sans-serif}.ctile .cth{font-size:12px;color:var(--muted);line-height:1.35}
+.ctile.available-now{background:var(--teal-soft)}.ctile.available-now .ctt{color:var(--teal-deep)}
+.ctile.night-out{background:var(--lavender)}.ctile.night-out .ctt{color:var(--purple-deep)}
+.ctile.recurring{background:#FBF6EE;border-color:#EFE3D0}.ctile.recurring .ctt{color:#8A6B3F}
+.ctile.overnight{background:#EEF1FB}.ctile.overnight .ctt{color:#3B4A8A}
+.pay{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:10px}
+.paylabel{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-right:2px}
+.paychip{display:inline-block;font-size:12.5px;padding:5px 11px;border-radius:8px;line-height:1.2}
+.littles{display:flex;flex-wrap:wrap;gap:14px 18px;margin:4px 0 2px}
+.little{display:flex;flex-direction:column;align-items:center;width:72px;text-align:center}
+.lface{width:60px;height:60px;border-radius:50%;display:block;overflow:hidden;box-shadow:0 2px 10px rgba(109,88,164,.12)}
+.lface svg{width:100%;height:100%;display:block}
+.lface.photo{background:center/cover no-repeat}
+.lname{font-size:13.5px;font-weight:700;margin-top:6px;line-height:1.2}
+.lage{font-size:12px;color:var(--muted)}
+.home-photo{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:14px;display:block;margin-bottom:10px;background:var(--lavender)}
 .example-banner{background:var(--lavender);border:1.5px solid #DDD3F3;border-radius:14px;padding:12px 14px;font-size:13.5px;line-height:1.5;color:var(--purple-deep);margin:0 0 14px}
 .example-banner b{font-weight:800}
 .intro-video{width:100%;aspect-ratio:9/12;max-height:420px;background:#111;border-radius:16px;overflow:hidden;display:block;object-fit:cover}
@@ -65,6 +84,7 @@ main{padding:18px 20px 8px}
 .review .who small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
 .review .rstars{margin-left:auto}
 </style>
+<script src="littles.js"></script>
 </head>
 <body>
 <div class="app">
@@ -83,6 +103,7 @@ main{padding:18px 20px 8px}
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   var CT = {'available-now':'Available Now','night-out':'Night Out','recurring':'Recurring','overnight':'Overnight'};
+  var CTM = {'available-now':{e:'💡',t:'Available Now',h:'Care today — sometimes within the hour'},'night-out':{e:'🌙',t:'Night Out',h:'An evening out, kiddos in good hands'},'recurring':{e:'🔁',t:'Recurring',h:'The same mornings or afternoons every week'},'overnight':{e:'🛏️',t:'Overnight',h:'One night to a whole stretch'}};
   var BLK = {am:'Mornings',pm:'Afternoons',eve:'Evenings',overnight:'Overnight'};
   var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   var stars = function(n){ n = Math.round(n||0); return '★★★★★'.slice(0,n) + '☆☆☆☆☆'.slice(0,5-n); };
@@ -120,21 +141,32 @@ main{padding:18px 20px 8px}
       '<video class="intro-video" controls playsinline preload="metadata"' + (h.photo_url ? ' poster="' + esc(h.photo_url) + '"' : '') + ' src="' + esc(h.intro_video) + '"></video>' +
       '<p class="fine" style="margin-top:8px">A one-minute hello from ' + esc(first) + ' — who she is, her home, and how a day with her littles goes.</p>');
     if (h.bio) html += sec('About', '<p>'+esc(h.bio)+'</p>');
-    if (h.kids_note) html += sec(first + '’s littles', '<p>'+esc(h.kids_note)+'</p>');
+    var littles = Array.isArray(h.littles) ? h.littles : [];
+    if (littles.length || h.kids_note) html += sec(first + '’s littles',
+      (littles.length ? '<div class="littles">' + littles.map(function(l){
+        var face = l.photo_url ? '<span class="lface photo" style="background-image:url(\'' + esc(l.photo_url) + '\')"></span>'
+                               : '<span class="lface">' + MomniLittles.icon(l.sex) + '</span>';
+        return '<div class="little">' + face + '<span class="lname">' + esc(l.name) + '</span>' + (l.age ? '<span class="lage">' + esc(l.age) + '</span>' : '') + '</div>';
+      }).join('') + '</div>' : '') +
+      (h.kids_note ? '<p' + (littles.length ? ' style="margin-top:10px"' : '') + '>' + esc(h.kids_note) + '</p>' : ''));
     if ((h.care_types||[]).length || h.hourly_note) {
       html += sec('Care offered',
-        '<div class="ct">' + (h.care_types||[]).map(function(c){ return '<span>'+esc(CT[c]||c)+'</span>'; }).join('') + '</div>' +
-        (h.hourly_note ? '<div class="rate">'+esc(h.hourly_note)+'</div>' : ''));
+        '<div class="ct">' + (h.care_types||[]).map(function(ct){ var m = CTM[ct] || {e:'💜', t:ct, h:''};
+          return '<div class="ctile ' + esc(ct) + '"><span class="cti">' + m.e + '</span><span class="ctt">' + esc(m.t) + '</span><span class="cth">' + esc(m.h) + '</span></div>'; }).join('') + '</div>' +
+        (h.hourly_note ? '<div class="rate">' + esc(h.hourly_note) + '</div>' : '') +
+        ((h.payment_methods||[]).length ? '<div class="pay"><span class="paylabel">Accepts</span>' + h.payment_methods.map(MomniLittles.payChip).join('') + '</div>' : ''));
     }
-    if (h.home_highlights) html += sec('Their home', '<p>'+esc(h.home_highlights)+'</p>');
-    if ((h.gallery||[]).length) html += sec('A peek at our home',
+    if (h.home_highlights || h.home_photo) html += sec('Our home',
+      (h.home_photo ? '<img class="home-photo" src="' + esc(h.home_photo) + '" alt="' + esc(first) + '’s home" loading="lazy">' : '') +
+      (h.home_highlights ? '<p>' + esc(h.home_highlights) + '</p>' : ''));
+    if ((h.gallery||[]).length) html += sec('A peek at our life',
       '<div class="gallery">' + h.gallery.map(function(src){ return '<img src="'+esc(src)+'" alt="" loading="lazy">'; }).join('') + '</div>');
 
     var av = h.availability || {};
     var avRows = DAYS.filter(function(d){ return (av[d]||[]).length; }).map(function(d){
       return '<div class="row"><span class="d">'+d+'</span><span>'+(av[d].map(function(b){ return BLK[b]||b; }).join(', '))+'</span></div>';
     });
-    if (avRows.length) html += sec('Usually open', '<div class="avail">'+avRows.join('')+'</div>');
+    if (avRows.length) html += sec('Available times', '<div class="avail">'+avRows.join('')+'</div>');
 
     var shared = (h.shared_items||[]).map(function(it){
       var txt = esc(it.label) + (it.as_of ? ' · as of ' + esc(it.as_of) : '');
@@ -200,5 +232,6 @@ main{padding:18px 20px 8px}
 })();
 </script>
 <script src="site-nav.js" defer></script>
+<script src="momni-chat.js" defer></script>
 </body>
 </html>
