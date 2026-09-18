@@ -29,7 +29,14 @@ window.MomniLittles = (function(){
     applecash: ['\uF8FF Apple Cash', '#111', '#fff', 'font-weight:700'],
     cash:      ['Cash or check', '#F3F0F8', '#4A3880', 'font-weight:700']
   };
-  function payChip(key){ var p = PAY[key]; if (!p) return ''; return '<span class="paychip" style="background:' + p[1] + ';color:' + p[2] + ';' + p[3] + '">' + p[0] + '</span>'; }
+  // Official marks (Venmo, PayPal, Zelle, Cash App) live in /assets/pay/; Apple Cash and cash stay typeset.
+  var LOGO = { venmo: 'venmo.svg', paypal: 'paypal.svg', zelle: 'zelle.svg', cashapp: 'cashapp.svg' };
+  var base = (function(){ try { var sc = document.currentScript; return sc ? new URL(sc.src, location.href).origin : ''; } catch(e){ return ''; } })();
+  function payChip(key){
+    var p = PAY[key]; if (!p) return '';
+    if (LOGO[key]) return '<span class="paychip logo" title="' + p[0] + '"><img src="' + base + '/assets/pay/' + LOGO[key] + '" alt="' + p[0] + '">' + (key === 'cashapp' ? '<b>Cash App</b>' : '') + '</span>';
+    return '<span class="paychip" style="background:' + p[1] + ';color:' + p[2] + ';' + p[3] + '">' + p[0] + '</span>';
+  }
   function payLabel(key){ return PAY[key] ? PAY[key][0] : key; }
   return { icon: icon, ageLabel: ageLabel, payChip: payChip, payLabel: payLabel, PAY_KEYS: Object.keys(PAY) };
 })();
