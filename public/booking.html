@@ -374,26 +374,26 @@ function toggleRecurring(){
     if (!d.start_date) { capFull = false; note.style.display = 'none'; if (btn.dataset.capfull) { delete btn.dataset.capfull; btn.disabled = false; } return; }
     clearTimeout(capTimer);
     capTimer = setTimeout(function(){
-      var q = 'care_type=' + encodeURIComponent(care) + '&start_date=' + encodeURIComponent(d.start_date) + '&end_date=' + encodeURIComponent(d.end_date || '') + '&kids=' + encodeURIComponent(d.kids || 1) + '&weekdays=' + encodeURIComponent((d.weekdays || []).join(','));
+      var q = 'care_type=' + encodeURIComponent(care) + '&start_date=' + encodeURIComponent(d.start_date) + '&end_date=' + encodeURIComponent(d.end_date || '') + '&kids=' + encodeURIComponent(d.kids || 1) + '&weekdays=' + encodeURIComponent((d.weekdays || []).join(',')) + '&start_time=' + encodeURIComponent(d.start_time || '') + '&end_time=' + encodeURIComponent(d.end_time || '');
       fetch('/api/hosts/' + encodeURIComponent(hostId) + '/capacity?' + q).then(function(r){ return r.ok ? r.json() : null; }).then(function(c){
         if (!c) return;
         if (c.full) {
           capFull = true; note.style.display = 'block'; note.style.color = '#B4434E';
-          note.textContent = '⛔ ' + hostName + ' is full on ' + c.full.date + ' — ' + c.full.spots + ' spot' + (c.full.spots === 1 ? '' : 's') + ' for other littles, ' + c.full.booked + ' already booked. Pick another day or fewer littles.';
+          note.textContent = '⛔ ' + hostName + ' is full ' + c.full.date + ' ' + (c.full.block_label || '') + ' — ' + c.full.spots + ' spot' + (c.full.spots === 1 ? '' : 's') + ' for other littles, ' + c.full.booked + ' already booked then. Pick another time, day, or fewer littles.';
           btn.dataset.capfull = '1'; btn.disabled = true;
         } else {
           capFull = false;
-          if (c.spots != null) { note.style.display = 'block'; note.style.color = 'var(--teal-deep)'; note.textContent = '✓ Room for your ' + (d.kids || 1) + ' that day.'; } else note.style.display = 'none';
+          if (c.spots != null) { note.style.display = 'block'; note.style.color = 'var(--teal-deep)'; note.textContent = '✓ Room for your ' + (d.kids || 1) + ' then.'; } else note.style.display = 'none';
           if (btn.dataset.capfull) { delete btn.dataset.capfull; btn.disabled = false; }
         }
       }).catch(function(){});
     }, 300);
   }
-  ['start-date','end-date','kids-count'].forEach(function(id){ var el = document.getElementById(id); el.addEventListener('input', checkCapacity); el.addEventListener('change', checkCapacity); });
+  ['start-date','end-date','start-time','end-time','kids-count'].forEach(function(id){ var el = document.getElementById(id); el.addEventListener('input', checkCapacity); el.addEventListener('change', checkCapacity); });
   document.querySelectorAll('input[name="caretype"], #recurring-days input').forEach(function(el){ el.addEventListener('change', checkCapacity); });
 
   function sendLink(){
-    if (capFull) { alert('That day is full — pick another day or fewer littles.'); return; }
+    if (capFull) { alert('That time is full — pick another time, day, or fewer littles.'); return; }
     var careType = document.querySelector('input[name="caretype"]:checked').value;
     var btn = document.getElementById('send');
     var hello = document.getElementById('details').value.trim().slice(0, 2000);

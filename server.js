@@ -504,9 +504,9 @@ app.get('/api/hosts/:id/freebusy', requireAuth, async (req, res) => {
 app.get('/api/hosts/:id/capacity', requireAuth, (req, res) => {
   const host = db.prepare('SELECT * FROM users WHERE id = ? AND is_host = 1').get(req.params.id);
   if (!host) return res.status(404).json({ error: 'Not found' });
-  const q = req.query, d = { start_date: q.start_date, end_date: q.end_date || null, weekdays: q.weekdays ? String(q.weekdays).split(',').filter(Boolean) : [] };
+  const q = req.query, d = { start_date: q.start_date, end_date: q.end_date || null, weekdays: q.weekdays ? String(q.weekdays).split(',').filter(Boolean) : [], start_time: q.start_time || null, end_time: q.end_time || null };
   const kids = Math.max(1, parseInt(q.kids, 10) || 1);
-  const over = capacityProblem(host, linkDates(String(q.care_type || 'one-time'), d), kids);
+  const over = capacityProblem(host, linkDates(String(q.care_type || 'one-time'), d), kids, d);
   res.json({ ok: !over, full: over, spots: host.max_kids ? Math.max(0, host.max_kids - parseLittles(host).length) : null });
 });
 
@@ -539,13 +539,13 @@ app.get('/api/hosts/:id/calendar', requireAuth, async (req, res) => {
     });
   }
   // Booked littles per day from scheduled visits on this host's Links (multi-day visits count every day)
-  const visits = db.prepare(`SELECT v.date, v.end_date, l.details FROM visits v JOIN links l ON l.id = v.link_id
+  const visits = db.prepare(`SELECT v.date, v.end_date, v.start_time, v.end_time, l.details FROM visits v JOIN links l ON l.id = v.link_id
     WHERE l.host_id = ? AND v.status IN ('scheduled','checked_in') AND v.date <= ? AND COALESCE(v.end_date, v.date) >= ?`).all(u.id, dates[dates.length - 1], dates[0]);
-  const booked = {};
+  const booked = {};   // day -> block -> kids
   visits.forEach(v => {
     let kids = 1; try { kids = Math.max(1, parseInt(JSON.parse(v.details || '{}').kids, 10) || 1); } catch (e) {}
-    const end = v.end_date || v.date;
-    dates.forEach(d => { if (d >= v.date && d <= end) booked[d] = (booked[d] || 0) + kids; });
+    const byDay = visitBlocksByDay(v.date, v.end_date, v.start_time, v.end_time);
+    Object.keys(byDay).forEach(d => { booked[d] = booked[d] || {}; byDay[d].forEach(b => { booked[d][b] = (booked[d][b] || 0) + kids; }); });
   });
   const own = parseLittles(u).length, max = u.max_kids || null;
   res.json({
@@ -553,7 +553,8 @@ app.get('/api/hosts/:id/calendar', requireAuth, async (req, res) => {
     days: dates.map(d => {
       const dow = DOW[new Date(d + 'T12:00:00Z').getUTCDay()];
       const usual = Array.isArray(avail[dow]) ? avail[dow] : [];
-      return { date: d, dow, blocks: ['am', 'pm', 'eve', 'overnight'].map(k => ({ key: k, usual: usual.includes(k), busy: !!(busyMap[d] && busyMap[d].has(k)) })), booked_kids: booked[d] || 0 };
+      const blocks = ['am', 'pm', 'eve', 'overnight'].map(k => ({ key: k, usual: usual.includes(k), busy: !!(busyMap[d] && busyMap[d].has(k)), booked: (booked[d] && booked[d][k]) || 0 }));
+      return { date: d, dow, blocks, booked_kids: Math.max(0, ...blocks.map(b => b.booked)) };   // booked_kids = the busiest block
     }),
   });
 });
@@ -771,8 +772,8 @@ app.post('/api/links', requireAuth, (req, res) => {
   }
   {
     const d = details || {}, kids = Math.max(1, parseInt(d.kids, 10) || 1);
-    const over = capacityProblem(host, linkDates(care_type, d), kids);
-    if (over) return res.status(409).json({ error: `${(host.name || 'This Momni').split(' ')[0]} is full on ${prettyDay(over.date)} — ${over.spots} spot${over.spots === 1 ? '' : 's'} for other littles, ${over.booked} already booked. Try another day or fewer littles.`, full: over });
+    const over = capacityProblem(host, linkDates(care_type, d), kids, d);
+    if (over) return res.status(409).json({ error: `${(host.name || 'This Momni').split(' ')[0]} is full ${prettyDay(over.date)} ${over.block_label} — ${over.spots} spot${over.spots === 1 ? '' : 's'} for other littles, ${over.booked} already booked then. Try another time or fewer littles.`, full: over });
   }
   const info = db.prepare(`INSERT INTO links (guest_id,host_id,care_type,details,acknowledgment_text,acknowledged_at,terms_version)
     VALUES (?,?,?,?,?,datetime('now'),?)`)
@@ -944,20 +945,41 @@ function linkDates(care_type, d) {
   }
   return [[d.start_date, null]];
 }
+// Which blocks (am 6–12, pm 12–17, eve 17–22, overnight 22–6) a booking occupies on each day it covers.
+// No times → a daytime booking (am+pm+eve), plus overnight when it spans days.
+const BLOCK_LABEL = { am: 'morning', pm: 'afternoon', eve: 'evening', overnight: 'overnight' };
+function hourBlock(h) { h = ((h % 24) + 24) % 24; return h < 6 ? 'overnight' : h < 12 ? 'am' : h < 17 ? 'pm' : h < 22 ? 'eve' : 'overnight'; }
+function visitBlocksByDay(date, end_date, start_time, end_time) {
+  const out = {}; const end = end_date && end_date > date ? end_date : date;
+  const days = []; for (let t = Date.parse(date + 'T12:00:00Z'); t <= Date.parse(end + 'T12:00:00Z'); t += 86400000) days.push(new Date(t).toISOString().slice(0, 10));
+  const hm = (x) => { const m = /^(\d{1,2}):(\d{2})/.exec(String(x || '')); return m ? +m[1] + (+m[2]) / 60 : null; };
+  const sh = hm(start_time), eh = hm(end_time);
+  if (sh == null || eh == null) { days.forEach((d, i) => { out[d] = new Set(['am', 'pm', 'eve']); if (days.length > 1 && i < days.length - 1) out[d].add('overnight'); }); return out; }
+  days.forEach((d, i) => {
+    let from = i === 0 ? sh : 0, to = i === days.length - 1 ? eh : 24;
+    if (days.length === 1 && to <= from) to += 24;            // same-day overnight (e.g. 18:00 → 09:00)
+    if (to <= from) to = from + 1;                             // guard: at least the starting block
+    const set = new Set(); for (let h = Math.floor(from); h < to; h++) set.add(hourBlock(h)); out[d] = set;
+  });
+  return out;
+}
 // Full days close to new Links: for each requested date, littles already booked + the ones requested must fit her open spots.
-function capacityProblem(host, dates, kids) {
+function capacityProblem(host, dates, kids, times) {
   if (!host.max_kids || !dates.length) return null;
+  times = times || {};
   const spots = Math.max(0, host.max_kids - parseLittles(host).length);
   const lo = dates.reduce((a, x) => x[0] < a ? x[0] : a, dates[0][0]), hi = dates.reduce((a, x) => (x[1] || x[0]) > a ? (x[1] || x[0]) : a, dates[0][1] || dates[0][0]);
-  const visits = db.prepare(`SELECT v.date, v.end_date, l.details FROM visits v JOIN links l ON l.id = v.link_id
+  const visits = db.prepare(`SELECT v.date, v.end_date, v.start_time, v.end_time, l.details FROM visits v JOIN links l ON l.id = v.link_id
     WHERE l.host_id = ? AND v.status IN ('scheduled','checked_in') AND v.date <= ? AND COALESCE(v.end_date, v.date) >= ?`).all(host.id, hi, lo);
-  const booked = {};
-  visits.forEach(v => { let k = 1; try { k = Math.max(1, parseInt(JSON.parse(v.details || '{}').kids, 10) || 1); } catch (e) {} const e = v.end_date || v.date;
-    for (let t = Date.parse(v.date + 'T12:00:00Z'); t <= Date.parse(e + 'T12:00:00Z'); t += 86400000) { const day = new Date(t).toISOString().slice(0, 10); booked[day] = (booked[day] || 0) + k; } });
+  const booked = {};   // day -> block -> kids
+  visits.forEach(v => { let k = 1; try { k = Math.max(1, parseInt(JSON.parse(v.details || '{}').kids, 10) || 1); } catch (e) {}
+    const byDay = visitBlocksByDay(v.date, v.end_date, v.start_time, v.end_time);
+    Object.keys(byDay).forEach(d => { booked[d] = booked[d] || {}; byDay[d].forEach(b => { booked[d][b] = (booked[d][b] || 0) + k; }); }); });
   for (const [start, end] of dates) {
-    for (let t = Date.parse(start + 'T12:00:00Z'); t <= Date.parse((end || start) + 'T12:00:00Z'); t += 86400000) {
-      const day = new Date(t).toISOString().slice(0, 10), used = booked[day] || 0;
-      if (used + kids > spots) return { date: day, spots, booked: used, open: Math.max(0, spots - used) };
+    const byDay = visitBlocksByDay(start, end, times.start_time, times.end_time);
+    for (const day of Object.keys(byDay)) for (const b of byDay[day]) {
+      const used = (booked[day] && booked[day][b]) || 0;
+      if (used + kids > spots) return { date: day, block: b, block_label: BLOCK_LABEL[b], spots, booked: used, open: Math.max(0, spots - used) };
     }
   }
   return null;

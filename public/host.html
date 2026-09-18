@@ -119,7 +119,8 @@ a.sh-item:hover{border-color:#D9C0A3}
 .cd-date{font-family:'Montserrat',sans-serif;font-weight:800;font-size:15px;margin-top:-4px}
 .cd-blocks{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .cb{font-size:10.5px;font-weight:700;text-align:center;border-radius:6px;padding:3px 0}
-.cb.ok{background:var(--teal-soft);color:var(--teal-deep)}.cb.no{background:#F3F1F7;color:#B9B3C9}.cb.busy{background:#EEE;color:#999;text-decoration:line-through}
+.cb.ok{background:var(--teal-soft);color:var(--teal-deep)}.cb.full{background:#FDECEC;color:#B4434E}
+.cb b{display:inline-block;margin-left:4px;min-width:14px;padding:0 3px;border-radius:7px;background:rgba(0,0,0,.08);font-size:10px;line-height:14px}.cb.no{background:#F3F1F7;color:#B9B3C9}.cb.busy{background:#EEE;color:#999;text-decoration:line-through}
 .cd-line{font-size:11.5px;color:var(--muted)}.cd-full .cd-line{color:#B0556A;font-weight:700}
 .example-banner{background:var(--lavender);border:1.5px solid #DDD3F3;border-radius:14px;padding:12px 14px;font-size:13.5px;line-height:1.5;color:var(--purple-deep);margin:0 0 14px}
 .example-banner b{font-weight:800}
@@ -306,17 +307,21 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
       strip.innerHTML = c.days.map(function(d){
         var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d.date);
         var anyOpen = d.blocks.some(function(b){ return b.usual && !b.busy; });
-        var spots = c.spots, used = d.booked_kids, full = spots != null && used >= spots;
+        var spots = c.spots, used = d.booked_kids;   // busiest block of the day
+        var usable = d.blocks.filter(function(b){ return b.usual && !b.busy; });
+        var fullBlocks = spots != null ? usable.filter(function(b){ return b.booked >= spots; }) : [];
+        var full = spots != null && usable.length > 0 && fullBlocks.length === usable.length;
         var dots = spots != null ? '<span class="cd-dots">' + Array.apply(null, Array(spots)).map(function(_, i){ return '<i class="' + (i < used ? 'booked' : 'open') + '"></i>'; }).join('') + '</span>' : '';
-        var line = spots == null ? (used ? used + ' booked' : '') : (full ? 'Full' : (used ? used + ' of ' + spots + ' spots booked' : 'All ' + spots + ' spots open'));
+        var line = spots == null ? (used ? used + ' booked at peak' : '') : (full ? 'Full' : fullBlocks.length ? 'Full: ' + fullBlocks.map(function(b){ return BLK_SHORT[b.key]; }).join(', ') : (used ? 'Busiest: ' + used + ' of ' + spots + ' spots' : 'All ' + spots + ' spots open'));
         return '<div class="cd' + (anyOpen ? '' : ' cd-off') + (full ? ' cd-full' : '') + '">' +
           '<div class="cd-day">' + d.dow + '</div><div class="cd-date">' + MON[+m[2]-1] + ' ' + (+m[3]) + '</div>' +
-          '<div class="cd-blocks">' + d.blocks.map(function(b){ var cls = !b.usual ? 'no' : b.busy ? 'busy' : 'ok'; return '<span class="cb ' + cls + '" title="' + (b.busy ? 'Busy on her calendar' : b.usual ? 'Usually open' : 'Not usually open') + '">' + BLK_SHORT[b.key] + '</span>'; }).join('') + '</div>' +
+          '<div class="cd-blocks">' + d.blocks.map(function(b){ var isFull = spots != null && b.usual && !b.busy && b.booked >= spots; var cls = !b.usual ? 'no' : b.busy ? 'busy' : isFull ? 'full' : 'ok';
+            return '<span class="cb ' + cls + '" title="' + (b.busy ? 'Busy on her calendar' : !b.usual ? 'Not usually open' : isFull ? 'Full — ' + b.booked + ' booked' : b.booked ? b.booked + ' booked, ' + (spots != null ? (spots - b.booked) + ' open' : '') : 'Open') + '">' + BLK_SHORT[b.key] + (b.booked ? '<b>' + b.booked + '</b>' : '') + '</span>'; }).join('') + '</div>' +
           dots + (line ? '<div class="cd-line">' + line + '</div>' : '') + '</div>';
       }).join('');
       var fn = (h.name || 'She').split(' ')[0];
       document.getElementById('cal-note').innerHTML = (c.calendar_connected ? '<b>Live:</b> synced with her calendar — greyed blocks are busy. ' : 'Usual hours only — ' + esc(fn) + ' hasn’t connected a calendar yet. ') +
-        (c.spots != null ? 'Dots are her open spots for other littles; filled ones are already booked. ' : '') + 'Send a Link to ask about a specific time.';
+        (c.spots != null ? 'Spots are counted per block — a number on a block is how many littles are booked then; dots show her busiest block. ' : '') + 'Send a Link to ask about a specific time.';
     }).catch(function(e){ console.error('calendar', e); });
   }
   function sec(title, inner){ return '<div class="sec"><h2>'+esc(title)+'</h2>'+inner+'</div>'; }
