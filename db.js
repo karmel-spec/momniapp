@@ -460,7 +460,7 @@ CREATE TABLE IF NOT EXISTS timeline_events ( -- Momni History entries Karmel add
   date TEXT NOT NULL,                     -- YYYY-MM-DD
   title TEXT NOT NULL,
   body TEXT DEFAULT '',
-  tag TEXT DEFAULT 'Milestone',           -- Relaunch | Milestone | Press | The Book | Origin | Community | Foundation
+  tag TEXT DEFAULT 'Milestone',           -- Relaunch | Milestone | Press | The Book | Origin | Community
   link TEXT,
   img TEXT,
   created_at TEXT DEFAULT (datetime('now'))

@@ -8,7 +8,6 @@
   function href(path) { return /^https?:/.test(path) ? path : S + path; }
   var TOP = [
     ['Press', S + '/press/'], ['Partnerships', S + '/partnerships/'],
-    ['Foundation', 'https://momnifoundation-878.netlify.app'],
     ['The Crisis', S + '/crisis/'], ['Volunteer', S + '/volunteer/']
   ];
   var MAIN = [
@@ -93,7 +92,7 @@
     '<div class="cols">' + FOOT.map(function (g) {
       return '<div><h5>' + g[0] + '</h5>' + g[1].map(function (l) { return '<a href="' + href(l[1]) + '">' + l[0] + '</a>'; }).join('') + '</div>';
     }).join('') + '</div>' +
-    '<div class="disc">Momni is a community platform — Momnis make their own care decisions and pay each other directly.<br>momni.com &amp; app.momni.com are operated by Momni, Inc. The Momni Foundation (momnifoundation.org) is a separate 501(c)(3). One brand, two entities, separate finances.</div>');
+    '<div class="disc">Momni is a community platform — Momnis make their own care decisions and pay each other directly.<br>momni.com &amp; app.momni.com are operated by Momni, Inc.</div>');
   var host = document.querySelector('.content') || document.querySelector('.app') || document.body;
   host.appendChild(foot);
 

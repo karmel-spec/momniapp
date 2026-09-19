@@ -186,7 +186,6 @@ const BADGE_CATALOG = {
   'campfire-keeper': { label: 'Campfire Keeper', emoji: '🪵', note: 'A pillar of the Circle’s ideas.' },
   'circle-up':       { label: 'Circle Up Member', emoji: '💜', note: 'Supports the movement at Circle Up.' },
   'momni-plus':      { label: 'Momni+ Member', emoji: '💎', note: 'All-in with Momni+.' },
-  'foundation-giver':{ label: 'Foundation Giver', emoji: '🤲', note: 'Gives a dollar back through Momni Gives.' },
   'volunteer':       { label: 'Momni Volunteer', emoji: '🙋‍♀️', note: 'Gives her time to the movement — verified by Momni HQ.' },
   'circle-host':     { label: 'Circle Host', emoji: '🔥', note: 'Leads a Circle.' },
   'circle-member':   { label: 'Circle Member', emoji: '🫶', note: 'Belongs to a Circle.' },
@@ -205,7 +204,6 @@ const BADGE_HOW = {
   'campfire-keeper': 'Thirty-plus Campfire contributions.',
   'circle-up':       'Join Circle Up from the Me tab.',
   'momni-plus':      'Join Momni+ from the Me tab.',
-  'foundation-giver':'Turn on Momni Gives in the Me tab.',
   'volunteer':       'Volunteer at momni.com/volunteer. Once you’ve served, HQ adds the badge.',
   'circle-host':     'Start a Circle from the Circles tab and lead it.',
   'circle-member':   'Join any Circle from the Circles tab.',
@@ -236,7 +234,6 @@ function badgesFor(u) {
     else if (score >= 1) add('campfire-spark', 'earned');
   } catch (e) { /* table may be absent */ }
   if (u.momni_plus) add('momni-plus', 'earned'); else if (u.circle_up) add('circle-up', 'earned');
-  if (u.gives_toggle) add('foundation-giver', 'earned');
   if (u.volunteer_at) add('volunteer', 'earned');
   if (u.contributor_at) add('blog-contributor', 'earned');
   try {
@@ -1585,7 +1582,6 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
     completed: q("SELECT COUNT(*) c FROM links WHERE status = 'completed'"),
     reviews: q('SELECT COUNT(*) c FROM reviews'),
     circles: q('SELECT COUNT(*) c FROM circles'),
-    gives: q('SELECT COUNT(*) c FROM users WHERE gives_toggle = 1'),
     open_reports: q("SELECT COUNT(*) c FROM reports WHERE status = 'open'"),
   });
 });

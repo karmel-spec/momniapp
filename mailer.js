@@ -109,7 +109,6 @@ function layout(inner, preheader) {
   <tr><td style="padding:18px 28px;background:#F5F0FE;font-size:12px;color:#6B6477;line-height:1.7">
     Questions, or just want to say hi? Reply to this email — a real Momni reads every one.<br>
     Momni is a community platform — Momnis make their own care decisions and pay each other directly.<br>
-    Momni, Inc. and the Momni Foundation (501(c)(3)) are one brand with separate finances.<br>
     ${EMAIL_POSTAL ? esc(EMAIL_POSTAL) + '<br>' : ''}
     <a href="${esc(APP_URL)}/me.html" style="color:#0D878F">Manage your preferences</a> &nbsp;·&nbsp; <a href="${esc(UNSUB_FALLBACK)}" style="color:#0D878F">Unsubscribe</a>
   </td></tr>
@@ -216,7 +215,7 @@ const TEMPLATES = {
       h1('Thank you, Momni! 💜') +
       p(`Here’s your download — <strong>${esc(v.title || 'your purchase')}</strong>. The link works for a little while and a few downloads, so save the file somewhere safe.`) +
       `<p style="margin:20px 0">${btn(v.downloadHref, 'Download now')}</p>` +
-      p('Every purchase in the Momni Shop helps fund care for parents in need through the Momni Foundation. Thank you for circling up.') +
+      p('Thank you for circling up.') +
       script('— Momni'),
       `Your download: ${v.title || 'Momni Shop'}`),
   }),
@@ -251,7 +250,7 @@ const TEMPLATES = {
     html: layout(
       h1(`Welcome home, ${esc(v.name || 'Momni')}.`) +
       p('You just did something quietly brave: you opened your door.') +
-      p('Being a host means you\'re part of a circle of parents who show up for each other — hour for hour, Momni to Momni. You set your own rate and hours, and you keep every penny. Momni never takes a cut of care.') +
+      p('Being a host means you\'re part of a circle of parents who show up for each other — Momni to Momni. You set your own rate and hours, and you keep every penny. Momni never takes a cut of care.') +
       p('No one to impress here. Just families finding families. One small first step: finish your profile so the Momnis nearby can get to know you.') +
       `<p style="margin:20px 0">${btn(APP_URL + '/me.html', 'Finish my profile')}</p>` +
       script('Welcome home, — Karmel'),

@@ -153,7 +153,7 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
         <div id="oc-list" style="margin-top:10px"><p class="empty">Loading…</p></div>
       </div>
       <div class="card"><h2>🛍️ Shop — digital downloads</h2>
-        <p class="meta" style="margin-bottom:8px">Upload a file, set a price, and it’s for sale at <a href="downloads.html" target="_blank">/downloads.html</a>. Price $0 for a free download. Buyers get an instant, time-limited link; 100% of profit supports the Foundation.</p>
+        <p class="meta" style="margin-bottom:8px">Upload a file, set a price, and it’s for sale at <a href="downloads.html" target="_blank">/downloads.html</a>. Price $0 for a free download. Buyers get an instant, time-limited link.</p>
         <input id="sp-title" placeholder="Title — e.g. The Sitter Sheet">
         <textarea id="sp-desc" placeholder="Short description" style="width:100%;padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit;font-size:14px;margin-bottom:8px;min-height:54px"></textarea>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
@@ -185,7 +185,7 @@ input{padding:9px 12px;border:1.5px solid #E5E0F0;border-radius:10px;font-family
           <div style="display:flex;gap:8px">
             <input id="sc-tl-date" type="date" style="width:160px">
             <select id="sc-tl-tag" style="padding:8px;border:1.5px solid #E5E0F0;border-radius:10px;font-family:inherit">
-              <option>Milestone</option><option>Press</option><option>Community</option><option>Relaunch</option><option>The Book</option><option>Origin</option><option>Foundation</option>
+              <option>Milestone</option><option>Press</option><option>Community</option><option>Relaunch</option><option>The Book</option><option>Origin</option>
             </select>
           </div>
           <input id="sc-tl-title" placeholder="Title — e.g. First Circle gathering in Texas" maxlength="150">
@@ -218,7 +218,7 @@ async function init(){
   try{
     const o = await api('/api/admin/overview');
     document.getElementById('hq').style.display='block';
-    const labels = {mamas:'Momnis in the Circle',hosts:'Hosting Momnis',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',gives:'Momni Gives Momnis',open_reports:'Open reports'};
+    const labels = {mamas:'Momnis in the Circle',hosts:'Hosting Momnis',links_week:'Links this week',links_total:'Links all time',completed:'Completed cares',reviews:'Reviews',circles:'Circles',open_reports:'Open reports'};
     document.getElementById('stats').innerHTML = Object.entries(labels).map(([k,l])=>`<div class="stat"><div class="n">${o[k]}</div><div class="l">${l}</div></div>`).join('');
     loadReports(); loadAnalytics(); loadSuggestions(); loadLinks(); loadUsers(); loadEmails(); loadTexts(); loadSupport(); loadOauthClients(); loadShop(); loadSiteConsole();
   }catch(e){}
@@ -517,7 +517,7 @@ async function saveStats(){
 <div id="momni-beta-feedback">
   <style>
     #momni-beta-feedback{position:fixed;top:84px;right:16px;z-index:60;font-family:'Albert Sans',sans-serif;}
-    #momni-beta-feedback .mbf-btn{display:inline-block;background:#6D58A4;color:#fff;border:none;border-radius:100px;padding:8px 16px;font-family:'Albert Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(43,34,51,.12);}
+    #momni-beta-feedback .mbf-btn{display:inline-block;background:#0D878F;color:#fff;border:none;border-radius:100px;padding:8px 16px;font-family:'Albert Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(43,34,51,.12);}
     #momni-beta-feedback .mbf-tip{display:none;position:absolute;top:calc(100% + 8px);right:0;max-width:260px;width:max-content;background:#fff;border:1.5px solid #E5E0F0;border-radius:14px;padding:12px 14px;font-size:13px;color:#2B2233;line-height:1.45;box-shadow:0 6px 18px rgba(43,34,51,.10);}
     #momni-beta-feedback:hover .mbf-tip,#momni-beta-feedback .mbf-btn:focus + .mbf-tip{display:block;}
   </style>

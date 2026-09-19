@@ -171,13 +171,6 @@ main{padding:6px 20px 24px}
       <div id="share-buttons" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
       <p class="fine" style="margin-top:10px">Instagram and TikTok don’t take web shares — those buttons copy a ready caption and open the app; paste it in a post or story.</p>
     </div>
-    <div class="card gives">
-      <div class="txt">
-        <h3>I host (I'm a Momni)</h3>
-        <p>Open your home to other Momnis' littles. Hosting is always free.</p>
-      </div>
-      <label class="toggle"><input type="checkbox" id="host-toggle"><span class="slider"></span></label>
-    </div>
 
     <div class="card" id="host-card" style="display:none">
       <p class="fine" style="margin:-4px 0 14px"><a id="example-link" href="#" style="color:var(--teal-deep);font-weight:600;text-decoration:underline">See a complete example profile →</a> — every section filled in, so you can see what Momnis will see.</p>
@@ -288,12 +281,13 @@ main{padding:6px 20px 24px}
       <a href="#" id="plus-btn">Try Momni+</a>
     </div>
 
+
     <div class="card gives">
       <div class="txt">
-        <h3>Momni Gives</h3>
-        <p>Give $1/mo to the Momni Foundation. Totally voluntary — it goes to a separate 501(c)(3) that helps Momnis in crisis.</p>
+        <h3>I host (I'm a Momni)</h3>
+        <p>Open your home to other Momnis' littles. Hosting is always free.</p>
       </div>
-      <label class="toggle"><input type="checkbox" id="gives-toggle"><span class="slider"></span></label>
+      <label class="toggle"><input type="checkbox" id="host-toggle"><span class="slider"></span></label>
     </div>
 
     <div class="card settings">
@@ -309,7 +303,6 @@ main{padding:6px 20px 24px}
   <footer class="disclosure">
     Momni is a community platform; members make their own care decisions.
     Care payments happen mom to mom — Momni never touches them.
-    Momni, Inc. and the Momni Foundation (501(c)(3)) are one brand with separate wallets.
   </footer>
 
   <nav class="tabbar">
@@ -470,7 +463,6 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
       }, 150);
     }
     document.getElementById('now-toggle').checked = me.available_now;
-    document.getElementById('gives-toggle').checked = me.gives_toggle;
     document.getElementById('sms-toggle').checked = me.sms_opt_in;
     document.getElementById('phone-field').style.display = me.sms_opt_in ? 'block' : 'none';
     document.getElementById('phone-input').value = me.phone || '';
@@ -629,9 +621,6 @@ function rememberNext(){ try { sessionStorage.setItem('momni-next', location.pat
     if(c==='denied'||c==='error') msg.style.color='#B0556A';
   })();
   loadCalendar();
-  document.getElementById('gives-toggle').addEventListener('change', function(){
-    put({ gives_toggle: this.checked });
-  });
   document.getElementById('sms-toggle').addEventListener('change', function(){
     me.sms_opt_in = this.checked;
     document.getElementById('phone-field').style.display = this.checked ? 'block' : 'none';
@@ -987,7 +976,7 @@ fetch('/api/me/password',{method:'PUT',headers:{'Content-Type':'application/json
 <div id="momni-beta-feedback">
   <style>
     #momni-beta-feedback{position:fixed;top:84px;right:16px;z-index:60;font-family:'Albert Sans',sans-serif;}
-    #momni-beta-feedback .mbf-btn{display:inline-block;background:#6D58A4;color:#fff;border:none;border-radius:100px;padding:8px 16px;font-family:'Albert Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(43,34,51,.12);}
+    #momni-beta-feedback .mbf-btn{display:inline-block;background:#0D878F;color:#fff;border:none;border-radius:100px;padding:8px 16px;font-family:'Albert Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(43,34,51,.12);}
     #momni-beta-feedback .mbf-tip{display:none;position:absolute;top:calc(100% + 8px);right:0;max-width:260px;width:max-content;background:#fff;border:1.5px solid #E5E0F0;border-radius:14px;padding:12px 14px;font-size:13px;color:#2B2233;line-height:1.45;box-shadow:0 6px 18px rgba(43,34,51,.10);}
     #momni-beta-feedback:hover .mbf-tip,#momni-beta-feedback .mbf-btn:focus + .mbf-tip{display:block;}
   </style>
